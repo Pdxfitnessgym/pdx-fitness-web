@@ -4,7 +4,7 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
-type Exercise = { id: string; name: string; muscle_group: string | null; equipment: string | null; video_url: string | null };
+type Exercise = { id: string; name: string; muscle_group: string | null; equipment: string | null; video_url: string | null; trainer_id: string | null };
 type Selected = { exercise: Exercise; sets: number; reps: string; rest_seconds: number; notes: string };
 
 export default function AddExercisePage() {
@@ -28,10 +28,10 @@ export default function AddExercisePage() {
       if (!user) return;
       const { data } = await supabase
         .from("exercise_library")
-        .select("id, name, muscle_group, equipment, video_url")
-        .eq("trainer_id", user.id)
+        .select("id, name, muscle_group, equipment, video_url, trainer_id")
+        .or(`trainer_id.eq.${user.id},trainer_id.is.null`)
         .order("name");
-      setExercises(data ?? []);
+      setExercises((data ?? []) as Exercise[]);
       setLoading(false);
     }
     load();
@@ -165,7 +165,12 @@ export default function AddExercisePage() {
                   </div>
                   {/* Info */}
                   <div style={{ flex: 1, padding: "0 14px" }}>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: "#0D1827" }}>{ex.name}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: "#0D1827" }}>{ex.name}</div>
+                      {ex.trainer_id === null && (
+                        <div style={{ fontSize: 10, fontWeight: 700, background: "#EBF4FF", color: "#1B68B4", padding: "2px 6px", borderRadius: 6 }}>MASTER</div>
+                      )}
+                    </div>
                     <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>
                       {[ex.muscle_group, ex.equipment].filter(Boolean).join(" · ")}
                     </div>

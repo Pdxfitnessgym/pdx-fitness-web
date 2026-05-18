@@ -1,11 +1,12 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 const MUSCLE_GROUPS = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Core", "Glutes", "Quads", "Hamstrings", "Calves", "Full Body", "Cardio"];
 const EQUIPMENT = ["Barbell", "Dumbbell", "Kettlebell", "Cable", "Machine", "Bodyweight", "Resistance Band", "TRX", "Other"];
+const ADMIN_EMAIL = "pdxfitnessgym@gmail.com";
 
 export default function NewExercisePage() {
   const router = useRouter();
@@ -19,6 +20,15 @@ export default function NewExercisePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [addToMaster, setAddToMaster] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.email === ADMIN_EMAIL) setIsAdmin(true);
+    });
+  }, []);
 
   function onVideoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -43,7 +53,8 @@ export default function NewExercisePage() {
 
     if (videoFile) {
       const ext = videoFile.name.split(".").pop();
-      const path = `${user.id}/${Date.now()}.${ext}`;
+      const uploaderId = addToMaster && isAdmin ? "master" : user.id;
+      const path = `${uploaderId}/${Date.now()}.${ext}`;
       setUploadProgress(10);
 
       const { error: uploadError } = await supabase.storage
@@ -59,7 +70,7 @@ export default function NewExercisePage() {
 
     setUploadProgress(90);
     const { error: dbError } = await supabase.from("exercise_library").insert({
-      trainer_id: user.id,
+      trainer_id: addToMaster && isAdmin ? null : user.id,
       name: name.trim(),
       muscle_group: muscleGroup || null,
       equipment: equipment || null,
@@ -85,9 +96,25 @@ export default function NewExercisePage() {
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {error && <div style={{ background: "#FEE2E2", color: "#DC2626", padding: "12px 16px", borderRadius: 10, fontSize: 14 }}>{error}</div>}
 
+          {/* Master Library toggle — admin only */}
+          {isAdmin && (
+            <div
+              onClick={() => setAddToMaster(!addToMaster)}
+              style={{ background: addToMaster ? "#EBF9F8" : "#fff", borderRadius: 14, border: `1.5px solid ${addToMaster ? "#2DC4B8" : "#E2EAF0"}`, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}
+            >
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: addToMaster ? "#2DC4B8" : "#0D1827" }}>Add to Master Library</div>
+                <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>Visible to all trainers on the platform</div>
+              </div>
+              <div style={{ width: 44, height: 26, borderRadius: 13, background: addToMaster ? "#2DC4B8" : "#E2EAF0", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
+                <div style={{ position: "absolute", top: 3, left: addToMaster ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 4px rgba(0,0,0,0.2)" }} />
+              </div>
+            </div>
+          )}
+
           {/* Video upload */}
           <div style={cardStyle}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#0D1827", marginBottom: 12 }}>Demo Video <span style={{ color: "#6B7A8D", fontWeight: 400 }}>(optional, max 30 sec)</span></div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#0D1827", marginBottom: 12 }}>Demo Video <span style={{ color: "#6B7A8D", fontWeight: 400 }}>(optional, max 50MB)</span></div>
             {videoPreview ? (
               <div style={{ position: "relative" }}>
                 <video src={videoPreview} controls style={{ width: "100%", borderRadius: 10, maxHeight: 220, background: "#000" }} />
@@ -97,7 +124,7 @@ export default function NewExercisePage() {
               <div onClick={() => fileRef.current?.click()} style={{ border: "2px dashed #E2EAF0", borderRadius: 12, padding: "32px 20px", textAlign: "center", cursor: "pointer", background: "#F4F7FA" }}>
                 <div style={{ fontSize: 32, marginBottom: 8 }}>🎥</div>
                 <div style={{ fontWeight: 600, color: "#0D1827", marginBottom: 4 }}>Tap to upload video</div>
-                <div style={{ fontSize: 12, color: "#6B7A8D" }}>MP4, MOV, WebM · max 50MB · 30 seconds</div>
+                <div style={{ fontSize: 12, color: "#6B7A8D" }}>MP4, MOV, WebM · max 50MB</div>
               </div>
             )}
             <input ref={fileRef} type="file" accept="video/mp4,video/quicktime,video/webm" onChange={onVideoChange} style={{ display: "none" }} />
@@ -145,7 +172,7 @@ export default function NewExercisePage() {
           )}
 
           <button type="submit" disabled={loading} style={{ ...btnStyle, opacity: loading ? 0.6 : 1 }}>
-            {loading ? "Saving..." : "Save Exercise"}
+            {loading ? "Saving..." : addToMaster ? "Save to Master Library" : "Save Exercise"}
           </button>
         </form>
       </div>
