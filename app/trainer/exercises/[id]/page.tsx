@@ -26,10 +26,15 @@ export default async function ExerciseDetailPage({ params }: { params: Promise<{
     <div style={{ minHeight: "100dvh", background: "#F4F7FA" }}>
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "20px 20px 16px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
-          <Link href="/trainer/exercises" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Exercise Library</Link>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginTop: 4 }}>{ex.name}</div>
-          <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 2 }}>
-            {[ex.muscle_group, ex.equipment].filter(Boolean).join(" · ")}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <Link href="/trainer/exercises" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Exercise Library</Link>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginTop: 4 }}>{ex.name}</div>
+              <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 2 }}>
+                {[ex.muscle_group, ex.equipment].filter(Boolean).join(" · ")}
+              </div>
+            </div>
+            <Link href={`/trainer/exercises/${id}/edit`} style={{ marginTop: 20, padding: "8px 16px", borderRadius: 10, background: "#F4F7FA", border: "1px solid #E2EAF0", color: "#0D1827", fontWeight: 600, fontSize: 14, textDecoration: "none", flexShrink: 0 }}>Edit</Link>
           </div>
         </div>
       </div>
