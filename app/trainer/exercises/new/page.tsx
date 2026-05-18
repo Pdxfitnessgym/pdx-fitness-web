@@ -45,42 +45,47 @@ export default function NewExercisePage() {
     setLoading(true);
     setError("");
 
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { router.push("/login"); return; }
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push("/login"); return; }
 
-    let video_url: string | null = null;
+      let video_url: string | null = null;
 
-    if (videoFile) {
-      const ext = videoFile.name.split(".").pop();
-      const uploaderId = addToMaster && isAdmin ? "master" : user.id;
-      const path = `${uploaderId}/${Date.now()}.${ext}`;
-      setUploadProgress(10);
+      if (videoFile) {
+        const ext = videoFile.name.split(".").pop();
+        const uploaderId = addToMaster && isAdmin ? "master" : user.id;
+        const path = `${uploaderId}/${Date.now()}.${ext}`;
+        setUploadProgress(10);
 
-      const { error: uploadError } = await supabase.storage
-        .from("exercise-videos")
-        .upload(path, videoFile, { contentType: videoFile.type, upsert: false });
+        const { error: uploadError } = await supabase.storage
+          .from("exercise-videos")
+          .upload(path, videoFile, { contentType: videoFile.type, upsert: false });
 
-      if (uploadError) { setError("Video upload failed: " + uploadError.message); setLoading(false); return; }
+        if (uploadError) { setError("Upload failed: " + uploadError.message); setLoading(false); return; }
 
-      setUploadProgress(80);
-      const { data: { publicUrl } } = supabase.storage.from("exercise-videos").getPublicUrl(path);
-      video_url = publicUrl;
+        setUploadProgress(80);
+        const { data: { publicUrl } } = supabase.storage.from("exercise-videos").getPublicUrl(path);
+        video_url = publicUrl;
+      }
+
+      setUploadProgress(90);
+      const { error: dbError } = await supabase.from("exercise_library").insert({
+        trainer_id: addToMaster && isAdmin ? null : user.id,
+        name: name.trim(),
+        muscle_group: muscleGroup || null,
+        equipment: equipment || null,
+        instructions: instructions || null,
+        video_url,
+      });
+
+      if (dbError) { setError("Save failed: " + dbError.message); setLoading(false); return; }
+      setUploadProgress(100);
+      router.push("/trainer/exercises");
+    } catch (err: unknown) {
+      setError("Error: " + (err instanceof Error ? err.message : String(err)));
+      setLoading(false);
     }
-
-    setUploadProgress(90);
-    const { error: dbError } = await supabase.from("exercise_library").insert({
-      trainer_id: addToMaster && isAdmin ? null : user.id,
-      name: name.trim(),
-      muscle_group: muscleGroup || null,
-      equipment: equipment || null,
-      instructions: instructions || null,
-      video_url,
-    });
-
-    if (dbError) { setError(dbError.message); setLoading(false); return; }
-    setUploadProgress(100);
-    router.push("/trainer/exercises");
   }
 
   return (
