@@ -25,20 +25,40 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isPublic = pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname === "/";
+  const isPendingPage = pathname.startsWith("/pending-approval");
 
   if (!user && !isPublic) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (user && isPublic) {
+  if (user && (isPublic || isPendingPage)) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, is_approved")
       .eq("id", user.id)
       .single();
 
-    const dest = profile?.role === "trainer" ? "/trainer" : "/client";
-    return NextResponse.redirect(new URL(dest, request.url));
+    if (profile?.role === "trainer" && !profile.is_approved) {
+      if (!isPendingPage) return NextResponse.redirect(new URL("/pending-approval", request.url));
+      return supabaseResponse;
+    }
+
+    if (isPublic) {
+      const dest = profile?.role === "trainer" ? "/trainer" : "/client";
+      return NextResponse.redirect(new URL(dest, request.url));
+    }
+  }
+
+  if (user && pathname.startsWith("/trainer")) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, is_approved")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.role === "trainer" && !profile.is_approved) {
+      return NextResponse.redirect(new URL("/pending-approval", request.url));
+    }
   }
 
   return supabaseResponse;

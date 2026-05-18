@@ -26,20 +26,30 @@ export async function GET(request: NextRequest) {
     const { data: { user } } = await supabase.auth.exchangeCodeForSession(code);
 
     if (user) {
-      // ensure profile exists (creates it from metadata if missing)
-      const { data: existing } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+      const { data: existing } = await supabase
+        .from("profiles")
+        .select("role, is_approved")
+        .eq("id", user.id)
+        .single();
 
       if (!existing) {
-        await supabase.from("profiles").insert({
+        const role = (user.user_metadata?.role as string) ?? "client";
+        await supabase.from("profiles").upsert({
           id: user.id,
           email: user.email!,
-          full_name: user.user_metadata?.full_name ?? "",
-          role: user.user_metadata?.role ?? "client",
+          full_name: (user.user_metadata?.full_name as string) ?? "",
+          role,
+          is_approved: role !== "trainer",
         });
+        const dest = role === "trainer" ? "/pending-approval" : "/client";
+        return NextResponse.redirect(new URL(dest, request.url));
       }
 
-      const role = existing?.role ?? user.user_metadata?.role ?? "client";
-      return NextResponse.redirect(new URL(role === "trainer" ? "/trainer" : "/client", request.url));
+      if (existing.role === "trainer" && !existing.is_approved) {
+        return NextResponse.redirect(new URL("/pending-approval", request.url));
+      }
+
+      return NextResponse.redirect(new URL(existing.role === "trainer" ? "/trainer" : "/client", request.url));
     }
   }
 

@@ -17,7 +17,7 @@ export default function SignupPage() {
     setLoading(true);
     setError("");
     const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -26,11 +26,38 @@ export default function SignupPage() {
       },
     });
     if (error) { setError(error.message); setLoading(false); return; }
+
+    if (data.user) {
+      await supabase.from("profiles").upsert({
+        id: data.user.id,
+        email: data.user.email!,
+        full_name: fullName,
+        role,
+        is_approved: role !== "trainer",
+      });
+    }
+
     setSent(true);
     setLoading(false);
   }
 
   if (sent) {
+    if (role === "trainer") {
+      return (
+        <div style={{ minHeight: "100dvh", background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+          <div style={{ textAlign: "center", maxWidth: 360 }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginBottom: 8 }}>Request Submitted</div>
+            <div style={{ color: "#6B7A8D", fontSize: 15, lineHeight: 1.6 }}>
+              Your trainer account request has been submitted. An admin will review and approve your account before you can log in.
+            </div>
+            <Link href="/login" style={{ display: "inline-block", marginTop: 24, padding: "12px 28px", borderRadius: 12, background: "#F4F7FA", color: "#6B7A8D", fontWeight: 600, fontSize: 14, textDecoration: "none" }}>
+              ← Back to Sign In
+            </Link>
+          </div>
+        </div>
+      );
+    }
     return (
       <div style={{ minHeight: "100dvh", background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px" }}>
         <div style={{ textAlign: "center", maxWidth: 360 }}>
