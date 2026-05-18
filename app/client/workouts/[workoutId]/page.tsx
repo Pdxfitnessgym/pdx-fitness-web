@@ -18,7 +18,7 @@ type ExerciseRow = {
 type SetKey = string; // `${exercise_id}-${set_number}`
 type LoggedSet = { reps: number | null; weight: number | null };
 
-type Mode = "preview" | "session" | "done";
+type Mode = "preview" | "session" | "done" | "share";
 
 function estMinutes(exs: ExerciseRow[]) {
   const secs = exs.reduce((acc, ex) => acc + ex.sets * (45 + ex.rest_seconds), 0);
@@ -183,7 +183,7 @@ export default function WorkoutSessionPage() {
     if (workoutLogId) {
       await supabase.from("workout_logs").update({ completed_at: new Date().toISOString() }).eq("id", workoutLogId);
     }
-    setMode("done");
+    setMode("share");
     setCompleting(false);
   }, [workoutLogId]);
 
@@ -198,19 +198,8 @@ export default function WorkoutSessionPage() {
     );
   }
 
-  if (mode === "done") {
-    return (
-      <div style={{ minHeight: "100dvh", background: "#F4F7FA", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32 }}>
-        <div style={{ fontSize: 64, marginBottom: 20 }}>🎉</div>
-        <div style={{ fontSize: 26, fontWeight: 800, color: "#1B68B4", marginBottom: 8 }}>Workout Complete!</div>
-        <div style={{ fontSize: 15, color: "#6B7A8D", marginBottom: 32, textAlign: "center" }}>
-          {workout?.name} · {doneSetCount} sets logged
-        </div>
-        <a href="/client/workouts" style={{ padding: "14px 32px", borderRadius: 14, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 16, textDecoration: "none" }}>
-          Back to Workouts
-        </a>
-      </div>
-    );
+  if (mode === "share" || mode === "done") {
+    return <WorkoutDoneScreen workoutName={workout?.name ?? "Workout"} setsLogged={doneSetCount} workoutLogId={workoutLogId} />;
   }
 
   return (
@@ -470,3 +459,119 @@ const inputStyle = (done: boolean): React.CSSProperties => ({
   textAlign: "center",
   fontWeight: 600,
 });
+
+function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId }: { workoutName: string; setsLogged: number; workoutLogId: string | null }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [caption, setCaption] = useState("");
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [shared, setShared] = useState(false);
+  const [error, setError] = useState("");
+
+  function onMediaChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 52428800) { setError("File must be under 50MB"); return; }
+    setMediaFile(file);
+    setMediaPreview(URL.createObjectURL(file));
+  }
+
+  async function handleShare() {
+    setSharing(true); setError("");
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      let photo_url: string | null = null;
+      let video_url: string | null = null;
+
+      if (mediaFile) {
+        const isVideo = mediaFile.type.startsWith("video/");
+        const ext = mediaFile.name.split(".").pop();
+        const path = `${user.id}/${Date.now()}.${ext}`;
+        const { error: uploadErr } = await supabase.storage.from("post-media").upload(path, mediaFile, { contentType: mediaFile.type });
+        if (uploadErr) { setError("Upload failed"); setSharing(false); return; }
+        const url = supabase.storage.from("post-media").getPublicUrl(path).data.publicUrl;
+        if (isVideo) video_url = url; else photo_url = url;
+      }
+
+      await supabase.from("posts").insert({
+        author_id: user.id,
+        content: caption.trim() || null,
+        photo_url, video_url,
+        post_type: "workout_complete",
+        workout_name: workoutName,
+        workout_log_id: workoutLogId,
+      });
+      setShared(true);
+    } catch {
+      setError("Something went wrong");
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  if (shared) {
+    return (
+      <div style={{ minHeight: "100dvh", background: "#F4F7FA", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32 }}>
+        <div style={{ fontSize: 64, marginBottom: 16 }}>🔥</div>
+        <div style={{ fontSize: 24, fontWeight: 800, color: "#1B68B4", marginBottom: 8 }}>Posted to the Feed!</div>
+        <div style={{ fontSize: 15, color: "#6B7A8D", marginBottom: 32, textAlign: "center" }}>Your crew can see it now.</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%", maxWidth: 300 }}>
+          <a href="/client/feed" style={{ padding: "14px", borderRadius: 12, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 16, textDecoration: "none", textAlign: "center" }}>See the Feed</a>
+          <a href="/client/workouts" style={{ padding: "14px", borderRadius: 12, background: "#F4F7FA", border: "1px solid #E2EAF0", color: "#6B7A8D", fontWeight: 600, fontSize: 15, textDecoration: "none", textAlign: "center" }}>Back to Workouts</a>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: "100dvh", background: "#F4F7FA", display: "flex", flexDirection: "column", padding: "32px 24px" }}>
+      <div style={{ textAlign: "center", marginBottom: 28 }}>
+        <div style={{ fontSize: 64, marginBottom: 12 }}>🎉</div>
+        <div style={{ fontSize: 26, fontWeight: 800, color: "#1B68B4", marginBottom: 6 }}>Workout Complete!</div>
+        <div style={{ fontSize: 15, color: "#6B7A8D" }}>{workoutName} · {setsLogged} sets logged</div>
+      </div>
+
+      <div style={{ background: "#fff", borderRadius: 16, padding: 18, border: "1px solid #E2EAF0", marginBottom: 16 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827", marginBottom: 12 }}>Share with the community 🔥</div>
+        <textarea
+          value={caption}
+          onChange={e => setCaption(e.target.value)}
+          placeholder="How did it go? Any PRs? Hype it up..."
+          rows={3}
+          style={{ width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 14, color: "#0D1827", outline: "none", resize: "none", fontFamily: "inherit" }}
+        />
+
+        {mediaPreview && (
+          <div style={{ position: "relative", marginTop: 10 }}>
+            {mediaFile?.type.startsWith("video/") ? (
+              <video src={mediaPreview} controls style={{ width: "100%", borderRadius: 10, maxHeight: 200, background: "#000" }} />
+            ) : (
+              <img src={mediaPreview} alt="preview" style={{ width: "100%", borderRadius: 10, maxHeight: 240, objectFit: "cover" }} />
+            )}
+            <button type="button" onClick={() => { setMediaFile(null); setMediaPreview(null); }} style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.6)", border: "none", borderRadius: "50%", width: 28, height: 28, color: "#fff", cursor: "pointer", fontSize: 14 }}>✕</button>
+          </div>
+        )}
+
+        <button type="button" onClick={() => fileRef.current?.click()} style={{ marginTop: 10, width: "100%", padding: "10px", borderRadius: 10, background: "#F4F7FA", border: "1px solid #E2EAF0", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#6B7A8D" }}>
+          📷 Add Photo / Video
+        </button>
+        <input ref={fileRef} type="file" accept="image/*,video/mp4,video/quicktime,video/webm" onChange={onMediaChange} style={{ display: "none" }} />
+
+        {error && <div style={{ color: "#DC2626", fontSize: 13, marginTop: 8 }}>{error}</div>}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <button onClick={handleShare} disabled={sharing} style={{ padding: "14px", borderRadius: 12, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 16, border: "none", cursor: "pointer", opacity: sharing ? 0.6 : 1 }}>
+          {sharing ? "Sharing..." : "🔥 Share to Feed"}
+        </button>
+        <a href="/client/workouts" style={{ padding: "14px", borderRadius: 12, background: "#F4F7FA", border: "1px solid #E2EAF0", color: "#6B7A8D", fontWeight: 600, fontSize: 15, textDecoration: "none", textAlign: "center" }}>
+          Skip, back to workouts
+        </a>
+      </div>
+    </div>
+  );
+}

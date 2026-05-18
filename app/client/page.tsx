@@ -101,9 +101,9 @@ export default async function ClientDashboard() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
           {[
             { label: "Home", href: "/client", icon: "🏠" },
+            { label: "Feed", href: "/client/feed", icon: "🔥" },
             { label: "Workouts", href: "/client/workouts", icon: "🏋️" },
             { label: "Progress", href: "/client/progress", icon: "📈" },
-            { label: "Profile", href: "/client/profile", icon: "👤" },
           ].map(item => (
             <a key={item.href} href={item.href} style={navItem}>
               <span style={{ fontSize: 22 }}>{item.icon}</span>
