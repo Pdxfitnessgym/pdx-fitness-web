@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import Image from "next/image";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -49,7 +50,7 @@ export default async function ClientDashboard() {
             <div style={{ fontSize: 13, color: "#6B7A8D" }}>Let's get it 💪</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4" }}>{profile?.full_name ?? "Athlete"}</div>
           </div>
-          <div style={{ fontSize: 24, fontWeight: 900, color: "#1B68B4", letterSpacing: 2 }}>PDX</div>
+          <Image src="/logo.png" alt="PDX Fitness" width={100} height={40} style={{ objectFit: "contain" }} />
         </div>
       </div>
 

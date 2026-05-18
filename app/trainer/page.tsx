@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 
 export default async function TrainerDashboard() {
   const supabase = await createClient();
@@ -22,7 +23,7 @@ export default async function TrainerDashboard() {
             <div style={{ fontSize: 13, color: "#6B7A8D" }}>Welcome back</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4" }}>{profile?.full_name ?? "Trainer"}</div>
           </div>
-          <div style={{ fontSize: 24, fontWeight: 900, color: "#1B68B4", letterSpacing: 2 }}>PDX</div>
+          <Image src="/logo.png" alt="PDX Fitness" width={100} height={40} style={{ objectFit: "contain" }} />
         </div>
       </div>
 
