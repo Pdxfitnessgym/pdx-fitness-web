@@ -15,7 +15,7 @@ export default async function ExerciseDetailPage({ params }: { params: Promise<{
     .eq("id", id)
     .single();
 
-  if (!ex || (ex.trainer_id !== user.id && !ex.is_system)) redirect("/trainer/exercises");
+  if (!ex || (ex.trainer_id !== null && ex.trainer_id !== user.id)) redirect("/trainer/exercises");
 
   return (
     <div style={{ minHeight: "100dvh", background: "#F4F7FA" }}>
