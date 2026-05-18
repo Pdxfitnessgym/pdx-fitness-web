@@ -5,7 +5,6 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/";
 
   if (code) {
     const cookieStore = await cookies();
@@ -25,10 +24,22 @@ export async function GET(request: NextRequest) {
     );
 
     const { data: { user } } = await supabase.auth.exchangeCodeForSession(code);
+
     if (user) {
-      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-      const dest = profile?.role === "trainer" ? "/trainer" : "/client";
-      return NextResponse.redirect(new URL(dest, request.url));
+      // ensure profile exists (creates it from metadata if missing)
+      const { data: existing } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+
+      if (!existing) {
+        await supabase.from("profiles").insert({
+          id: user.id,
+          email: user.email!,
+          full_name: user.user_metadata?.full_name ?? "",
+          role: user.user_metadata?.role ?? "client",
+        });
+      }
+
+      const role = existing?.role ?? user.user_metadata?.role ?? "client";
+      return NextResponse.redirect(new URL(role === "trainer" ? "/trainer" : "/client", request.url));
     }
   }
 

@@ -7,7 +7,7 @@ export default async function ClientDashboard() {
   if (!user) redirect("/login");
 
   const { data: profile } = await supabase.from("profiles").select("full_name, role").eq("id", user.id).single();
-  if (profile?.role !== "client") redirect("/trainer");
+  if (profile && profile.role !== "client") redirect("/trainer");
 
   return (
     <div style={{ minHeight: "100dvh", background: "#F4F7FA" }}>

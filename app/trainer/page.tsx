@@ -7,7 +7,7 @@ export default async function TrainerDashboard() {
   if (!user) redirect("/login");
 
   const { data: profile } = await supabase.from("profiles").select("full_name, role").eq("id", user.id).single();
-  if (profile?.role !== "trainer") redirect("/client");
+  if (profile && profile.role !== "trainer") redirect("/client");
 
   const { count: clientCount } = await supabase.from("profiles").select("*", { count: "exact", head: true }).eq("trainer_id", user.id);
   const { count: programCount } = await supabase.from("programs").select("*", { count: "exact", head: true }).eq("trainer_id", user.id);
