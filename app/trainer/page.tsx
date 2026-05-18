@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 export default async function TrainerDashboard() {
   const supabase = await createClient();
@@ -42,8 +43,8 @@ export default async function TrainerDashboard() {
         <div style={{ ...cardStyle, marginBottom: 16 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 14 }}>Quick Actions</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <a href="/trainer/programs/new" style={actionBtn}>+ Create New Program</a>
-            <a href="/trainer/clients" style={{ ...actionBtn, background: "#fff", color: "#1B68B4", border: "1.5px solid #1B68B4" }}>View Clients</a>
+            <Link href="/trainer/programs/new" style={actionBtn}>+ Create New Program</Link>
+            <Link href="/trainer/programs" style={{ ...actionBtn, background: "#fff", color: "#1B68B4", border: "1.5px solid #1B68B4" }}>View All Programs</Link>
           </div>
         </div>
 
@@ -53,6 +54,7 @@ export default async function TrainerDashboard() {
             { label: "Home", href: "/trainer", icon: "🏠" },
             { label: "Clients", href: "/trainer/clients", icon: "👥" },
             { label: "Programs", href: "/trainer/programs", icon: "📋" },
+
             { label: "Profile", href: "/trainer/profile", icon: "👤" },
           ].map(item => (
             <a key={item.href} href={item.href} style={navItem}>
