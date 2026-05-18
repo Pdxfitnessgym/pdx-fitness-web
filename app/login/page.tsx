@@ -16,11 +16,12 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) { setError(error.message); setLoading(false); return; }
 
-    const { data: profile } = await supabase.from("profiles").select("role").single();
-    router.push(profile?.role === "trainer" ? "/trainer" : "/client");
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).single();
+    const dest = profile?.role === "trainer" ? "/trainer" : "/client";
+    window.location.href = dest;
   }
 
   return (
