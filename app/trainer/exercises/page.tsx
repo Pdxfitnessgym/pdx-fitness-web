@@ -67,7 +67,12 @@ export default async function ExerciseLibraryPage() {
   );
 }
 
-type Ex = { id: string; name: string; muscle_group: string | null; equipment: string | null; instructions: string | null; video_url: string | null; trainer_id: string | null };
+function getYouTubeId(url: string): string | null {
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/);
+  return match ? match[1] : null;
+}
+
+type Ex = { id: string; name: string; muscle_group: string | null; equipment: string | null; instructions: string | null; video_url: string | null; youtube_url: string | null; trainer_id: string | null };
 
 function ExerciseList({ exercises }: { exercises: Ex[]; showMasterBadge: boolean }) {
   return (
@@ -77,6 +82,13 @@ function ExerciseList({ exercises }: { exercises: Ex[]; showMasterBadge: boolean
           {ex.video_url ? (
             <div style={{ width: 72, height: 72, borderRadius: 10, background: "#000", overflow: "hidden", flexShrink: 0 }}>
               <video src={ex.video_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} muted playsInline preload="metadata" />
+            </div>
+          ) : ex.youtube_url && getYouTubeId(ex.youtube_url) ? (
+            <div style={{ width: 72, height: 72, borderRadius: 10, overflow: "hidden", flexShrink: 0, position: "relative" }}>
+              <img src={`https://img.youtube.com/vi/${getYouTubeId(ex.youtube_url)}/mqdefault.jpg`} alt={ex.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}>
+                <div style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(255,255,255,0.9)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>▶</div>
+              </div>
             </div>
           ) : (
             <div style={{ width: 72, height: 72, borderRadius: 10, background: "#F4F7FA", border: "1px solid #E2EAF0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 28 }}>💪</div>

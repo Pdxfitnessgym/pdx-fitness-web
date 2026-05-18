@@ -4,7 +4,12 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
-type Exercise = { id: string; name: string; muscle_group: string | null; equipment: string | null; video_url: string | null; trainer_id: string | null };
+function getYouTubeId(url: string): string | null {
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/);
+  return match ? match[1] : null;
+}
+
+type Exercise = { id: string; name: string; muscle_group: string | null; equipment: string | null; video_url: string | null; youtube_url: string | null; trainer_id: string | null };
 type Selected = { exercise: Exercise; sets: number; reps: string; rest_seconds: number; notes: string };
 
 export default function AddExercisePage() {
@@ -28,7 +33,7 @@ export default function AddExercisePage() {
       if (!user) return;
       const { data } = await supabase
         .from("exercise_library")
-        .select("id, name, muscle_group, equipment, video_url, trainer_id")
+        .select("id, name, muscle_group, equipment, video_url, youtube_url, trainer_id")
         .or(`trainer_id.eq.${user.id},trainer_id.is.null`)
         .order("name");
       setExercises((data ?? []) as Exercise[]);
@@ -159,6 +164,13 @@ export default function AddExercisePage() {
                           <div style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(255,255,255,0.9)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>▶</div>
                         </div>
                       </>
+                    ) : ex.youtube_url && getYouTubeId(ex.youtube_url) ? (
+                      <>
+                        <img src={`https://img.youtube.com/vi/${getYouTubeId(ex.youtube_url)}/mqdefault.jpg`} alt={ex.name} style={{ width: 72, height: 72, objectFit: "cover" }} />
+                        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.2)" }}>
+                          <div style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(255,255,255,0.9)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>▶</div>
+                        </div>
+                      </>
                     ) : (
                       <div style={{ width: 72, height: 72, background: "#F4F7FA", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>💪</div>
                     )}
@@ -196,7 +208,18 @@ export default function AddExercisePage() {
       {preview && (
         <div onClick={() => setPreview(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, overflow: "hidden", width: "100%", maxWidth: 400 }}>
-            {preview.video_url && <video src={preview.video_url} controls autoPlay style={{ width: "100%", maxHeight: 300 }} />}
+            {preview.video_url ? (
+            <video src={preview.video_url} controls autoPlay style={{ width: "100%", maxHeight: 300 }} />
+          ) : preview.youtube_url && getYouTubeId(preview.youtube_url) ? (
+            <div style={{ position: "relative", paddingTop: "56.25%" }}>
+              <iframe
+                src={`https://www.youtube.com/embed/${getYouTubeId(preview.youtube_url)}?autoplay=1`}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+              />
+            </div>
+          ) : null}
             <div style={{ padding: "16px 20px 20px" }}>
               <div style={{ fontSize: 17, fontWeight: 700, color: "#0D1827", marginBottom: 4 }}>{preview.name}</div>
               <div style={{ fontSize: 13, color: "#6B7A8D" }}>{[preview.muscle_group, preview.equipment].filter(Boolean).join(" · ")}</div>

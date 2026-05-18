@@ -2,6 +2,11 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
+function getYouTubeId(url: string): string | null {
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/);
+  return match ? match[1] : null;
+}
+
 export default async function ExerciseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -37,6 +42,15 @@ export default async function ExerciseDetailPage({ params }: { params: Promise<{
               controls
               playsInline
               style={{ width: "100%", maxHeight: 360, display: "block" }}
+            />
+          </div>
+        ) : ex.youtube_url && getYouTubeId(ex.youtube_url) ? (
+          <div style={{ borderRadius: 14, overflow: "hidden", border: "1px solid #E2EAF0", background: "#000", position: "relative", paddingTop: "56.25%" }}>
+            <iframe
+              src={`https://www.youtube.com/embed/${getYouTubeId(ex.youtube_url)}`}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
             />
           </div>
         ) : (

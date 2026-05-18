@@ -17,6 +17,7 @@ export default function NewExercisePage() {
   const [instructions, setInstructions] = useState("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const [youtubeUrl, setYoutubeUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -77,6 +78,7 @@ export default function NewExercisePage() {
         equipment: equipment || null,
         instructions: instructions || null,
         video_url,
+        youtube_url: youtubeUrl.trim() || null,
       });
 
       if (dbError) { setError("Save failed: " + dbError.message); setLoading(false); return; }
@@ -159,6 +161,23 @@ export default function NewExercisePage() {
                 </select>
               </div>
             </div>
+          </div>
+
+          {/* YouTube URL */}
+          <div style={cardStyle}>
+            <label style={labelStyle}>YouTube Demo URL <span style={{ color: "#6B7A8D", fontWeight: 400 }}>(placeholder until you film your own)</span></label>
+            <input
+              value={youtubeUrl}
+              onChange={e => setYoutubeUrl(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=..."
+              style={inputStyle}
+            />
+            {youtubeUrl.trim() && !videoFile && (
+              <div style={{ fontSize: 12, color: "#2DC4B8", marginTop: 6 }}>YouTube demo will show until you upload your own video</div>
+            )}
+            {videoFile && youtubeUrl.trim() && (
+              <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 6 }}>Your uploaded video will take priority over the YouTube URL</div>
+            )}
           </div>
 
           {/* Instructions */}
