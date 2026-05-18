@@ -80,6 +80,18 @@ export default async function ClientDashboard() {
           )}
         </div>
 
+        {/* Challenges shortcut */}
+        <div style={{ marginBottom: 16 }}>
+          <a href="/client/challenges" style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 14, textDecoration: "none" }}>
+            <div style={{ fontSize: 32 }}>🏆</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: "#0D1827" }}>Community Challenges</div>
+              <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 2 }}>Join challenges, track streaks, compete with the crew</div>
+            </div>
+            <div style={{ color: "#9CA3AF", fontSize: 20 }}>›</div>
+          </a>
+        </div>
+
         {/* Progress Grid */}
         <a href="/client/progress" style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 12, display: "block", textDecoration: "none" }}>My Progress →</a>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>

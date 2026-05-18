@@ -52,10 +52,15 @@ export default async function TrainerDashboard() {
             <span style={{ fontWeight: 700, fontSize: 15, color: "#fff" }}>Add Exercise</span>
             <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", marginTop: 2 }}>Upload video demo</span>
           </Link>
-          <Link href="/trainer/programs" style={{ ...buildCard, background: "#fff", gridColumn: "1 / -1" }}>
+          <Link href="/trainer/programs" style={{ ...buildCard, background: "#fff" }}>
             <span style={{ fontSize: 24, marginBottom: 4 }}>🏗️</span>
             <span style={{ fontWeight: 700, fontSize: 15, color: "#1B68B4" }}>Build Workouts</span>
-            <span style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>Open a program → add workouts &amp; exercises</span>
+            <span style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>Open a program → add workouts</span>
+          </Link>
+          <Link href="/trainer/challenges/new" style={{ ...buildCard, background: "#fff" }}>
+            <span style={{ fontSize: 24, marginBottom: 4 }}>🏆</span>
+            <span style={{ fontWeight: 700, fontSize: 15, color: "#1B68B4" }}>New Challenge</span>
+            <span style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>30-day, diet, PR challenges</span>
           </Link>
         </div>
 
@@ -67,7 +72,7 @@ export default async function TrainerDashboard() {
             { label: "Clients", href: "/trainer/clients", icon: "👥" },
             { label: "Programs", href: "/trainer/programs", icon: "📋" },
             { label: "Exercises", href: "/trainer/exercises", icon: "🏋️" },
-            { label: "Profile", href: "/trainer/profile", icon: "👤" },
+            { label: "Challenges", href: "/trainer/challenges", icon: "🏆" },
           ].map(item => (
             <a key={item.href} href={item.href} style={navItem}>
               <span style={{ fontSize: 22 }}>{item.icon}</span>
