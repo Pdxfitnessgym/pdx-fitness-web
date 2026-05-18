@@ -110,10 +110,11 @@ export default async function ClientDashboard() {
         </div>
 
         {/* Nav */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
           {[
             { label: "Home", href: "/client", icon: "🏠" },
             { label: "Feed", href: "/client/feed", icon: "🔥" },
+            { label: "Messages", href: "/client/messages", icon: "💬" },
             { label: "Workouts", href: "/client/workouts", icon: "🏋️" },
             { label: "Progress", href: "/client/progress", icon: "📈" },
           ].map(item => (
