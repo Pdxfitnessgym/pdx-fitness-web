@@ -24,8 +24,9 @@ export default async function ClientDashboard() {
   if (cp) {
     const start = new Date(cp.start_date);
     const diffDays = Math.floor((new Date().getTime() - start.getTime()) / 86400000);
-    const currentWeek = Math.min(Math.max(Math.floor(diffDays / 7) + 1, 1), (cp.programs as { duration_weeks: number } | null)?.duration_weeks ?? 99);
-    const workouts = (cp.programs as { workouts: { id: string; name: string; day_of_week: number; week_number: number }[] } | null)?.workouts ?? [];
+    const prog = cp.programs as unknown as { duration_weeks: number; workouts: { id: string; name: string; day_of_week: number; week_number: number }[] } | null;
+    const currentWeek = Math.min(Math.max(Math.floor(diffDays / 7) + 1, 1), prog?.duration_weeks ?? 99);
+    const workouts = prog?.workouts ?? [];
     todayWorkout = workouts.find(w => w.day_of_week === todayDow && w.week_number === currentWeek) ?? null;
   }
 

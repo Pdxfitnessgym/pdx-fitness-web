@@ -57,7 +57,7 @@ export default async function ClientWorkoutsPage({
     );
   }
 
-  const program = cp.programs as { id: string; name: string; duration_weeks: number } | null;
+  const program = cp.programs as unknown as { id: string; name: string; duration_weeks: number } | null;
   const start = new Date(cp.start_date);
   const diffDays = Math.floor((new Date().getTime() - start.getTime()) / 86400000);
   const currentWeek = Math.min(Math.max(Math.floor(diffDays / 7) + 1, 1), program?.duration_weeks ?? 99);

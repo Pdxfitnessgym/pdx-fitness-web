@@ -36,7 +36,7 @@ export default async function ClientProfilePage() {
     ? new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })
     : "—";
 
-  const program = cp?.programs as { name: string; duration_weeks: number } | null;
+  const program = cp?.programs as unknown as { name: string; duration_weeks: number } | null;
 
   return (
     <div style={{ minHeight: "100dvh", background: "#F4F7FA" }}>

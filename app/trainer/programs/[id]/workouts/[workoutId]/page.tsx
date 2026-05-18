@@ -50,8 +50,11 @@ export default function WorkoutBuilderPage() {
           .eq("workout_id", workoutId)
           .order("order"),
       ]);
-      setWorkout(w as Workout);
-      setExercises((exs ?? []) as Exercise[]);
+      setWorkout(w as unknown as Workout);
+      setExercises(((exs ?? []) as any[]).map(e => ({
+        ...e,
+        exercise_library: Array.isArray(e.exercise_library) ? (e.exercise_library[0] ?? null) : e.exercise_library,
+      })) as Exercise[]);
       setLoading(false);
     })();
   }, [workoutId]);

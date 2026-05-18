@@ -73,10 +73,10 @@ export default async function ClientDetailPage({
           {activeProgram ? (
             <div>
               <div style={{ fontWeight: 700, fontSize: 17, color: "#0D1827" }}>
-                {(activeProgram.programs as { name: string; duration_weeks: number } | null)?.name}
+                {(activeProgram.programs as unknown as { name: string; duration_weeks: number } | null)?.name}
               </div>
               <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 4 }}>
-                Started {activeProgram.start_date} · {(activeProgram.programs as { name: string; duration_weeks: number } | null)?.duration_weeks} weeks
+                Started {activeProgram.start_date} · {(activeProgram.programs as unknown as { name: string; duration_weeks: number } | null)?.duration_weeks} weeks
               </div>
             </div>
           ) : (
@@ -119,7 +119,7 @@ export default async function ClientDetailPage({
               {recentLogs.map(log => (
                 <div key={log.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ fontWeight: 600, color: "#0D1827", fontSize: 14 }}>
-                    {(log.workouts as { name: string } | null)?.name ?? "Workout"}
+                    {(log.workouts as unknown as { name: string } | null)?.name ?? "Workout"}
                   </div>
                   <div style={{ fontSize: 12, color: "#6B7A8D" }}>
                     {log.completed_at ? new Date(log.completed_at).toLocaleDateString() : "—"}

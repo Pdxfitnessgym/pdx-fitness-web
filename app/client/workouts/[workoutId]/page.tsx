@@ -57,7 +57,10 @@ export default function WorkoutSessionPage() {
         supabase.auth.getUser(),
       ]);
       setWorkout(w);
-      setExercises(exs ?? []);
+      setExercises((exs ?? []).map((e: any) => ({
+        ...e,
+        exercise_library: Array.isArray(e.exercise_library) ? (e.exercise_library[0] ?? null) : e.exercise_library,
+      })) as ExerciseRow[]);
 
       if (!user) return;
       setUserId(user.id);
