@@ -13,6 +13,16 @@ export default async function ClientDashboard() {
 
   const todayDow = new Date().getDay();
 
+  const { data: recentProgress } = await supabase
+    .from("progress_logs")
+    .select("weight_lbs, body_fat_pct, logged_at")
+    .eq("client_id", user.id)
+    .order("logged_at", { ascending: false })
+    .limit(5);
+
+  const latestWeight = recentProgress?.find(p => p.weight_lbs != null)?.weight_lbs ?? null;
+  const latestBf = recentProgress?.find(p => p.body_fat_pct != null)?.body_fat_pct ?? null;
+
   const { data: cp } = await supabase
     .from("client_programs")
     .select("start_date, program_id, programs(id, name, duration_weeks, workouts(id, name, day_of_week, week_number))")
@@ -71,14 +81,20 @@ export default async function ClientDashboard() {
         </div>
 
         {/* Progress Grid */}
-        <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 12 }}>My Progress</div>
+        <a href="/client/progress" style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 12, display: "block", textDecoration: "none" }}>My Progress →</a>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-          {["Body Weight", "Body Fat", "Caloric Intake", "Photos"].map(label => (
-            <div key={label} style={{ ...cardStyle, minHeight: 80 }}>
-              <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 500, marginBottom: 8 }}>{label}</div>
-              <div style={{ color: "#9CA3AF", fontSize: 13 }}>—</div>
-            </div>
-          ))}
+          <a href="/client/progress" style={{ ...cardStyle, minHeight: 80, textDecoration: "none" }}>
+            <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 500, marginBottom: 8 }}>Body Weight</div>
+            {latestWeight != null
+              ? <div style={{ fontSize: 20, fontWeight: 800, color: "#0D1827" }}>{latestWeight} <span style={{ fontSize: 13, fontWeight: 400, color: "#6B7A8D" }}>lbs</span></div>
+              : <div style={{ color: "#9CA3AF", fontSize: 13 }}>—</div>}
+          </a>
+          <a href="/client/progress" style={{ ...cardStyle, minHeight: 80, textDecoration: "none" }}>
+            <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 500, marginBottom: 8 }}>Body Fat</div>
+            {latestBf != null
+              ? <div style={{ fontSize: 20, fontWeight: 800, color: "#0D1827" }}>{latestBf}<span style={{ fontSize: 13, fontWeight: 400, color: "#6B7A8D" }}>%</span></div>
+              : <div style={{ color: "#9CA3AF", fontSize: 13 }}>—</div>}
+          </a>
         </div>
 
         {/* Nav */}

@@ -48,6 +48,13 @@ export default async function ClientDetailPage({
     .order("completed_at", { ascending: false })
     .limit(5);
 
+  const { data: progressLogs } = await supabase
+    .from("progress_logs")
+    .select("id, logged_at, weight_lbs, body_fat_pct, notes, photo_url")
+    .eq("client_id", clientId)
+    .order("logged_at", { ascending: false })
+    .limit(5);
+
   const today = new Date().toISOString().split("T")[0];
 
   return (
@@ -108,6 +115,57 @@ export default async function ClientDetailPage({
             <div style={{ color: "#9CA3AF", fontSize: 14 }}>
               No programs yet. <Link href="/trainer/programs/new" style={{ color: "#2DC4B8" }}>Create one →</Link>
             </div>
+          )}
+        </div>
+
+        {/* Progress */}
+        <div style={cardStyle}>
+          <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 600, marginBottom: 12, textTransform: "uppercase", letterSpacing: 0.5 }}>Progress Tracking</div>
+          {progressLogs && progressLogs.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {progressLogs.map((log, i) => {
+                const prev = progressLogs[i + 1];
+                const wDiff = log.weight_lbs != null && prev?.weight_lbs != null ? (log.weight_lbs - prev.weight_lbs).toFixed(1) : null;
+                const bDiff = log.body_fat_pct != null && prev?.body_fat_pct != null ? (log.body_fat_pct - prev.body_fat_pct).toFixed(1) : null;
+                return (
+                  <div key={log.id} style={{ borderBottom: "1px solid #F4F7FA", paddingBottom: 10 }}>
+                    <div style={{ fontSize: 12, color: "#1B68B4", fontWeight: 700, marginBottom: 6 }}>
+                      {new Date(log.logged_at + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                    </div>
+                    <div style={{ display: "flex", gap: 20 }}>
+                      {log.weight_lbs != null && (
+                        <div>
+                          <span style={{ fontSize: 16, fontWeight: 700, color: "#0D1827" }}>{log.weight_lbs}</span>
+                          <span style={{ fontSize: 12, color: "#6B7A8D" }}> lbs</span>
+                          {wDiff && Math.abs(parseFloat(wDiff)) >= 0.1 && (
+                            <span style={{ fontSize: 11, fontWeight: 700, color: parseFloat(wDiff) < 0 ? "#2DC4B8" : "#F59E0B", marginLeft: 4 }}>
+                              {parseFloat(wDiff) > 0 ? "+" : ""}{wDiff}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {log.body_fat_pct != null && (
+                        <div>
+                          <span style={{ fontSize: 16, fontWeight: 700, color: "#0D1827" }}>{log.body_fat_pct}</span>
+                          <span style={{ fontSize: 12, color: "#6B7A8D" }}>%</span>
+                          {bDiff && Math.abs(parseFloat(bDiff)) >= 0.1 && (
+                            <span style={{ fontSize: 11, fontWeight: 700, color: parseFloat(bDiff) < 0 ? "#2DC4B8" : "#F59E0B", marginLeft: 4 }}>
+                              {parseFloat(bDiff) > 0 ? "+" : ""}{bDiff}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {log.notes && <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 4 }}>{log.notes}</div>}
+                    {log.photo_url && (
+                      <img src={log.photo_url} alt="progress" style={{ width: 60, height: 60, objectFit: "cover", borderRadius: 8, marginTop: 6 }} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{ color: "#9CA3AF", fontSize: 14 }}>No progress logged yet</div>
           )}
         </div>
 
