@@ -1,7 +1,6 @@
 "use server";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
 
 export async function approveTrainer(formData: FormData) {
   const supabase = await createClient();
@@ -9,8 +8,13 @@ export async function approveTrainer(formData: FormData) {
   if (!user || user.email !== "pdxfitnessgym@gmail.com") redirect("/login");
 
   const trainerId = formData.get("trainer_id") as string;
-  await supabase.from("profiles").update({ is_approved: true }).eq("id", trainerId);
-  revalidatePath("/admin/trainers");
+  const { error } = await supabase
+    .from("profiles")
+    .update({ is_approved: true })
+    .eq("id", trainerId);
+
+  if (error) throw new Error(error.message);
+  redirect("/admin/trainers");
 }
 
 export async function rejectTrainer(formData: FormData) {
@@ -19,6 +23,12 @@ export async function rejectTrainer(formData: FormData) {
   if (!user || user.email !== "pdxfitnessgym@gmail.com") redirect("/login");
 
   const trainerId = formData.get("trainer_id") as string;
-  await supabase.from("profiles").delete().eq("id", trainerId).eq("role", "trainer");
-  revalidatePath("/admin/trainers");
+  const { error } = await supabase
+    .from("profiles")
+    .delete()
+    .eq("id", trainerId)
+    .eq("role", "trainer");
+
+  if (error) throw new Error(error.message);
+  redirect("/admin/trainers");
 }
