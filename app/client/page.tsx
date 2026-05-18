@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 export default async function ClientDashboard() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -8,6 +10,24 @@ export default async function ClientDashboard() {
 
   const { data: profile } = await supabase.from("profiles").select("full_name, role").eq("id", user.id).single();
   if (profile && profile.role !== "client") redirect("/trainer");
+
+  const todayDow = new Date().getDay();
+
+  const { data: cp } = await supabase
+    .from("client_programs")
+    .select("start_date, program_id, programs(id, name, duration_weeks, workouts(id, name, day_of_week, week_number))")
+    .eq("client_id", user.id)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  let todayWorkout: { id: string; name: string } | null = null;
+  if (cp) {
+    const start = new Date(cp.start_date);
+    const diffDays = Math.floor((new Date().getTime() - start.getTime()) / 86400000);
+    const currentWeek = Math.min(Math.max(Math.floor(diffDays / 7) + 1, 1), (cp.programs as { duration_weeks: number } | null)?.duration_weeks ?? 99);
+    const workouts = (cp.programs as { workouts: { id: string; name: string; day_of_week: number; week_number: number }[] } | null)?.workouts ?? [];
+    todayWorkout = workouts.find(w => w.day_of_week === todayDow && w.week_number === currentWeek) ?? null;
+  }
 
   return (
     <div style={{ minHeight: "100dvh", background: "#F4F7FA" }}>
@@ -24,13 +44,29 @@ export default async function ClientDashboard() {
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px" }}>
         {/* Today's Workout */}
-        <div style={{ ...cardStyle, marginBottom: 16 }}>
-          <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 500, marginBottom: 6 }}>TODAY'S WORKOUT</div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "24px 0" }}>
-            <div style={{ fontSize: 40, marginBottom: 10 }}>⚡</div>
-            <div style={{ fontWeight: 600, color: "#0D1827", marginBottom: 4 }}>No workout scheduled</div>
-            <div style={{ fontSize: 13, color: "#6B7A8D", textAlign: "center" }}>Your trainer hasn't assigned a program yet</div>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
+            Today — {DAY_NAMES[todayDow]}
           </div>
+          {todayWorkout ? (
+            <a href={`/client/workouts/${todayWorkout.id}`} style={{ ...cardStyle, display: "flex", alignItems: "center", justifyContent: "space-between", textDecoration: "none", border: "2px solid #2DC4B8" }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 18, color: "#0D1827" }}>{todayWorkout.name}</div>
+                <div style={{ fontSize: 13, color: "#2DC4B8", fontWeight: 600, marginTop: 4 }}>Tap to start →</div>
+              </div>
+              <div style={{ fontSize: 36 }}>🏋️</div>
+            </a>
+          ) : (
+            <div style={{ ...cardStyle, display: "flex", flexDirection: "column", alignItems: "center", padding: "24px 0" }}>
+              <div style={{ fontSize: 40, marginBottom: 10 }}>⚡</div>
+              <div style={{ fontWeight: 600, color: "#0D1827", marginBottom: 4 }}>
+                {cp ? "Rest day" : "No workout scheduled"}
+              </div>
+              <div style={{ fontSize: 13, color: "#6B7A8D", textAlign: "center" }}>
+                {cp ? "No workout scheduled for today" : "Your trainer hasn't assigned a program yet"}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Progress Grid */}

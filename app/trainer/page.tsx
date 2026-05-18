@@ -39,22 +39,33 @@ export default async function TrainerDashboard() {
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div style={{ ...cardStyle, marginBottom: 16 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 14 }}>Quick Actions</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <Link href="/trainer/programs/new" style={actionBtn}>+ Create New Program</Link>
-            <Link href="/trainer/programs" style={{ ...actionBtn, background: "#fff", color: "#1B68B4", border: "1.5px solid #1B68B4" }}>View All Programs</Link>
-          </div>
+        {/* Build section */}
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Build</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
+          <Link href="/trainer/programs/new" style={{ ...buildCard, background: "#1B68B4" }}>
+            <span style={{ fontSize: 28, marginBottom: 6 }}>📋</span>
+            <span style={{ fontWeight: 700, fontSize: 15, color: "#fff" }}>New Program</span>
+            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", marginTop: 2 }}>Create a training plan</span>
+          </Link>
+          <Link href="/trainer/exercises/new" style={{ ...buildCard, background: "#2DC4B8" }}>
+            <span style={{ fontSize: 28, marginBottom: 6 }}>🎥</span>
+            <span style={{ fontWeight: 700, fontSize: 15, color: "#fff" }}>Add Exercise</span>
+            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", marginTop: 2 }}>Upload video demo</span>
+          </Link>
+          <Link href="/trainer/programs" style={{ ...buildCard, background: "#fff", gridColumn: "1 / -1" }}>
+            <span style={{ fontSize: 24, marginBottom: 4 }}>🏗️</span>
+            <span style={{ fontWeight: 700, fontSize: 15, color: "#1B68B4" }}>Build Workouts</span>
+            <span style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>Open a program → add workouts &amp; exercises</span>
+          </Link>
         </div>
 
         {/* Nav */}
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Navigate</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
           {[
             { label: "Home", href: "/trainer", icon: "🏠" },
             { label: "Clients", href: "/trainer/clients", icon: "👥" },
             { label: "Programs", href: "/trainer/programs", icon: "📋" },
-
             { label: "Exercises", href: "/trainer/exercises", icon: "🏋️" },
             { label: "Profile", href: "/trainer/profile", icon: "👤" },
           ].map(item => (
@@ -76,15 +87,15 @@ const cardStyle: React.CSSProperties = {
   border: "1px solid #E2EAF0",
 };
 
-const actionBtn: React.CSSProperties = {
-  display: "block",
-  padding: "13px 16px",
-  borderRadius: 12,
-  background: "#2DC4B8",
-  color: "#fff",
-  fontWeight: 700,
-  fontSize: 15,
+const buildCard: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "20px 12px",
+  borderRadius: 14,
   textDecoration: "none",
+  border: "1px solid #E2EAF0",
   textAlign: "center",
 };
 

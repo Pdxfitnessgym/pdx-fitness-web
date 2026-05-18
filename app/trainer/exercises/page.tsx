@@ -49,9 +49,11 @@ export default async function ExerciseLibraryPage() {
               <div style={{ fontSize: 13, fontWeight: 700, color: "#6B7A8D", marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>{group}</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {exs?.map(ex => (
-                  <div key={ex.id} style={{ ...cardStyle, display: "flex", gap: 14, alignItems: "center" }}>
+                  <Link key={ex.id} href={`/trainer/exercises/${ex.id}`} style={{ ...cardStyle, display: "flex", gap: 14, alignItems: "center", textDecoration: "none" }}>
                     {ex.video_url ? (
-                      <video src={ex.video_url} style={{ width: 72, height: 72, borderRadius: 10, objectFit: "cover", flexShrink: 0 }} muted playsInline />
+                      <div style={{ width: 72, height: 72, borderRadius: 10, background: "#000", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <video src={ex.video_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} muted playsInline preload="metadata" />
+                      </div>
                     ) : (
                       <div style={{ width: 72, height: 72, borderRadius: 10, background: "#F4F7FA", border: "1px solid #E2EAF0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 28 }}>💪</div>
                     )}
@@ -62,7 +64,8 @@ export default async function ExerciseLibraryPage() {
                       </div>
                       {ex.instructions && <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: 4, lineHeight: 1.4 }}>{ex.instructions}</div>}
                     </div>
-                  </div>
+                    <div style={{ color: "#9CA3AF", fontSize: 18, flexShrink: 0 }}>›</div>
+                  </Link>
                 ))}
               </div>
             </div>
