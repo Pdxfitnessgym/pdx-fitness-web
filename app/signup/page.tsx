@@ -28,12 +28,13 @@ export default function SignupPage() {
     if (error) { setError(error.message); setLoading(false); return; }
 
     if (data.user) {
+      const isAdmin = data.user.email === "pdxfitnessgym@gmail.com";
       await supabase.from("profiles").upsert({
         id: data.user.id,
         email: data.user.email!,
         full_name: fullName,
         role,
-        is_approved: role !== "trainer",
+        is_approved: role !== "trainer" || isAdmin,
       });
     }
 

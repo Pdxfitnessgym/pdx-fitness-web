@@ -34,12 +34,13 @@ export async function GET(request: NextRequest) {
 
       if (!existing) {
         const role = (user.user_metadata?.role as string) ?? "client";
+        const isAdmin = user.email === "pdxfitnessgym@gmail.com";
         await supabase.from("profiles").upsert({
           id: user.id,
           email: user.email!,
           full_name: (user.user_metadata?.full_name as string) ?? "",
           role,
-          is_approved: role !== "trainer",
+          is_approved: role !== "trainer" || isAdmin,
         });
         const dest = role === "trainer" ? "/pending-approval" : "/client";
         return NextResponse.redirect(new URL(dest, request.url));

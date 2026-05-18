@@ -26,14 +26,15 @@ export default function LoginPage() {
 
     if (!profile) {
       const role = (data.user.user_metadata?.role as string) ?? "client";
+      const isAdmin = data.user.email === "pdxfitnessgym@gmail.com";
       await supabase.from("profiles").upsert({
         id: data.user.id,
         email: data.user.email!,
         full_name: (data.user.user_metadata?.full_name as string) ?? "",
         role,
-        is_approved: role !== "trainer",
+        is_approved: role !== "trainer" || isAdmin,
       });
-      profile = { role, is_approved: role !== "trainer" };
+      profile = { role, is_approved: role !== "trainer" || isAdmin };
     }
 
     if (profile.role === "trainer" && !profile.is_approved) {
