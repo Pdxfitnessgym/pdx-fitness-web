@@ -49,12 +49,13 @@ export default async function TrainerDashboard() {
         </div>
 
         {/* Nav */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
           {[
             { label: "Home", href: "/trainer", icon: "🏠" },
             { label: "Clients", href: "/trainer/clients", icon: "👥" },
             { label: "Programs", href: "/trainer/programs", icon: "📋" },
 
+            { label: "Exercises", href: "/trainer/exercises", icon: "🏋️" },
             { label: "Profile", href: "/trainer/profile", icon: "👤" },
           ].map(item => (
             <a key={item.href} href={item.href} style={navItem}>

@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { addExercise, deleteExercise } from "@/app/actions/programs";
+import { deleteExercise } from "@/app/actions/programs";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -52,31 +52,10 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
           <div style={{ textAlign: "center", padding: "32px 0", color: "#6B7A8D", fontSize: 14 }}>No exercises yet — add one below</div>
         )}
 
-        {/* Add exercise form */}
-        <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "1px solid #E2EAF0" }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 16 }}>+ Add Exercise</div>
-          <form action={addExercise} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <input type="hidden" name="workout_id" value={workoutId} />
-            <input type="hidden" name="program_id" value={id} />
-            <input name="name" required placeholder="Exercise name (e.g. Bench Press)" style={inputStyle} />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-              <div>
-                <label style={labelStyle}>Sets</label>
-                <input name="sets" type="number" min={1} defaultValue={3} required style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>Reps</label>
-                <input name="reps" placeholder="8-12" required style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>Rest (sec)</label>
-                <input name="rest_seconds" type="number" defaultValue={60} style={inputStyle} />
-              </div>
-            </div>
-            <input name="notes" placeholder="Notes (optional)" style={inputStyle} />
-            <button type="submit" style={btnStyle}>Add Exercise</button>
-          </form>
-        </div>
+        {/* Add exercise button */}
+        <Link href={`/trainer/programs/${id}/workouts/${workoutId}/add-exercise`} style={btnStyle}>
+          + Add Exercise
+        </Link>
       </div>
     </div>
   );
