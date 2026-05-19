@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { assignProgram } from "@/app/actions/clients";
 import Link from "next/link";
+import { SessionsPanel } from "@/app/components/SessionsPanel";
 
 export default async function ClientDetailPage({
   params,
@@ -22,7 +23,7 @@ export default async function ClientDetailPage({
 
   const { data: client } = await supabase
     .from("profiles")
-    .select("id, full_name, email, trainer_id")
+    .select("id, full_name, email, trainer_id, sessions_purchased")
     .eq("id", clientId)
     .single();
 
@@ -56,6 +57,15 @@ export default async function ClientDetailPage({
     .limit(5);
 
   const today = new Date().toISOString().split("T")[0];
+
+  const { data: trainingSessions } = await supabase
+    .from("training_sessions")
+    .select("id, scheduled_at, status, notes")
+    .eq("client_id", clientId)
+    .order("scheduled_at", { ascending: false })
+    .limit(20);
+
+  const completedCount = (trainingSessions ?? []).filter(s => s.status === "completed").length;
 
   return (
     <div style={{ minHeight: "100dvh", background: "#F4F7FA" }}>
@@ -117,6 +127,14 @@ export default async function ClientDetailPage({
             </div>
           )}
         </div>
+
+        {/* Sessions */}
+        <SessionsPanel
+          clientId={clientId}
+          sessionsPurchased={(client as unknown as { sessions_purchased: number }).sessions_purchased ?? 0}
+          completedCount={completedCount}
+          sessions={(trainingSessions ?? []) as { id: string; scheduled_at: string; status: "scheduled" | "completed" | "no_show" | "rescheduled"; notes: string | null }[]}
+        />
 
         {/* Progress */}
         <div style={cardStyle}>

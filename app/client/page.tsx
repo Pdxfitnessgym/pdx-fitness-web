@@ -11,7 +11,7 @@ export default async function ClientDashboard() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase.from("profiles").select("full_name, role").eq("id", user.id).single();
+  const { data: profile } = await supabase.from("profiles").select("full_name, role, sessions_purchased").eq("id", user.id).single();
   if (profile && profile.role !== "client") redirect("/trainer");
 
   const todayDow = new Date().getDay();
@@ -32,6 +32,15 @@ export default async function ClientDashboard() {
     .eq("client_id", user.id)
     .eq("is_active", true)
     .maybeSingle();
+
+  const { count: completedSessionsCount } = await supabase
+    .from("training_sessions")
+    .select("*", { count: "exact", head: true })
+    .eq("client_id", user.id)
+    .eq("status", "completed");
+
+  const sessionsPurchased = (profile as unknown as { sessions_purchased: number } | null)?.sessions_purchased ?? 0;
+  const sessionsRemaining = sessionsPurchased - (completedSessionsCount ?? 0);
 
   let todayWorkout: { id: string; name: string } | null = null;
   if (cp) {
@@ -61,6 +70,27 @@ export default async function ClientDashboard() {
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px" }}>
         <NotificationBanner />
+
+        {/* Sessions remaining */}
+        {sessionsPurchased > 0 && (
+          <div style={{ ...cardStyle, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, border: sessionsRemaining <= 2 ? "1.5px solid #EF4444" : "1px solid #E2EAF0" }}>
+            <div>
+              <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Sessions Remaining</div>
+              <div style={{ fontSize: 28, fontWeight: 800, color: sessionsRemaining <= 2 ? "#EF4444" : "#0D1827", marginTop: 2 }}>
+                {sessionsRemaining}
+                <span style={{ fontSize: 14, fontWeight: 400, color: "#6B7A8D", marginLeft: 6 }}>/ {sessionsPurchased}</span>
+              </div>
+              {sessionsRemaining <= 2 && sessionsRemaining > 0 && (
+                <div style={{ fontSize: 12, color: "#EF4444", fontWeight: 600, marginTop: 2 }}>Time to renew soon!</div>
+              )}
+              {sessionsRemaining <= 0 && (
+                <div style={{ fontSize: 12, color: "#EF4444", fontWeight: 600, marginTop: 2 }}>Contact your trainer to renew</div>
+              )}
+            </div>
+            <div style={{ fontSize: 32 }}>🎟️</div>
+          </div>
+        )}
+
         {/* Today's Workout */}
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
