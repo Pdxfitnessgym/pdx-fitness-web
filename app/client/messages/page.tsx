@@ -247,6 +247,7 @@ export default function ClientMessagesPage() {
             { label: "Messages", href: "/client/messages", icon: "💬" },
             { label: "Workouts", href: "/client/workouts", icon: "🏋️" },
             { label: "Progress", href: "/client/progress", icon: "📈" },
+            { label: "Profile", href: "/client/profile", icon: "👤" },
           ].map(item => (
             <a key={item.href} href={item.href} style={{ display: "flex", flexDirection: "column", alignItems: "center", textDecoration: "none", padding: "6px 0" }}>
               <span style={{ fontSize: 22 }}>{item.icon}</span>

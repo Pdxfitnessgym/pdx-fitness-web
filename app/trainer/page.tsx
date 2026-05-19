@@ -21,10 +21,10 @@ export default async function TrainerDashboard() {
       {/* Header */}
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "20px 20px 16px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
+          <Link href="/trainer/profile" style={{ textDecoration: "none" }}>
             <div style={{ fontSize: 13, color: "#6B7A8D" }}>Welcome back</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4" }}>{profile?.full_name ?? "Trainer"}</div>
-          </div>
+          </Link>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
             <Image src="/logo.png" alt="PDX Fitness" width={100} height={40} style={{ objectFit: "contain" }} />
             <LogoutButton />
@@ -69,6 +69,11 @@ export default async function TrainerDashboard() {
             <span style={{ fontWeight: 700, fontSize: 15, color: "#1B68B4" }}>New Challenge</span>
             <span style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>30-day, diet, PR challenges</span>
           </Link>
+          <Link href="/trainer/workouts" style={{ ...buildCard, background: "#fff" }}>
+            <span style={{ fontSize: 24, marginBottom: 4 }}>⚡</span>
+            <span style={{ fontWeight: 700, fontSize: 15, color: "#1B68B4" }}>On-Demand</span>
+            <span style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>Standalone workouts</span>
+          </Link>
           <Link href="/trainer/messages" style={{ ...buildCard, background: "#fff" }}>
             <span style={{ fontSize: 24, marginBottom: 4 }}>💬</span>
             <span style={{ fontWeight: 700, fontSize: 15, color: "#1B68B4" }}>Messages</span>
@@ -87,12 +92,13 @@ export default async function TrainerDashboard() {
 
         {/* Nav */}
         <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Navigate</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
           {[
             { label: "Home", href: "/trainer", icon: "🏠" },
             { label: "Clients", href: "/trainer/clients", icon: "👥" },
             { label: "Programs", href: "/trainer/programs", icon: "📋" },
             { label: "Exercises", href: "/trainer/exercises", icon: "🏋️" },
+            { label: "On-Demand", href: "/trainer/workouts", icon: "⚡" },
             { label: "Calendar", href: "/trainer/calendar", icon: "📅" },
             { label: "Challenges", href: "/trainer/challenges", icon: "🏆" },
             { label: "Messages", href: "/trainer/messages", icon: "💬" },

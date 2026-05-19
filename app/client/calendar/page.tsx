@@ -255,12 +255,13 @@ export default function CalendarPage() {
 
       {/* Bottom nav */}
       <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid #E2EAF0", padding: "8px 20px 20px" }}>
-        <div style={{ maxWidth: 640, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+        <div style={{ maxWidth: 640, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
           {[
             { label: "Home", href: "/client", icon: "🏠" },
             { label: "Workouts", href: "/client/workouts", icon: "🏋️" },
             { label: "Habits", href: "/client/habits", icon: "🌱" },
             { label: "Progress", href: "/client/progress", icon: "📈" },
+            { label: "Profile", href: "/client/profile", icon: "👤" },
           ].map(item => (
             <a key={item.href} href={item.href} style={{ display: "flex", flexDirection: "column", alignItems: "center", textDecoration: "none", padding: "6px 0" }}>
               <span style={{ fontSize: 22 }}>{item.icon}</span>

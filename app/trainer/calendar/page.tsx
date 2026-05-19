@@ -12,6 +12,8 @@ type Session = {
   client_id: string;
 };
 
+type Client = { id: string; full_name: string };
+
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -33,11 +35,20 @@ export default function TrainerCalendarPage() {
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [calToken, setCalToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [selected, setSelected] = useState<Session[] | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  // schedule modal state
+  const [scheduleDate, setScheduleDate] = useState<string | null>(null);
+  const [scheduleClient, setScheduleClient] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("09:00");
+  const [scheduleNotes, setScheduleNotes] = useState("");
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [scheduleError, setScheduleError] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -45,13 +56,14 @@ export default function TrainerCalendarPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const [sessRes, tokenRes] = await Promise.all([
+      const [sessRes, tokenRes, clientsRes] = await Promise.all([
         supabase
           .from("training_sessions")
           .select("id, scheduled_at, status, notes, profiles!client_id(full_name, id)")
           .eq("trainer_id", user.id)
           .order("scheduled_at"),
         fetch("/api/calendar/subscribe").then(r => r.json()),
+        supabase.from("profiles").select("id, full_name").eq("trainer_id", user.id).order("full_name"),
       ]);
 
       const mapped: Session[] = (sessRes.data ?? []).map((s: any) => ({
@@ -64,6 +76,7 @@ export default function TrainerCalendarPage() {
       }));
 
       setSessions(mapped);
+      setClients((clientsRes.data ?? []) as Client[]);
       setCalToken(tokenRes?.token ?? null);
       setLoading(false);
     }
@@ -102,7 +115,52 @@ export default function TrainerCalendarPage() {
     if (daySessions?.length) {
       setSelected(daySessions);
       setSelectedDate(dateStr);
+    } else {
+      openScheduleModal(dateStr);
     }
+  }
+
+  function openScheduleModal(dateStr: string) {
+    setScheduleDate(dateStr);
+    setScheduleClient(clients[0]?.id ?? "");
+    setScheduleTime("09:00");
+    setScheduleNotes("");
+    setScheduleError("");
+  }
+
+  async function saveSession() {
+    if (!scheduleDate || !scheduleClient) { setScheduleError("Select a client"); return; }
+    setScheduleSaving(true);
+    setScheduleError("");
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setScheduleError("Session expired"); setScheduleSaving(false); return; }
+
+    const scheduledAt = new Date(`${scheduleDate}T${scheduleTime}:00`).toISOString();
+    const { data, error } = await supabase.from("training_sessions").insert({
+      trainer_id: user.id,
+      client_id: scheduleClient,
+      scheduled_at: scheduledAt,
+      status: "scheduled",
+      notes: scheduleNotes.trim() || null,
+    }).select("id, scheduled_at, status, notes, profiles!client_id(full_name, id)").single();
+
+    if (error) { setScheduleError(error.message); setScheduleSaving(false); return; }
+
+    const newSession: Session = {
+      id: data.id,
+      scheduled_at: data.scheduled_at,
+      status: data.status,
+      notes: data.notes,
+      client_name: (data as any).profiles?.full_name ?? "Client",
+      client_id: (data as any).profiles?.id ?? scheduleClient,
+    };
+    setSessions(prev => [...prev, newSession].sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at)));
+    setScheduleDate(null);
+    setScheduleSaving(false);
+    // show the day panel with the new session
+    setSelected([newSession]);
+    setSelectedDate(scheduleDate);
   }
 
   function copyWebcal() {
@@ -163,7 +221,7 @@ export default function TrainerCalendarPage() {
                     borderRadius: 10,
                     border: "none",
                     background: hasSession ? (allDone ? "#D1FAE5" : hasNoShow ? "#FEE2E2" : "#EFF6FF") : "transparent",
-                    cursor: hasSession ? "pointer" : "default",
+                    cursor: "pointer",
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
@@ -210,7 +268,10 @@ export default function TrainerCalendarPage() {
               <div style={{ fontSize: 14, fontWeight: 700, color: "#1B68B4" }}>
                 {new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
               </div>
-              <button onClick={() => setSelected(null)} style={{ color: "#9CA3AF", background: "none", border: "none", fontSize: 20, cursor: "pointer" }}>✕</button>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button onClick={() => openScheduleModal(selectedDate)} style={{ fontSize: 12, fontWeight: 700, color: "#1B68B4", background: "#EFF6FF", border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>+ Schedule</button>
+                <button onClick={() => setSelected(null)} style={{ color: "#9CA3AF", background: "none", border: "none", fontSize: 20, cursor: "pointer" }}>✕</button>
+              </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {selected.map(s => (
@@ -230,6 +291,68 @@ export default function TrainerCalendarPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Schedule session modal */}
+        {scheduleDate && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(13,24,39,0.5)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+            <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 640, padding: "24px 20px 40px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <div style={{ fontSize: 17, fontWeight: 800, color: "#0D1827" }}>
+                  Schedule Session
+                  <div style={{ fontSize: 13, fontWeight: 400, color: "#6B7A8D", marginTop: 2 }}>
+                    {new Date(scheduleDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+                  </div>
+                </div>
+                <button onClick={() => setScheduleDate(null)} style={{ color: "#9CA3AF", background: "none", border: "none", fontSize: 22, cursor: "pointer" }}>✕</button>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#6B7A8D", marginBottom: 6 }}>Client</div>
+                  <select
+                    value={scheduleClient}
+                    onChange={e => setScheduleClient(e.target.value)}
+                    style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #E2EAF0", fontSize: 15, background: "#F8FAFB", appearance: "none" }}
+                  >
+                    {clients.length === 0 && <option value="">No clients yet</option>}
+                    {clients.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#6B7A8D", marginBottom: 6 }}>Time</div>
+                  <input
+                    type="time"
+                    value={scheduleTime}
+                    onChange={e => setScheduleTime(e.target.value)}
+                    style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #E2EAF0", fontSize: 15, background: "#F8FAFB" }}
+                  />
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#6B7A8D", marginBottom: 6 }}>Notes (optional)</div>
+                  <input
+                    type="text"
+                    value={scheduleNotes}
+                    onChange={e => setScheduleNotes(e.target.value)}
+                    placeholder="e.g. Upper body focus, bring bands"
+                    style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #E2EAF0", fontSize: 15, background: "#F8FAFB" }}
+                  />
+                </div>
+
+                {scheduleError && <div style={{ fontSize: 13, color: "#EF4444", fontWeight: 600 }}>{scheduleError}</div>}
+
+                <button
+                  onClick={saveSession}
+                  disabled={scheduleSaving || clients.length === 0}
+                  style={{ width: "100%", padding: 14, borderRadius: 12, background: scheduleSaving ? "#9CA3AF" : "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer", marginTop: 4 }}
+                >
+                  {scheduleSaving ? "Scheduling…" : "Confirm Session"}
+                </button>
+              </div>
             </div>
           </div>
         )}

@@ -57,10 +57,10 @@ export default async function ClientDashboard() {
       {/* Header */}
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "20px 20px 16px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
+          <a href="/client/profile" style={{ textDecoration: "none" }}>
             <div style={{ fontSize: 13, color: "#6B7A8D" }}>Let's get it 💪</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4" }}>{profile?.full_name ?? "Athlete"}</div>
-          </div>
+          </a>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
             <Image src="/logo.png" alt="PDX Fitness" width={100} height={40} style={{ objectFit: "contain" }} />
             <LogoutButton />
@@ -156,12 +156,13 @@ export default async function ClientDashboard() {
         </div>
 
         {/* Nav */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
           {[
             { label: "Home", href: "/client", icon: "🏠" },
             { label: "Workouts", href: "/client/workouts", icon: "🏋️" },
             { label: "Habits", href: "/client/habits", icon: "🌱" },
             { label: "Progress", href: "/client/progress", icon: "📈" },
+            { label: "Profile", href: "/client/profile", icon: "👤" },
           ].map(item => (
             <a key={item.href} href={item.href} style={navItem}>
               <span style={{ fontSize: 22 }}>{item.icon}</span>
