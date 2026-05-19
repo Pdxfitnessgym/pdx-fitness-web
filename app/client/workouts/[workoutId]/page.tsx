@@ -21,7 +21,6 @@ type SetKey = string;
 type LoggedSet = { reps: number | null; weight: number | null };
 type Mode = "preview" | "session" | "done" | "share";
 type RestTimer = { key: SetKey; remaining: number; total: number; kind: "exercise" | "round" };
-type PendingRest = { key: SetKey; seconds: number; kind: "exercise" | "round" };
 
 const GROUP_COLORS = ["#1B68B4", "#8B5CF6", "#F59E0B", "#10B981", "#EF4444", "#EC4899"];
 function groupColor(id: number) { return GROUP_COLORS[(id - 1) % GROUP_COLORS.length]; }
@@ -45,7 +44,6 @@ export default function WorkoutSessionPage() {
   const [prevLogged, setPrevLogged] = useState<Record<SetKey, LoggedSet>>({});
   const [inputs, setInputs] = useState<Record<SetKey, { reps: string; weight: string }>>({});
   const [restTimer, setRestTimer] = useState<RestTimer | null>(null);
-  const [pendingRest, setPendingRest] = useState<PendingRest | null>(null);
   const [restDone, setRestDone] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -173,20 +171,20 @@ export default function WorkoutSessionPage() {
       weight_lbs: weight,
     }, { onConflict: "workout_log_id,exercise_id,set_number" });
 
-    // Queue rest timer — user taps to start it
+    // Auto-start rest timer immediately
     const ex = exercises.find(e => e.id === exerciseId);
+    if (timerRef.current) clearInterval(timerRef.current);
     if (ex?.group_id != null) {
       const groupExs = exercises.filter(e => e.group_id === ex.group_id);
-      const posInGroup = groupExs.findIndex(e => e.id === exerciseId);
-      const isLastInGroup = posInGroup === groupExs.length - 1;
+      const isLastInGroup = groupExs.findIndex(e => e.id === exerciseId) === groupExs.length - 1;
       if (isLastInGroup) {
         const secs = ex.group_round_rest_seconds ?? 90;
-        if (secs > 0) setPendingRest({ key, seconds: secs, kind: "round" });
+        if (secs > 0) setRestTimer({ key, remaining: secs, total: secs, kind: "round" });
       } else {
-        if (ex.rest_seconds > 0) setPendingRest({ key, seconds: ex.rest_seconds, kind: "exercise" });
+        if (ex.rest_seconds > 0) setRestTimer({ key, remaining: ex.rest_seconds, total: ex.rest_seconds, kind: "exercise" });
       }
     } else {
-      if (ex && ex.rest_seconds > 0) setPendingRest({ key, seconds: ex.rest_seconds, kind: "exercise" });
+      if (ex && ex.rest_seconds > 0) setRestTimer({ key, remaining: ex.rest_seconds, total: ex.rest_seconds, kind: "exercise" });
     }
   }, [inputs, workoutLogId, userId, exercises]);
 
@@ -315,27 +313,10 @@ export default function WorkoutSessionPage() {
                       onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, ""); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
                       style={inputStyle(isDone)} />
                     <button onClick={() => handleLogSet(ex.id, setNum)}
-                      style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : color, color: isDone ? "#059669" : "#fff", fontWeight: 700, fontSize: 13, border: `1.5px solid ${isDone ? "#6EE7B7" : color}`, cursor: "pointer" }}>
-                      {isDone ? "Edit" : "Log"}
+                      style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : color, color: isDone ? "#059669" : "#fff", fontWeight: 700, fontSize: 20, border: `1.5px solid ${isDone ? "#6EE7B7" : color}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {isDone ? "✓" : "⏱"}
                     </button>
                   </div>
-
-                  {/* Rest button — tap to start timer */}
-                  {pendingRest?.key === key && (
-                    <button
-                      onClick={() => {
-                        if (timerRef.current) clearInterval(timerRef.current);
-                        setRestTimer({ key: pendingRest.key, remaining: pendingRest.seconds, total: pendingRest.seconds, kind: pendingRest.kind });
-                        setPendingRest(null);
-                      }}
-                      style={{ width: "100%", marginBottom: 8, padding: "11px 0", borderRadius: 10, background: pendingRest.kind === "round" ? "#EFF6FF" : "#EBF9F8", border: `1.5px solid ${pendingRest.kind === "round" ? "#93C5FD" : "#5EEAD4"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
-                    >
-                      <span style={{ fontSize: 18 }}>{pendingRest.kind === "round" ? "🔄" : "⏱"}</span>
-                      <span style={{ fontWeight: 700, fontSize: 14, color: pendingRest.kind === "round" ? "#1B68B4" : "#0D9488" }}>
-                        Start {pendingRest.kind === "round" ? "Round" : ""} Rest · {pendingRest.seconds}s
-                      </span>
-                    </button>
-                  )}
                 </div>
               );
             })}
