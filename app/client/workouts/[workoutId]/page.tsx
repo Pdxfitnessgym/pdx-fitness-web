@@ -21,6 +21,7 @@ type SetKey = string;
 type LoggedSet = { reps: number | null; weight: number | null };
 type Mode = "preview" | "session" | "done" | "share";
 type RestTimer = { key: SetKey; remaining: number; total: number; kind: "exercise" | "round" };
+type PendingRest = { key: SetKey; seconds: number; kind: "exercise" | "round" };
 
 const GROUP_COLORS = ["#1B68B4", "#8B5CF6", "#F59E0B", "#10B981", "#EF4444", "#EC4899"];
 function groupColor(id: number) { return GROUP_COLORS[(id - 1) % GROUP_COLORS.length]; }
@@ -44,6 +45,8 @@ export default function WorkoutSessionPage() {
   const [prevLogged, setPrevLogged] = useState<Record<SetKey, LoggedSet>>({});
   const [inputs, setInputs] = useState<Record<SetKey, { reps: string; weight: string }>>({});
   const [restTimer, setRestTimer] = useState<RestTimer | null>(null);
+  const [pendingRest, setPendingRest] = useState<PendingRest | null>(null);
+  const [restDone, setRestDone] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [videoModal, setVideoModal] = useState<{ url: string; name: string } | null>(null);
@@ -98,12 +101,39 @@ export default function WorkoutSessionPage() {
     })();
   }, [workoutId]);
 
+  function playAlarm() {
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new AudioCtx();
+      [0, 0.18, 0.36].forEach(delay => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 880;
+        osc.type = "sine";
+        gain.gain.setValueAtTime(0.6, ctx.currentTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.35);
+        osc.start(ctx.currentTime + delay);
+        osc.stop(ctx.currentTime + delay + 0.35);
+      });
+    } catch { /* audio not available */ }
+  }
+
   useEffect(() => {
     if (!restTimer || restTimer.remaining <= 0) return;
     timerRef.current = setInterval(() => {
       setRestTimer(prev => {
         if (!prev) return null;
-        if (prev.remaining <= 1) { clearInterval(timerRef.current!); return null; }
+        if (prev.remaining <= 1) {
+          clearInterval(timerRef.current!);
+          setTimeout(() => {
+            playAlarm();
+            setRestDone(true);
+            setTimeout(() => setRestDone(false), 2500);
+          }, 0);
+          return null;
+        }
         return { ...prev, remaining: prev.remaining - 1 };
       });
     }, 1000);
@@ -143,25 +173,20 @@ export default function WorkoutSessionPage() {
       weight_lbs: weight,
     }, { onConflict: "workout_log_id,exercise_id,set_number" });
 
-    // Determine rest type
+    // Queue rest timer — user taps to start it
     const ex = exercises.find(e => e.id === exerciseId);
     if (ex?.group_id != null) {
       const groupExs = exercises.filter(e => e.group_id === ex.group_id);
       const posInGroup = groupExs.findIndex(e => e.id === exerciseId);
       const isLastInGroup = posInGroup === groupExs.length - 1;
-
-      if (timerRef.current) clearInterval(timerRef.current);
       if (isLastInGroup) {
-        const roundRest = ex.group_round_rest_seconds ?? 90;
-        if (roundRest > 0) setRestTimer({ key, remaining: roundRest, total: roundRest, kind: "round" });
+        const secs = ex.group_round_rest_seconds ?? 90;
+        if (secs > 0) setPendingRest({ key, seconds: secs, kind: "round" });
       } else {
-        if (ex.rest_seconds > 0) setRestTimer({ key, remaining: ex.rest_seconds, total: ex.rest_seconds, kind: "exercise" });
+        if (ex.rest_seconds > 0) setPendingRest({ key, seconds: ex.rest_seconds, kind: "exercise" });
       }
     } else {
-      if (ex && ex.rest_seconds > 0) {
-        if (timerRef.current) clearInterval(timerRef.current);
-        setRestTimer({ key, remaining: ex.rest_seconds, total: ex.rest_seconds, kind: "exercise" });
-      }
+      if (ex && ex.rest_seconds > 0) setPendingRest({ key, seconds: ex.rest_seconds, kind: "exercise" });
     }
   }, [inputs, workoutLogId, userId, exercises]);
 
@@ -267,8 +292,6 @@ export default function WorkoutSessionPage() {
               const isDone = !!logged[key];
               const prev = prevLogged[key];
               const inp = inputs[key] ?? { reps: "", weight: "" };
-              const isResting = restTimer?.key === key;
-
               return (
                 <div key={setNum}>
                   {setNum === 1 && prev && (
@@ -296,33 +319,21 @@ export default function WorkoutSessionPage() {
                     </button>
                   </div>
 
-                  {/* Rest timer */}
-                  {isResting && restTimer && (
-                    <div style={{
-                      background: restTimer.kind === "round" ? "#EFF6FF" : "#EBF9F8",
-                      border: `1px solid ${restTimer.kind === "round" ? "#BFDBFE" : "#A7F3D0"}`,
-                      borderRadius: 10, padding: "10px 14px", marginBottom: 8,
-                      display: "flex", alignItems: "center", justifyContent: "space-between",
-                    }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ fontSize: 20 }}>{restTimer.kind === "round" ? "🔄" : "⏱"}</span>
-                        <div>
-                          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, color: restTimer.kind === "round" ? "#1B68B4" : "#2DC4B8" }}>
-                            {restTimer.kind === "round" ? "ROUND REST" : "REST"}
-                          </div>
-                          <div style={{ fontSize: 22, fontWeight: 800, color: "#0D1827", lineHeight: 1 }}>
-                            {Math.floor(restTimer.remaining / 60)}:{String(restTimer.remaining % 60).padStart(2, "0")}
-                          </div>
-                        </div>
-                        <div style={{ width: 70, height: 4, background: "#E2EAF0", borderRadius: 2, overflow: "hidden" }}>
-                          <div style={{ height: "100%", background: restTimer.kind === "round" ? "#1B68B4" : "#2DC4B8", borderRadius: 2, width: `${(restTimer.remaining / restTimer.total) * 100}%`, transition: "width 1s linear" }} />
-                        </div>
-                      </div>
-                      <button onClick={() => { if (timerRef.current) clearInterval(timerRef.current); setRestTimer(null); }}
-                        style={{ fontSize: 12, color: "#6B7A8D", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>
-                        Skip
-                      </button>
-                    </div>
+                  {/* Rest button — tap to start timer */}
+                  {pendingRest?.key === key && (
+                    <button
+                      onClick={() => {
+                        if (timerRef.current) clearInterval(timerRef.current);
+                        setRestTimer({ key: pendingRest.key, remaining: pendingRest.seconds, total: pendingRest.seconds, kind: pendingRest.kind });
+                        setPendingRest(null);
+                      }}
+                      style={{ width: "100%", marginBottom: 8, padding: "11px 0", borderRadius: 10, background: pendingRest.kind === "round" ? "#EFF6FF" : "#EBF9F8", border: `1.5px solid ${pendingRest.kind === "round" ? "#93C5FD" : "#5EEAD4"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+                    >
+                      <span style={{ fontSize: 18 }}>{pendingRest.kind === "round" ? "🔄" : "⏱"}</span>
+                      <span style={{ fontWeight: 700, fontSize: 14, color: pendingRest.kind === "round" ? "#1B68B4" : "#0D9488" }}>
+                        Start {pendingRest.kind === "round" ? "Round" : ""} Rest · {pendingRest.seconds}s
+                      </span>
+                    </button>
                   )}
                 </div>
               );
@@ -421,6 +432,45 @@ export default function WorkoutSessionPage() {
           );
         })}
       </div>
+
+      {/* Floating rest timer */}
+      {restTimer && (
+        <div style={{ position: "fixed", bottom: 100, left: 0, right: 0, zIndex: 50, display: "flex", justifyContent: "center", padding: "0 16px", pointerEvents: "none" }}>
+          <div style={{
+            background: restTimer.kind === "round" ? "#1B68B4" : "#0D9488",
+            borderRadius: 20, padding: "16px 22px", display: "flex", alignItems: "center", gap: 16,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.25)", pointerEvents: "all", minWidth: 280, maxWidth: 400, width: "100%",
+          }}>
+            <span style={{ fontSize: 28 }}>{restTimer.kind === "round" ? "🔄" : "⏱"}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, color: "rgba(255,255,255,0.7)", textTransform: "uppercase" }}>
+                {restTimer.kind === "round" ? "Round Rest" : "Rest"}
+              </div>
+              <div style={{ fontSize: 36, fontWeight: 900, color: "#fff", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
+                {Math.floor(restTimer.remaining / 60)}:{String(restTimer.remaining % 60).padStart(2, "0")}
+              </div>
+              <div style={{ height: 4, background: "rgba(255,255,255,0.25)", borderRadius: 2, marginTop: 6, overflow: "hidden" }}>
+                <div style={{ height: "100%", background: "#fff", borderRadius: 2, width: `${(restTimer.remaining / restTimer.total) * 100}%`, transition: "width 1s linear" }} />
+              </div>
+            </div>
+            <button onClick={() => { if (timerRef.current) clearInterval(timerRef.current); setRestTimer(null); }}
+              style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 10, padding: "8px 14px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+              Skip
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* GO! flash when timer ends */}
+      {restDone && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+          <div style={{ background: "#1B68B4", borderRadius: 24, padding: "32px 48px", textAlign: "center", boxShadow: "0 12px 48px rgba(27,104,180,0.5)", animation: "fadeInOut 2.5s ease" }}>
+            <div style={{ fontSize: 52 }}>🚀</div>
+            <div style={{ fontSize: 32, fontWeight: 900, color: "#fff", marginTop: 8 }}>Go!</div>
+            <div style={{ fontSize: 14, color: "rgba(255,255,255,0.8)", marginTop: 4 }}>Next set, let&apos;s get it</div>
+          </div>
+        </div>
+      )}
 
       {/* Video modal */}
       {videoModal && (
