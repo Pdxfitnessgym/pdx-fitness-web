@@ -183,9 +183,14 @@ export default function WorkoutSessionPage() {
     if (workoutLogId) {
       await supabase.from("workout_logs").update({ completed_at: new Date().toISOString() }).eq("id", workoutLogId);
     }
+    fetch("/api/push/workout-complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workoutId }),
+    }).catch(() => {});
     setMode("share");
     setCompleting(false);
-  }, [workoutLogId]);
+  }, [workoutLogId, workoutId]);
 
   const doneSetCount = Object.keys(logged).length;
   const totalSets = exercises.reduce((acc, ex) => acc + ex.sets, 0);

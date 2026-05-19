@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { NotificationBanner } from "@/app/components/NotificationBanner";
 
 export default async function TrainerDashboard() {
   const supabase = await createClient();
@@ -28,6 +29,7 @@ export default async function TrainerDashboard() {
       </div>
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px" }}>
+        <NotificationBanner />
         {/* Stats */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
           <div style={cardStyle}>

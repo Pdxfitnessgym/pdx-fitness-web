@@ -2,6 +2,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { sendPushToUser } from "@/lib/push";
 
 export async function addClientByEmail(formData: FormData) {
   const supabase = await createClient();
@@ -48,6 +49,13 @@ export async function assignProgram(formData: FormData) {
     start_date,
     is_active: true,
   });
+
+  const { data: program } = await supabase.from("programs").select("name").eq("id", program_id).single();
+  sendPushToUser(client_id, {
+    title: "New Program Assigned 🏋️",
+    body: `Your trainer assigned you "${program?.name ?? "a new program"}"`,
+    url: "/client/workouts",
+  }).catch(() => {});
 
   revalidatePath(`/trainer/clients/${client_id}`);
   redirect(`/trainer/clients/${client_id}?assigned=1`);

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Image from "next/image";
+import { NotificationBanner } from "@/app/components/NotificationBanner";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -55,6 +56,7 @@ export default async function ClientDashboard() {
       </div>
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px" }}>
+        <NotificationBanner />
         {/* Today's Workout */}
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
