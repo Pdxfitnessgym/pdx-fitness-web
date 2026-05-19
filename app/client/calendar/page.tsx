@@ -93,11 +93,6 @@ export default function CalendarPage() {
     return `${scheme}://${window.location.host}/api/calendar/${calToken}`;
   }
 
-  function openAppleCalendar() {
-    if (!calToken) return;
-    window.location.href = getCalUrl("webcal");
-  }
-
   function copyGoogleUrl() {
     if (!calToken) return;
     navigator.clipboard.writeText(getCalUrl("https"));
@@ -225,18 +220,24 @@ export default function CalendarPage() {
           <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 16 }}>Your workouts will appear in your calendar and stay updated automatically.</div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {/* Apple Calendar — opens Calendar app directly */}
-            <button
-              onClick={openAppleCalendar}
-              disabled={!calToken}
-              style={{ padding: "14px 16px", borderRadius: 12, background: "#000", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: calToken ? "pointer" : "default", display: "flex", alignItems: "center", gap: 10, opacity: calToken ? 1 : 0.5 }}
-            >
-              <span style={{ fontSize: 22 }}>📅</span>
-              <div style={{ textAlign: "left" }}>
+            {/* Apple Calendar — must be a real <a> tag for iOS to intercept webcal:// */}
+            {calToken ? (
+              <a
+                href={getCalUrl("webcal")}
+                style={{ padding: "14px 16px", borderRadius: 12, background: "#000", color: "#fff", fontWeight: 700, fontSize: 15, textDecoration: "none", display: "flex", alignItems: "center", gap: 10 }}
+              >
+                <span style={{ fontSize: 22 }}>📅</span>
+                <div>
+                  <div>Add to Apple Calendar</div>
+                  <div style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.7)", marginTop: 1 }}>Tap to open Calendar app</div>
+                </div>
+              </a>
+            ) : (
+              <div style={{ padding: "14px 16px", borderRadius: 12, background: "#E5E7EB", color: "#9CA3AF", fontWeight: 700, fontSize: 15, display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 22 }}>📅</span>
                 <div>Add to Apple Calendar</div>
-                <div style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.7)", marginTop: 1 }}>Tap to open Calendar app</div>
               </div>
-            </button>
+            )}
 
             {/* Google Calendar — copy https URL */}
             <button
