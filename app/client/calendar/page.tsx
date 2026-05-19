@@ -219,8 +219,25 @@ export default function CalendarPage() {
           <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 4 }}>Sync to your calendar</div>
           <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 16 }}>Your workouts will appear in your calendar and stay updated automatically.</div>
 
+          {calToken && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#6B7A8D", marginBottom: 6 }}>Your calendar URL</div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div style={{ flex: 1, padding: "10px 12px", borderRadius: 10, background: "#F4F7FA", border: "1px solid #E2EAF0", fontSize: 11, color: "#374151", wordBreak: "break-all", fontFamily: "monospace" }}>
+                  {getCalUrl("https")}
+                </div>
+                <button
+                  onClick={copyGoogleUrl}
+                  style={{ flexShrink: 0, padding: "10px 14px", borderRadius: 10, background: copied ? "#10B981" : "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}
+                >
+                  {copied ? "✓ Copied" : "Copy"}
+                </button>
+              </div>
+            </div>
+          )}
+
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {/* Apple Calendar — must be a real <a> tag for iOS to intercept webcal:// */}
+            {/* Apple Calendar — tap to open */}
             {calToken ? (
               <a
                 href={getCalUrl("webcal")}
@@ -229,30 +246,20 @@ export default function CalendarPage() {
                 <span style={{ fontSize: 22 }}>📅</span>
                 <div>
                   <div>Add to Apple Calendar</div>
-                  <div style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.7)", marginTop: 1 }}>Tap to open Calendar app</div>
+                  <div style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.7)", marginTop: 1 }}>Tap to open Calendar app instantly</div>
                 </div>
               </a>
-            ) : (
-              <div style={{ padding: "14px 16px", borderRadius: 12, background: "#E5E7EB", color: "#9CA3AF", fontWeight: 700, fontSize: 15, display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 22 }}>📅</span>
-                <div>Add to Apple Calendar</div>
-              </div>
-            )}
+            ) : null}
 
-            {/* Google Calendar — copy https URL */}
-            <button
-              onClick={copyGoogleUrl}
-              disabled={!calToken}
-              style={{ padding: "14px 16px", borderRadius: 12, background: copied ? "#10B981" : "#4285F4", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: calToken ? "pointer" : "default", display: "flex", alignItems: "center", gap: 10, opacity: calToken ? 1 : 0.5 }}
-            >
-              <span style={{ fontSize: 22 }}>📋</span>
-              <div style={{ textAlign: "left" }}>
-                <div>{copied ? "✓ Link copied!" : "Copy link for Google Calendar"}</div>
-                <div style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.8)", marginTop: 1 }}>
-                  {copied ? "Paste into Google Calendar → Other calendars → From URL" : "Then paste in Google Calendar → Other calendars → From URL"}
-                </div>
+            {/* Manual instructions */}
+            <div style={{ background: "#F4F7FA", borderRadius: 12, padding: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#0D1827", marginBottom: 8 }}>Manual subscription (Apple or Google)</div>
+              <div style={{ fontSize: 13, color: "#6B7A8D", lineHeight: 1.7 }}>
+                1. Tap <strong>Copy</strong> above<br />
+                2. <strong>Apple:</strong> Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar → paste the URL<br />
+                <strong>Google:</strong> calendar.google.com → Other calendars + → From URL → paste
               </div>
-            </button>
+            </div>
           </div>
         </div>
 
