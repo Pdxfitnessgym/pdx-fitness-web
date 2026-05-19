@@ -95,7 +95,7 @@ export default function CalendarPage() {
 
   function copyGoogleUrl() {
     if (!calToken) return;
-    navigator.clipboard.writeText(getCalUrl("https"));
+    navigator.clipboard.writeText(getCalUrl("webcal"));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -224,7 +224,7 @@ export default function CalendarPage() {
               <div style={{ fontSize: 12, fontWeight: 600, color: "#6B7A8D", marginBottom: 6 }}>Your calendar URL</div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <div style={{ flex: 1, padding: "10px 12px", borderRadius: 10, background: "#F4F7FA", border: "1px solid #E2EAF0", fontSize: 11, color: "#374151", wordBreak: "break-all", fontFamily: "monospace" }}>
-                  {getCalUrl("https")}
+                  {getCalUrl("webcal")}
                 </div>
                 <button
                   onClick={copyGoogleUrl}
