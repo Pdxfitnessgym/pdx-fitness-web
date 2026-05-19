@@ -12,9 +12,48 @@ type Log = {
   photo_url: string | null;
 };
 
+type PR = {
+  exercise_name: string;
+  best_weight: number;
+  best_reps: number | null;
+  logged_at: string;
+};
+
+function Sparkline({ data }: { data: number[] }) {
+  if (data.length < 2) return null;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const w = 200, h = 48, pad = 4;
+  const pts = data.map((v, i) => {
+    const x = pad + (i / (data.length - 1)) * (w - pad * 2);
+    const y = h - pad - ((v - min) / range) * (h - pad * 2);
+    return `${x},${y}`;
+  });
+  return (
+    <svg width={w} height={h} style={{ display: "block", marginTop: 8 }}>
+      <polyline
+        points={pts.join(" ")}
+        fill="none"
+        stroke="#2DC4B8"
+        strokeWidth={2}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      {/* last point dot */}
+      {(() => {
+        const [lx, ly] = pts[pts.length - 1].split(",").map(Number);
+        return <circle cx={lx} cy={ly} r={3} fill="#2DC4B8" />;
+      })()}
+    </svg>
+  );
+}
+
 export default function ProgressPage() {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [tab, setTab] = useState<"body" | "strength">("body");
   const [logs, setLogs] = useState<Log[]>([]);
+  const [prs, setPrs] = useState<PR[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
@@ -35,10 +74,42 @@ export default function ProgressPage() {
       .order("logged_at", { ascending: false })
       .limit(50);
     setLogs((data ?? []) as Log[]);
-    setLoading(false);
   }
 
-  useEffect(() => { fetchLogs(); }, []);
+  async function fetchPRs() {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from("set_logs")
+      .select("weight_lbs, reps_completed, created_at, exercises(name)")
+      .eq("client_id", user.id)
+      .not("weight_lbs", "is", null)
+      .order("weight_lbs", { ascending: false });
+
+    if (!data) return;
+
+    // best weight per exercise
+    const best: Record<string, PR> = {};
+    for (const row of data) {
+      const name = (row.exercises as unknown as { name: string } | null)?.name;
+      if (!name) continue;
+      if (!best[name] || row.weight_lbs > best[name].best_weight) {
+        best[name] = {
+          exercise_name: name,
+          best_weight: row.weight_lbs,
+          best_reps: row.reps_completed,
+          logged_at: row.created_at,
+        };
+      }
+    }
+    setPrs(Object.values(best).sort((a, b) => b.best_weight - a.best_weight));
+  }
+
+  useEffect(() => {
+    Promise.all([fetchLogs(), fetchPRs()]).then(() => setLoading(false));
+  }, []);
 
   function onPhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -54,7 +125,6 @@ export default function ProgressPage() {
     if (!weight && !bodyFat) { setError("Enter at least weight or body fat %"); return; }
     setSaving(true);
     setError("");
-
     try {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -103,6 +173,8 @@ export default function ProgressPage() {
   const prevWeight = logs.filter(l => l.weight_lbs != null)[1]?.weight_lbs ?? null;
   const prevBf = logs.filter(l => l.body_fat_pct != null)[1]?.body_fat_pct ?? null;
 
+  const weightHistory = [...logs].reverse().map(l => l.weight_lbs).filter((v): v is number => v != null);
+
   function trend(curr: number | null, prev: number | null, lowerIsBetter = false) {
     if (curr == null || prev == null) return null;
     const diff = curr - prev;
@@ -117,163 +189,238 @@ export default function ProgressPage() {
   return (
     <div style={{ minHeight: "100dvh", background: "#F4F7FA", paddingBottom: 80 }}>
       {/* Header */}
-      <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "20px 20px 16px" }}>
-        <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <Link href="/client" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Home</Link>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginTop: 4 }}>Progress</div>
+      <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "20px 20px 0" }}>
+        <div style={{ maxWidth: 640, margin: "0 auto" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <div>
+              <Link href="/client" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Home</Link>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginTop: 4 }}>Progress</div>
+            </div>
+            {tab === "body" && (
+              <button
+                onClick={() => setShowForm(!showForm)}
+                style={{ padding: "10px 18px", borderRadius: 10, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer" }}
+              >
+                {showForm ? "Cancel" : "+ Log"}
+              </button>
+            )}
           </div>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            style={{ padding: "10px 18px", borderRadius: 10, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer" }}
-          >
-            {showForm ? "Cancel" : "+ Log"}
-          </button>
+
+          {/* Tabs */}
+          <div style={{ display: "flex", gap: 0 }}>
+            {(["body", "strength"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                style={{
+                  flex: 1,
+                  padding: "10px 0",
+                  border: "none",
+                  background: "none",
+                  fontWeight: 700,
+                  fontSize: 14,
+                  color: tab === t ? "#1B68B4" : "#6B7A8D",
+                  borderBottom: tab === t ? "2px solid #1B68B4" : "2px solid transparent",
+                  cursor: "pointer",
+                  textTransform: "capitalize",
+                }}
+              >
+                {t === "body" ? "Body" : "Strength"}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px", display: "flex", flexDirection: "column", gap: 16 }}>
 
-        {/* Stats summary */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <StatCard
-            label="Body Weight"
-            value={latestWeight != null ? `${latestWeight} lbs` : "—"}
-            trend={wTrend}
-          />
-          <StatCard
-            label="Body Fat"
-            value={latestBf != null ? `${latestBf}%` : "—"}
-            trend={bTrend}
-          />
-        </div>
-
-        {/* Log form */}
-        {showForm && (
-          <div style={{ background: "#fff", borderRadius: 14, padding: 18, border: "1px solid #E2EAF0" }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 16 }}>New Entry</div>
-            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {error && <div style={{ background: "#FEE2E2", color: "#DC2626", padding: "10px 14px", borderRadius: 8, fontSize: 13 }}>{error}</div>}
-
-              <div>
-                <label style={labelStyle}>Date</label>
-                <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={labelStyle}>Weight (lbs)</label>
-                  <input type="number" step="0.1" min="0" value={weight} onChange={e => setWeight(e.target.value)} placeholder="185.0" style={inputStyle} />
+        {tab === "body" && (
+          <>
+            {/* Stats */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div style={{ background: "#fff", borderRadius: 14, padding: 18, border: "1px solid #E2EAF0" }}>
+                <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 600, marginBottom: 6 }}>Body Weight</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: "#0D1827" }}>
+                  {latestWeight != null ? `${latestWeight} lbs` : "—"}
                 </div>
-                <div>
-                  <label style={labelStyle}>Body Fat %</label>
-                  <input type="number" step="0.1" min="0" max="100" value={bodyFat} onChange={e => setBodyFat(e.target.value)} placeholder="18.5" style={inputStyle} />
-                </div>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Notes <span style={{ color: "#6B7A8D", fontWeight: 400 }}>(optional)</span></label>
-                <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="How are you feeling? Any observations..." rows={2} style={{ ...inputStyle, resize: "vertical" }} />
-              </div>
-
-              {/* Photo */}
-              <div>
-                <label style={labelStyle}>Progress Photo <span style={{ color: "#6B7A8D", fontWeight: 400 }}>(optional)</span></label>
-                {photoPreview ? (
-                  <div style={{ position: "relative", display: "inline-block" }}>
-                    <img src={photoPreview} alt="preview" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 10 }} />
-                    <button type="button" onClick={() => { setPhotoFile(null); setPhotoPreview(null); }} style={{ position: "absolute", top: -8, right: -8, width: 22, height: 22, borderRadius: "50%", background: "#DC2626", border: "none", color: "#fff", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
-                  </div>
-                ) : (
-                  <div onClick={() => fileRef.current?.click()} style={{ border: "2px dashed #E2EAF0", borderRadius: 10, padding: "20px", textAlign: "center", cursor: "pointer", background: "#F4F7FA" }}>
-                    <div style={{ fontSize: 24, marginBottom: 4 }}>📷</div>
-                    <div style={{ fontSize: 13, color: "#6B7A8D" }}>Tap to add photo</div>
+                {wTrend && (
+                  <div style={{ fontSize: 12, fontWeight: 700, color: wTrend.good ? "#2DC4B8" : "#F59E0B", marginTop: 4 }}>
+                    {wTrend.up ? "↑" : "↓"} {wTrend.diff} from last
                   </div>
                 )}
-                <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic" onChange={onPhotoChange} style={{ display: "none" }} />
+                {weightHistory.length >= 2 && <Sparkline data={weightHistory} />}
               </div>
+              <div style={{ background: "#fff", borderRadius: 14, padding: 18, border: "1px solid #E2EAF0" }}>
+                <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 600, marginBottom: 6 }}>Body Fat</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: "#0D1827" }}>
+                  {latestBf != null ? `${latestBf}%` : "—"}
+                </div>
+                {bTrend && (
+                  <div style={{ fontSize: 12, fontWeight: 700, color: bTrend.good ? "#2DC4B8" : "#F59E0B", marginTop: 4 }}>
+                    {bTrend.up ? "↑" : "↓"} {bTrend.diff} from last
+                  </div>
+                )}
+              </div>
+            </div>
 
-              <button type="submit" disabled={saving} style={{ padding: "13px", borderRadius: 12, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer", opacity: saving ? 0.6 : 1 }}>
-                {saving ? "Saving..." : "Save Entry"}
-              </button>
-            </form>
-          </div>
+            {/* Log form */}
+            {showForm && (
+              <div style={{ background: "#fff", borderRadius: 14, padding: 18, border: "1px solid #E2EAF0" }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 16 }}>New Entry</div>
+                <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {error && <div style={{ background: "#FEE2E2", color: "#DC2626", padding: "10px 14px", borderRadius: 8, fontSize: 13 }}>{error}</div>}
+                  <div>
+                    <label style={labelStyle}>Date</label>
+                    <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div>
+                      <label style={labelStyle}>Weight (lbs)</label>
+                      <input type="number" step="0.1" min="0" value={weight} onChange={e => setWeight(e.target.value)} placeholder="185.0" style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Body Fat %</label>
+                      <input type="number" step="0.1" min="0" max="100" value={bodyFat} onChange={e => setBodyFat(e.target.value)} placeholder="18.5" style={inputStyle} />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Notes <span style={{ color: "#6B7A8D", fontWeight: 400 }}>(optional)</span></label>
+                    <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="How are you feeling?" rows={2} style={{ ...inputStyle, resize: "vertical" }} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Progress Photo <span style={{ color: "#6B7A8D", fontWeight: 400 }}>(optional)</span></label>
+                    {photoPreview ? (
+                      <div style={{ position: "relative", display: "inline-block" }}>
+                        <img src={photoPreview} alt="preview" style={{ width: 100, height: 100, objectFit: "cover", borderRadius: 10 }} />
+                        <button type="button" onClick={() => { setPhotoFile(null); setPhotoPreview(null); }} style={{ position: "absolute", top: -8, right: -8, width: 22, height: 22, borderRadius: "50%", background: "#DC2626", border: "none", color: "#fff", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                      </div>
+                    ) : (
+                      <div onClick={() => fileRef.current?.click()} style={{ border: "2px dashed #E2EAF0", borderRadius: 10, padding: "20px", textAlign: "center", cursor: "pointer", background: "#F4F7FA" }}>
+                        <div style={{ fontSize: 24, marginBottom: 4 }}>📷</div>
+                        <div style={{ fontSize: 13, color: "#6B7A8D" }}>Tap to add photo</div>
+                      </div>
+                    )}
+                    <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic" onChange={onPhotoChange} style={{ display: "none" }} />
+                  </div>
+                  <button type="submit" disabled={saving} style={{ padding: "13px", borderRadius: 12, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer", opacity: saving ? 0.6 : 1 }}>
+                    {saving ? "Saving..." : "Save Entry"}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* History */}
+            {loading ? (
+              <div style={{ textAlign: "center", padding: 40, color: "#6B7A8D" }}>Loading...</div>
+            ) : logs.length === 0 ? (
+              <div style={{ background: "#fff", borderRadius: 14, padding: "40px 24px", border: "1px solid #E2EAF0", textAlign: "center" }}>
+                <div style={{ fontSize: 40, marginBottom: 10 }}>📊</div>
+                <div style={{ fontWeight: 600, color: "#0D1827", marginBottom: 4 }}>No entries yet</div>
+                <div style={{ fontSize: 14, color: "#6B7A8D" }}>Tap "+ Log" to record your first check-in</div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>History</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {logs.map((log, i) => {
+                    const prevLog = logs[i + 1];
+                    const wDiff = log.weight_lbs != null && prevLog?.weight_lbs != null ? log.weight_lbs - prevLog.weight_lbs : null;
+                    const bDiff = log.body_fat_pct != null && prevLog?.body_fat_pct != null ? log.body_fat_pct - prevLog.body_fat_pct : null;
+                    return (
+                      <div key={log.id} style={{ background: "#fff", borderRadius: 14, padding: 16, border: "1px solid #E2EAF0" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: "#1B68B4" }}>
+                            {new Date(log.logged_at + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                          </div>
+                          <button onClick={() => deleteLog(log.id)} style={{ fontSize: 11, color: "#9CA3AF", background: "none", border: "none", cursor: "pointer" }}>Delete</button>
+                        </div>
+                        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                          {log.weight_lbs != null && (
+                            <div>
+                              <div style={{ fontSize: 11, color: "#6B7A8D", marginBottom: 2 }}>Weight</div>
+                              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                                <span style={{ fontSize: 20, fontWeight: 800, color: "#0D1827" }}>{log.weight_lbs}</span>
+                                <span style={{ fontSize: 12, color: "#6B7A8D" }}>lbs</span>
+                                {wDiff != null && Math.abs(wDiff) >= 0.1 && (
+                                  <span style={{ fontSize: 11, fontWeight: 700, color: wDiff < 0 ? "#2DC4B8" : "#F59E0B" }}>
+                                    {wDiff > 0 ? "+" : ""}{wDiff.toFixed(1)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          {log.body_fat_pct != null && (
+                            <div>
+                              <div style={{ fontSize: 11, color: "#6B7A8D", marginBottom: 2 }}>Body Fat</div>
+                              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                                <span style={{ fontSize: 20, fontWeight: 800, color: "#0D1827" }}>{log.body_fat_pct}</span>
+                                <span style={{ fontSize: 12, color: "#6B7A8D" }}>%</span>
+                                {bDiff != null && Math.abs(bDiff) >= 0.1 && (
+                                  <span style={{ fontSize: 11, fontWeight: 700, color: bDiff < 0 ? "#2DC4B8" : "#F59E0B" }}>
+                                    {bDiff > 0 ? "+" : ""}{bDiff.toFixed(1)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        {log.notes && (
+                          <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 8, lineHeight: 1.4 }}>{log.notes}</div>
+                        )}
+                        {log.photo_url && (
+                          <img
+                            src={log.photo_url}
+                            alt="progress"
+                            onClick={() => setLightbox(log.photo_url)}
+                            style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 10, marginTop: 10, cursor: "pointer" }}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
-        {/* History */}
-        {loading ? (
-          <div style={{ textAlign: "center", padding: 40, color: "#6B7A8D" }}>Loading...</div>
-        ) : logs.length === 0 ? (
-          <div style={{ background: "#fff", borderRadius: 14, padding: "40px 24px", border: "1px solid #E2EAF0", textAlign: "center" }}>
-            <div style={{ fontSize: 40, marginBottom: 10 }}>📊</div>
-            <div style={{ fontWeight: 600, color: "#0D1827", marginBottom: 4 }}>No entries yet</div>
-            <div style={{ fontSize: 14, color: "#6B7A8D" }}>Tap "+ Log" to record your first check-in</div>
-          </div>
-        ) : (
-          <div>
-            <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>History</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {logs.map((log, i) => {
-                const prevLog = logs[i + 1];
-                const wDiff = log.weight_lbs != null && prevLog?.weight_lbs != null ? log.weight_lbs - prevLog.weight_lbs : null;
-                const bDiff = log.body_fat_pct != null && prevLog?.body_fat_pct != null ? log.body_fat_pct - prevLog.body_fat_pct : null;
-                return (
-                  <div key={log.id} style={{ background: "#fff", borderRadius: 14, padding: 16, border: "1px solid #E2EAF0" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#1B68B4" }}>
-                        {new Date(log.logged_at + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+        {tab === "strength" && (
+          <>
+            {loading ? (
+              <div style={{ textAlign: "center", padding: 40, color: "#6B7A8D" }}>Loading...</div>
+            ) : prs.length === 0 ? (
+              <div style={{ background: "#fff", borderRadius: 14, padding: "40px 24px", border: "1px solid #E2EAF0", textAlign: "center" }}>
+                <div style={{ fontSize: 40, marginBottom: 10 }}>🏆</div>
+                <div style={{ fontWeight: 600, color: "#0D1827", marginBottom: 4 }}>No lifts logged yet</div>
+                <div style={{ fontSize: 14, color: "#6B7A8D" }}>Complete a workout session to start tracking PRs</div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>Personal Records</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {prs.map((pr) => (
+                    <div key={pr.exercise_name} style={{ background: "#fff", borderRadius: 14, padding: "14px 16px", border: "1px solid #E2EAF0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827" }}>{pr.exercise_name}</div>
+                        <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>
+                          {new Date(pr.logged_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        </div>
                       </div>
-                      <button onClick={() => deleteLog(log.id)} style={{ fontSize: 11, color: "#9CA3AF", background: "none", border: "none", cursor: "pointer" }}>Delete</button>
-                    </div>
-
-                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                      {log.weight_lbs != null && (
-                        <div>
-                          <div style={{ fontSize: 11, color: "#6B7A8D", marginBottom: 2 }}>Weight</div>
-                          <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-                            <span style={{ fontSize: 20, fontWeight: 800, color: "#0D1827" }}>{log.weight_lbs}</span>
-                            <span style={{ fontSize: 12, color: "#6B7A8D" }}>lbs</span>
-                            {wDiff != null && Math.abs(wDiff) >= 0.1 && (
-                              <span style={{ fontSize: 11, fontWeight: 700, color: wDiff < 0 ? "#2DC4B8" : "#F59E0B" }}>
-                                {wDiff > 0 ? "+" : ""}{wDiff.toFixed(1)}
-                              </span>
-                            )}
-                          </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 3, justifyContent: "flex-end" }}>
+                          <span style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4" }}>{pr.best_weight}</span>
+                          <span style={{ fontSize: 12, color: "#6B7A8D" }}>lbs</span>
                         </div>
-                      )}
-                      {log.body_fat_pct != null && (
-                        <div>
-                          <div style={{ fontSize: 11, color: "#6B7A8D", marginBottom: 2 }}>Body Fat</div>
-                          <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-                            <span style={{ fontSize: 20, fontWeight: 800, color: "#0D1827" }}>{log.body_fat_pct}</span>
-                            <span style={{ fontSize: 12, color: "#6B7A8D" }}>%</span>
-                            {bDiff != null && Math.abs(bDiff) >= 0.1 && (
-                              <span style={{ fontSize: 11, fontWeight: 700, color: bDiff < 0 ? "#2DC4B8" : "#F59E0B" }}>
-                                {bDiff > 0 ? "+" : ""}{bDiff.toFixed(1)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
+                        {pr.best_reps != null && (
+                          <div style={{ fontSize: 12, color: "#6B7A8D" }}>{pr.best_reps} reps</div>
+                        )}
+                      </div>
                     </div>
-
-                    {log.notes && (
-                      <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 8, lineHeight: 1.4 }}>{log.notes}</div>
-                    )}
-
-                    {log.photo_url && (
-                      <img
-                        src={log.photo_url}
-                        alt="progress"
-                        onClick={() => setLightbox(log.photo_url)}
-                        style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 10, marginTop: 10, cursor: "pointer" }}
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -300,20 +447,6 @@ export default function ProgressPage() {
           ))}
         </div>
       </div>
-    </div>
-  );
-}
-
-function StatCard({ label, value, trend }: { label: string; value: string; trend: { diff: string; up: boolean; good: boolean } | null }) {
-  return (
-    <div style={{ background: "#fff", borderRadius: 14, padding: 18, border: "1px solid #E2EAF0" }}>
-      <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 600, marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 800, color: "#0D1827" }}>{value}</div>
-      {trend && (
-        <div style={{ fontSize: 12, fontWeight: 700, color: trend.good ? "#2DC4B8" : "#F59E0B", marginTop: 4 }}>
-          {trend.up ? "↑" : "↓"} {trend.diff} from last
-        </div>
-      )}
     </div>
   );
 }
