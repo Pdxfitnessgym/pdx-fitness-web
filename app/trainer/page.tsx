@@ -13,8 +13,11 @@ export default async function TrainerDashboard() {
   const { data: profile } = await supabase.from("profiles").select("full_name, role").eq("id", user.id).single();
   if (profile && profile.role !== "trainer") redirect("/client");
 
-  const { count: clientCount } = await supabase.from("profiles").select("*", { count: "exact", head: true }).eq("trainer_id", user.id);
-  const { count: programCount } = await supabase.from("programs").select("*", { count: "exact", head: true }).eq("trainer_id", user.id);
+  const [{ count: clientCount }, { count: programCount }, { count: unassignedCount }] = await Promise.all([
+    supabase.from("profiles").select("*", { count: "exact", head: true }).eq("trainer_id", user.id),
+    supabase.from("programs").select("*", { count: "exact", head: true }).eq("trainer_id", user.id),
+    supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "client").is("trainer_id", null),
+  ]);
 
   return (
     <div style={{ minHeight: "100dvh", background: "#F4F7FA" }}>
@@ -34,6 +37,23 @@ export default async function TrainerDashboard() {
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px" }}>
         <NotificationBanner />
+
+        {/* Unassigned signups alert */}
+        {unassignedCount != null && unassignedCount > 0 && (
+          <Link href="/trainer/clients" style={{ display: "flex", alignItems: "center", gap: 12, background: "#FFFBEB", border: "1.5px solid #FCD34D", borderRadius: 14, padding: "14px 18px", textDecoration: "none", marginBottom: 16 }}>
+            <span style={{ fontSize: 22 }}>🔔</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, fontSize: 15, color: "#92400E" }}>
+                {unassignedCount} new client{unassignedCount !== 1 ? "s" : ""} signed up
+              </div>
+              <div style={{ fontSize: 13, color: "#B45309", marginTop: 1 }}>Tap to view and assign →</div>
+            </div>
+            <div style={{ background: "#F59E0B", color: "#fff", borderRadius: "50%", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
+              {unassignedCount}
+            </div>
+          </Link>
+        )}
+
         {/* Stats */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
           <div style={cardStyle}>

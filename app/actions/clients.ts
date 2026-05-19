@@ -5,6 +5,18 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { sendPushToUser } from "@/lib/push";
 
+export async function assignClientToMe(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const clientId = formData.get("client_id") as string;
+  const svc = createServiceClient();
+  await svc.from("profiles").update({ trainer_id: user.id }).eq("id", clientId);
+  revalidatePath("/trainer/clients");
+  redirect("/trainer/clients?success=1");
+}
+
 export async function addClientByEmail(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
