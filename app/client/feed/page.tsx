@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Profile = { id: string; full_name: string };
+type Group = { id: string; name: string; emoji: string };
 type Comment = { id: string; author_id: string; content: string; created_at: string; profiles: Profile };
 type Post = {
   id: string;
@@ -12,6 +13,9 @@ type Post = {
   video_url: string | null;
   post_type: string;
   workout_name: string | null;
+  group_id: string | null;
+  group_name: string | null;
+  group_emoji: string | null;
   created_at: string;
   profiles: Profile;
   like_count: number;
@@ -42,10 +46,13 @@ function Avatar({ name, size = 38 }: { name: string; size?: number }) {
 export default function FeedPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [me, setMe] = useState<Profile | null>(null);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [caption, setCaption] = useState("");
+  const [postGroupId, setPostGroupId] = useState<string | null>(null);
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
@@ -55,18 +62,23 @@ export default function FeedPage() {
   const [submittingComment, setSubmittingComment] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
 
-  const fetchPosts = useCallback(async (userId: string) => {
+  const fetchPosts = useCallback(async (userId: string, groupId: string | null = null) => {
     const supabase = createClient();
-    const { data } = await supabase
+    let query = supabase
       .from("posts")
       .select(`
-        id, author_id, content, photo_url, video_url, post_type, workout_name, created_at,
+        id, author_id, content, photo_url, video_url, post_type, workout_name, group_id, created_at,
         profiles!posts_author_id_fkey(id, full_name),
+        groups(name, emoji),
         post_likes(user_id),
         post_comments(id, author_id, content, created_at, profiles!post_comments_author_id_fkey(id, full_name))
       `)
       .order("created_at", { ascending: false })
       .limit(50);
+
+    if (groupId) query = query.eq("group_id", groupId);
+
+    const { data } = await query;
 
     const mapped: Post[] = (data ?? []).map((p: any) => ({
       id: p.id,
@@ -76,6 +88,9 @@ export default function FeedPage() {
       video_url: p.video_url,
       post_type: p.post_type,
       workout_name: p.workout_name,
+      group_id: p.group_id,
+      group_name: p.groups?.name ?? null,
+      group_emoji: p.groups?.emoji ?? null,
       created_at: p.created_at,
       profiles: p.profiles,
       like_count: p.post_likes?.length ?? 0,
@@ -92,13 +107,24 @@ export default function FeedPage() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return;
-      supabase.from("profiles").select("id, full_name").eq("id", user.id).single().then(({ data }) => {
-        if (data) { setMe(data as Profile); fetchPosts(user.id); }
-      });
+      const [profileRes, membershipsRes] = await Promise.all([
+        supabase.from("profiles").select("id, full_name").eq("id", user.id).single(),
+        supabase.from("group_members").select("groups(id, name, emoji)").eq("user_id", user.id),
+      ]);
+      if (profileRes.data) setMe(profileRes.data as Profile);
+      const memberGroups = (membershipsRes.data ?? []).map((m: any) => m.groups).filter(Boolean) as Group[];
+      setGroups(memberGroups);
+      fetchPosts(user.id, null);
     });
   }, [fetchPosts]);
+
+  function switchGroup(groupId: string | null) {
+    setActiveGroupId(groupId);
+    setLoading(true);
+    if (me) fetchPosts(me.id, groupId);
+  }
 
   function onMediaChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -137,6 +163,7 @@ export default function FeedPage() {
       photo_url,
       video_url,
       post_type: "general",
+      group_id: postGroupId || null,
     });
     if (dbErr) { setPostError("Failed to post"); setPosting(false); return; }
 
@@ -181,13 +208,29 @@ export default function FeedPage() {
   return (
     <div style={{ minHeight: "100dvh", background: "#F4F7FA", paddingBottom: 80 }}>
       {/* Header */}
-      <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "16px 20px", position: "sticky", top: 0, zIndex: 10 }}>
-        <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", position: "sticky", top: 0, zIndex: 10 }}>
+        <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px 20px 0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ fontSize: 20, fontWeight: 800, color: "#1B68B4" }}>Community</div>
           <button onClick={() => setShowCreate(!showCreate)} style={{ padding: "8px 18px", borderRadius: 10, background: showCreate ? "#E2EAF0" : "#2DC4B8", color: showCreate ? "#0D1827" : "#fff", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer" }}>
             {showCreate ? "Cancel" : "✏️ Post"}
           </button>
         </div>
+        {/* Group tabs */}
+        {groups.length > 0 && (
+          <div style={{ display: "flex", gap: 8, padding: "10px 20px 12px", overflowX: "auto" }}>
+            <button
+              onClick={() => switchGroup(null)}
+              style={{ whiteSpace: "nowrap", padding: "6px 14px", borderRadius: 20, border: "none", background: activeGroupId === null ? "#1B68B4" : "#F4F7FA", color: activeGroupId === null ? "#fff" : "#6B7A8D", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+            >All</button>
+            {groups.map(g => (
+              <button
+                key={g.id}
+                onClick={() => switchGroup(g.id)}
+                style={{ whiteSpace: "nowrap", padding: "6px 14px", borderRadius: 20, border: "none", background: activeGroupId === g.id ? "#1B68B4" : "#F4F7FA", color: activeGroupId === g.id ? "#fff" : "#6B7A8D", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+              >{g.emoji} {g.name}</button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px 16px" }}>
@@ -215,6 +258,18 @@ export default function FeedPage() {
                   <img src={mediaPreview} alt="preview" style={{ width: "100%", borderRadius: 10, maxHeight: 280, objectFit: "cover" }} />
                 )}
                 <button type="button" onClick={() => { setMediaFile(null); setMediaPreview(null); }} style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.6)", border: "none", borderRadius: "50%", width: 28, height: 28, color: "#fff", cursor: "pointer", fontSize: 14 }}>✕</button>
+              </div>
+            )}
+
+            {groups.length > 0 && (
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#6B7A8D", marginBottom: 6 }}>Post to</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button type="button" onClick={() => setPostGroupId(null)} style={{ padding: "6px 12px", borderRadius: 20, border: "none", background: postGroupId === null ? "#1B68B4" : "#F4F7FA", color: postGroupId === null ? "#fff" : "#6B7A8D", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Everyone</button>
+                  {groups.map(g => (
+                    <button key={g.id} type="button" onClick={() => setPostGroupId(g.id)} style={{ padding: "6px 12px", borderRadius: 20, border: "none", background: postGroupId === g.id ? "#1B68B4" : "#F4F7FA", color: postGroupId === g.id ? "#fff" : "#6B7A8D", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>{g.emoji} {g.name}</button>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -304,8 +359,13 @@ function PostCard({ post, me, expandedComments, commentInputs, submittingComment
         <Avatar name={post.profiles?.full_name ?? "?"} />
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: 14, color: "#0D1827" }}>{post.profiles?.full_name ?? "Member"}</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2, flexWrap: "wrap" }}>
             <span style={{ fontSize: 12, color: "#9CA3AF" }}>{timeAgo(post.created_at)}</span>
+            {post.group_name && (
+              <span style={{ fontSize: 10, fontWeight: 700, background: "#EFF6FF", color: "#1B68B4", padding: "2px 7px", borderRadius: 20 }}>
+                {post.group_emoji} {post.group_name}
+              </span>
+            )}
             {post.post_type === "workout_complete" && (
               <span style={{ fontSize: 10, fontWeight: 700, background: "#EBF9F8", color: "#2DC4B8", padding: "2px 7px", borderRadius: 20 }}>
                 💪 WORKOUT DONE

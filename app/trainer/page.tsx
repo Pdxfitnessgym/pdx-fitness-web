@@ -108,6 +108,7 @@ export default async function TrainerDashboard() {
             { label: "Challenges", href: "/trainer/challenges", icon: "🏆" },
             { label: "Messages", href: "/trainer/messages", icon: "💬" },
             { label: "Availability", href: "/trainer/availability", icon: "🗓️" },
+            { label: "Groups", href: "/trainer/groups", icon: "👥" },
           ].map(item => (
             <a key={item.href} href={item.href} style={navItem}>
               <span style={{ fontSize: 22 }}>{item.icon}</span>
