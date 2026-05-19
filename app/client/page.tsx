@@ -117,6 +117,18 @@ export default async function ClientDashboard() {
           )}
         </div>
 
+        {/* Nutrition shortcut */}
+        <div style={{ marginBottom: 16 }}>
+          <a href="/client/nutrition" style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 14, textDecoration: "none" }}>
+            <div style={{ fontSize: 32 }}>🥗</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: "#0D1827" }}>Nutrition</div>
+              <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 2 }}>Meal plan · Log food · Track macros</div>
+            </div>
+            <div style={{ color: "#9CA3AF", fontSize: 20 }}>›</div>
+          </a>
+        </div>
+
         {/* Book a session shortcut */}
         <div style={{ marginBottom: 16 }}>
           <a href="/client/book" style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 14, textDecoration: "none", border: "2px solid #1B68B4" }}>
