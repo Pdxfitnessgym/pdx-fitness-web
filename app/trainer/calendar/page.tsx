@@ -310,23 +310,25 @@ export default function TrainerCalendarPage() {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {selected.map(s => (
-                <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#F8FAFB", borderRadius: 10 }}>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827" }}>{s.client_name}</div>
-                    <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>
-                      {new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                      {s.notes ? ` · ${s.notes}` : ""}
+                <div key={s.id} style={{ padding: "12px 14px", background: "#F8FAFB", borderRadius: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827" }}>{s.client_name}</div>
+                      <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>
+                        {new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                        {s.notes ? ` · ${s.notes}` : ""}
+                      </div>
                     </div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLOR[s.status], background: STATUS_COLOR[s.status] + "18", padding: "3px 8px", borderRadius: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLOR[s.status], background: STATUS_COLOR[s.status] + "18", padding: "3px 8px", borderRadius: 6, whiteSpace: "nowrap" }}>
                       {STATUS_LABEL[s.status]}
                     </span>
-                    <Link href={`/trainer/clients/${s.client_id}`} style={{ fontSize: 12, color: "#2DC4B8", textDecoration: "none", fontWeight: 600 }}>View →</Link>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <Link href={`/trainer/clients/${s.client_id}`} style={{ flex: 1, textAlign: "center", padding: "7px", borderRadius: 8, background: "#EFF6FF", color: "#1B68B4", textDecoration: "none", fontWeight: 700, fontSize: 12 }}>View</Link>
                     {(s.status === "scheduled" || s.status === "rescheduled") && (
-                      <button onClick={() => cancelSession(s.id)} style={{ fontSize: 12, color: "#F59E0B", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>Cancel</button>
+                      <button onClick={() => cancelSession(s.id)} style={{ flex: 1, padding: "7px", borderRadius: 8, background: "#FEF3C7", color: "#D97706", fontWeight: 700, fontSize: 12, border: "none", cursor: "pointer" }}>Cancel</button>
                     )}
-                    <button onClick={() => deleteSession(s.id)} style={{ fontSize: 12, color: "#EF4444", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>Delete</button>
+                    <button onClick={() => deleteSession(s.id)} style={{ flex: 1, padding: "7px", borderRadius: 8, background: "#FEE2E2", color: "#EF4444", fontWeight: 700, fontSize: 12, border: "none", cursor: "pointer" }}>Delete</button>
                   </div>
                 </div>
               ))}
