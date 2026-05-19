@@ -165,7 +165,7 @@ export default function TrainerCalendarPage() {
 
   function copyWebcal() {
     if (!calToken) return;
-    const url = `webcal://${window.location.host}/api/calendar/trainer/${calToken}`;
+    const url = `webcals://${window.location.host}/api/calendar/trainer/${calToken}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
