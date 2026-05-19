@@ -230,18 +230,15 @@ export default function WorkoutSessionPage() {
     return <WorkoutDoneScreen workoutName={workout?.name ?? "Workout"} setsLogged={doneSetCount} workoutLogId={workoutLogId} />;
   }
 
-  function ExerciseCard({ ex, inGroup, groupExs }: { ex: ExerciseRow; inGroup?: boolean; groupExs?: ExerciseRow[] }) {
-    const exLogs = Object.fromEntries(Object.entries(logged).filter(([k]) => k.startsWith(ex.id)));
-    const allSetsLogged = Object.keys(exLogs).length >= ex.sets;
+  function renderExCard(ex: ExerciseRow, inGroup?: boolean, groupExs?: ExerciseRow[]) {
+    const allSetsLogged = Object.keys(logged).filter(k => k.startsWith(ex.id + "-")).length >= ex.sets;
     const videoUrl = ex.exercise_library?.video_url ?? null;
     const color = ex.group_id != null ? groupColor(ex.group_id) : "#2DC4B8";
 
-    // Round progress dots for superset
     const roundDots = inGroup && ex.group_id != null
       ? Array.from({ length: ex.sets }, (_, i) => {
           const setNum = i + 1;
-          const allExsDone = groupExs?.every(ge => !!logged[`${ge.id}-${setNum}`]) ?? false;
-          return allExsDone;
+          return groupExs?.every(ge => !!logged[`${ge.id}-${setNum}`]) ?? false;
         })
       : null;
 
@@ -305,13 +302,17 @@ export default function WorkoutSessionPage() {
                         ? <span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>✓</span>
                         : <span style={{ color: "#6B7A8D", fontSize: 12, fontWeight: 700 }}>{setNum}</span>}
                     </div>
-                    <input type="number" inputMode="numeric"
+                    <input
+                      type="text" inputMode="numeric" pattern="[0-9]*"
                       placeholder={logged[key]?.reps != null ? String(logged[key].reps) : ex.reps.split(/[-x]/)[0].trim()}
-                      value={inp.reps} onChange={e => setInputs(p => ({ ...p, [key]: { ...inp, reps: e.target.value } }))}
+                      value={inp.reps}
+                      onChange={e => { const v = e.target.value.replace(/[^0-9]/g, ""); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
                       style={inputStyle(isDone)} />
-                    <input type="number" inputMode="decimal"
+                    <input
+                      type="text" inputMode="decimal"
                       placeholder={logged[key]?.weight != null ? String(logged[key].weight) : prev?.weight != null ? String(prev.weight) : "0"}
-                      value={inp.weight} onChange={e => setInputs(p => ({ ...p, [key]: { ...inp, weight: e.target.value } }))}
+                      value={inp.weight}
+                      onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, ""); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
                       style={inputStyle(isDone)} />
                     <button onClick={() => handleLogSet(ex.id, setNum)}
                       style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : color, color: isDone ? "#059669" : "#fff", fontWeight: 700, fontSize: 13, border: `1.5px solid ${isDone ? "#6EE7B7" : color}`, cursor: "pointer" }}>
@@ -373,7 +374,7 @@ export default function WorkoutSessionPage() {
 
         {renderItems.map((item, itemIdx) => {
           if (item.kind === "standalone") {
-            return <ExerciseCard key={item.ex.id} ex={item.ex} />;
+            return <div key={item.ex.id}>{renderExCard(item.ex)}</div>;
           }
 
           const color = groupColor(item.gid);
@@ -405,7 +406,7 @@ export default function WorkoutSessionPage() {
               <div style={{ border: `1.5px solid ${color}44`, borderTop: "none", borderRadius: "0 0 14px 14px", overflow: "hidden" }}>
                 {item.items.map((ex, i) => (
                   <div key={ex.id}>
-                    <ExerciseCard ex={ex} inGroup groupExs={item.items} />
+                    {renderExCard(ex, true, item.items)}
                     {/* Connector between exercises */}
                     {i < item.items.length - 1 && (
                       <div style={{ background: "#F8FAFB", padding: "6px 16px", borderTop: `1px solid ${color}22`, borderBottom: `1px solid ${color}22`, display: "flex", alignItems: "center", gap: 6 }}>
