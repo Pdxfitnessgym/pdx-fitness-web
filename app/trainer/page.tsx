@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { NotificationBanner } from "@/app/components/NotificationBanner";
+import { LogoutButton } from "@/app/components/LogoutButton";
 
 export default async function TrainerDashboard() {
   const supabase = await createClient();
@@ -24,7 +25,10 @@ export default async function TrainerDashboard() {
             <div style={{ fontSize: 13, color: "#6B7A8D" }}>Welcome back</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4" }}>{profile?.full_name ?? "Trainer"}</div>
           </div>
-          <Image src="/logo.png" alt="PDX Fitness" width={100} height={40} style={{ objectFit: "contain" }} />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+            <Image src="/logo.png" alt="PDX Fitness" width={100} height={40} style={{ objectFit: "contain" }} />
+            <LogoutButton />
+          </div>
         </div>
       </div>
 
