@@ -495,7 +495,10 @@ export default function ProgressPage() {
               <div style={{ background: "#fff", borderRadius: 14, padding: "40px 24px", border: "1px solid #E2EAF0", textAlign: "center" }}>
                 <div style={{ fontSize: 40, marginBottom: 10 }}>🎯</div>
                 <div style={{ fontWeight: 600, color: "#0D1827", marginBottom: 4 }}>No goals yet</div>
-                <div style={{ fontSize: 14, color: "#6B7A8D" }}>Tap "+ Goal" to set your first target</div>
+                <div style={{ fontSize: 14, color: "#6B7A8D", marginBottom: 20 }}>Set a target and track your progress automatically</div>
+                <button onClick={() => setShowGoalForm(true)} style={{ padding: "13px 28px", borderRadius: 12, background: "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer" }}>
+                  + Set a Goal
+                </button>
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
