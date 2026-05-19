@@ -176,6 +176,18 @@ export default function TrainerCalendarPage() {
     }
   }
 
+  async function deleteSession(sessionId: string) {
+    const supabase = createClient();
+    const { error } = await supabase.from("training_sessions").delete().eq("id", sessionId);
+    if (!error) {
+      setSessions(prev => prev.filter(s => s.id !== sessionId));
+      setSelected(prev => {
+        const remaining = (prev ?? []).filter(s => s.id !== sessionId);
+        return remaining.length > 0 ? remaining : null;
+      });
+    }
+  }
+
   async function handleConfirmDecline(sessionId: string, action: "confirm" | "decline") {
     await fetch("/api/sessions/confirm", {
       method: "POST",
@@ -312,8 +324,9 @@ export default function TrainerCalendarPage() {
                     </span>
                     <Link href={`/trainer/clients/${s.client_id}`} style={{ fontSize: 12, color: "#2DC4B8", textDecoration: "none", fontWeight: 600 }}>View →</Link>
                     {(s.status === "scheduled" || s.status === "rescheduled") && (
-                      <button onClick={() => cancelSession(s.id)} style={{ fontSize: 12, color: "#EF4444", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>Cancel</button>
+                      <button onClick={() => cancelSession(s.id)} style={{ fontSize: 12, color: "#F59E0B", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>Cancel</button>
                     )}
+                    <button onClick={() => deleteSession(s.id)} style={{ fontSize: 12, color: "#EF4444", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>Delete</button>
                   </div>
                 </div>
               ))}
