@@ -15,6 +15,32 @@ function toICSDate(d: Date): string {
   return d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
 }
 
+function toICSDateLocal(d: Date): string {
+  // Format as local floating time (YYYYMMDDTHHMMSS) for use with TZID
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+
+const VTIMEZONE_LA = [
+  "BEGIN:VTIMEZONE",
+  "TZID:America/Los_Angeles",
+  "BEGIN:STANDARD",
+  "DTSTART:19671029T020000",
+  "RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11",
+  "TZOFFSETFROM:-0700",
+  "TZOFFSETTO:-0800",
+  "TZNAME:PST",
+  "END:STANDARD",
+  "BEGIN:DAYLIGHT",
+  "DTSTART:19870405T020000",
+  "RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3",
+  "TZOFFSETFROM:-0800",
+  "TZOFFSETTO:-0700",
+  "TZNAME:PDT",
+  "END:DAYLIGHT",
+  "END:VTIMEZONE",
+];
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const supabase = createServiceClient();
@@ -39,8 +65,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     "VERSION:2.0",
     "PRODID:-//PDX Fitness//EN",
     "X-WR-CALNAME:PDX Fitness Workouts",
+    "X-WR-TIMEZONE:America/Los_Angeles",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
+    ...VTIMEZONE_LA,
   ];
 
   if (cp) {
@@ -55,10 +83,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
           "BEGIN:VEVENT",
           `UID:pdxfit-${w.id}@pdx-fitness`,
           `DTSTAMP:${toICSDate(new Date())}`,
-          `DTSTART:${dtStart}`,
-          `DTEND:${dtEnd}`,
-          `SUMMARY:${w.name}`,
-          `DESCRIPTION:${program.name} · ${exCount} exercise${exCount !== 1 ? "s" : ""}`,
+          `DTSTART;TZID=America/Los_Angeles:${toICSDateLocal(d)}`,
+          `DTEND;TZID=America/Los_Angeles:${toICSDateLocal(new Date(d.getTime() + 60 * 60 * 1000))}`,
+          `SUMMARY:${w.name.replace(/[,;\\]/g, "\\$&")}`,
+          `DESCRIPTION:${program.name.replace(/[,;\\]/g, "\\$&")} - ${exCount} exercise${exCount !== 1 ? "s" : ""}`,
           "END:VEVENT",
         );
       }
@@ -67,11 +95,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
 
   lines.push("END:VCALENDAR");
 
-  return new NextResponse(lines.join("\r\n"), {
+  const body = lines.join("\r\n") + "\r\n";
+  return new NextResponse(body, {
     headers: {
-      "Content-Type": "text/calendar; charset=utf-8",
-      "Content-Disposition": "inline; filename=pdx-fitness.ics",
-      "Cache-Control": "no-cache",
+      "Content-Type": "text/calendar",
+      "Content-Disposition": "attachment; filename=\"pdx-fitness.ics\"",
+      "Cache-Control": "no-store, no-cache",
+      "Pragma": "no-cache",
     },
   });
 }
