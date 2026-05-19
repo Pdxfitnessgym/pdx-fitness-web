@@ -24,7 +24,8 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const isPublic = pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname === "/";
+  const isCalendarFeed = pathname.startsWith("/api/calendar/") && !pathname.endsWith("/subscribe");
+  const isPublic = pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname === "/" || isCalendarFeed;
   const isPendingPage = pathname.startsWith("/pending-approval");
 
   if (!user && !isPublic) {
