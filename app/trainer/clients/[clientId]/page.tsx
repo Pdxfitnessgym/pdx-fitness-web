@@ -54,9 +54,11 @@ export default async function ClientDetailPage({
   // Tab-specific data
   let programs = null, trainingSessions = null, completedCount = 0;
   let workoutLogs = null;
-  let progressLogs = null, prs: { exercise_name: string; best_weight: number; best_reps: number | null }[] = [];
+  let progressLogs: { id: string; logged_at: string; weight_lbs: number | null; body_fat_pct: number | null; notes: string | null; photo_url: string | null }[] | null = null;
+  let prs: { exercise_name: string; best_weight: number; best_reps: number | null }[] = [];
   let goals = null;
-  let habits = null, habitLogs = null;
+  let habits = null;
+  let habitLogs: { habit_id: string; logged_date: string }[] | null = null;
 
   if (tab === "overview") {
     const [p, ts] = await Promise.all([
