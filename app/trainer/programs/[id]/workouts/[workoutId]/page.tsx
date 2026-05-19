@@ -222,7 +222,8 @@ export default function WorkoutBuilderPage() {
 
   const programName = (workout?.programs as { name: string } | null)?.name ?? "Program";
 
-  function ExerciseCard({ ex, idx, grouped, isFirst, isLast }: { ex: Exercise; idx: number; grouped?: boolean; isFirst?: boolean; isLast?: boolean }) {
+  // Render function (not a component) — avoids remount-on-every-render issue
+  function renderExCard(ex: Exercise, idx: number, grouped?: boolean) {
     const isExpanded = expandedId === ex.id;
     const edit = edits[ex.id];
     const isDeletingThis = deleting === ex.id;
@@ -232,7 +233,13 @@ export default function WorkoutBuilderPage() {
     const color = ex.group_id != null ? groupColor(ex.group_id) : "#E2EAF0";
 
     return (
-      <div style={{ background: "#fff", borderRadius: grouped ? (isFirst ? "0 0 0 0" : isLast ? "0 0 12px 12px" : "0") : 14, border: grouped ? "none" : `1.5px solid ${isExpanded ? "#1B68B4" : isSelected ? "#2DC4B8" : "#E2EAF0"}`, marginBottom: grouped ? 0 : 10, overflow: "hidden", opacity: isDeletingThis ? 0.4 : 1, borderLeft: grouped ? `3px solid ${color}` : undefined }}>
+      <div
+        key={ex.id}
+        onClick={supersetMode ? () => {
+          setSelected(prev => { const n = new Set(prev); n.has(ex.id) ? n.delete(ex.id) : n.add(ex.id); return n; });
+        } : undefined}
+        style={{ background: "#fff", borderRadius: grouped ? 0 : 14, border: grouped ? "none" : `1.5px solid ${isExpanded ? "#1B68B4" : isSelected ? "#2DC4B8" : "#E2EAF0"}`, marginBottom: grouped ? 0 : 10, overflow: "hidden", opacity: isDeletingThis ? 0.4 : 1, borderLeft: grouped ? `3px solid ${color}` : undefined, cursor: supersetMode ? "pointer" : "default" }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: isSelected ? "#EBF9F8" : "#fff" }}>
           {supersetMode && (
             <div style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${isSelected ? "#2DC4B8" : "#D1D5DB"}`, background: isSelected ? "#2DC4B8" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -248,23 +255,23 @@ export default function WorkoutBuilderPage() {
             <div style={{ width: 52, height: 52, borderRadius: 10, background: "#F4F7FA", border: "1px solid #E2EAF0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 20 }}>💪</div>
           )}
 
-          <div style={{ flex: 1, cursor: "pointer" }} onClick={() => toggleExpand(ex)}>
+          <div style={{ flex: 1 }} onClick={!supersetMode ? () => toggleExpand(ex) : undefined}>
             <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827" }}>{idx + 1}. {ex.name}</div>
             <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>
               {ex.sets} sets × {ex.reps}
-              {grouped ? <span style={{ color: color }}> · {ex.rest_seconds}s rest →</span> : <span> · {ex.rest_seconds}s rest</span>}
+              {grouped ? <span style={{ color }}> · {ex.rest_seconds}s rest →</span> : <span> · {ex.rest_seconds}s rest</span>}
             </div>
             {ex.notes && <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2, fontStyle: "italic" }}>{ex.notes}</div>}
           </div>
 
           {!supersetMode && (
             <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
-              <button onClick={() => moveUp(idx)} disabled={idx === 0 || reordering} style={{ background: "none", border: "none", fontSize: 14, cursor: idx === 0 ? "default" : "pointer", color: idx === 0 ? "#E2EAF0" : "#9CA3AF", padding: "2px 6px" }}>▲</button>
-              <button onClick={() => moveDown(idx)} disabled={idx === exercises.length - 1 || reordering} style={{ background: "none", border: "none", fontSize: 14, cursor: idx === exercises.length - 1 ? "default" : "pointer", color: idx === exercises.length - 1 ? "#E2EAF0" : "#9CA3AF", padding: "2px 6px" }}>▼</button>
+              <button onClick={e => { e.stopPropagation(); moveUp(idx); }} disabled={idx === 0 || reordering} style={{ background: "none", border: "none", fontSize: 14, cursor: idx === 0 ? "default" : "pointer", color: idx === 0 ? "#E2EAF0" : "#9CA3AF", padding: "2px 6px" }}>▲</button>
+              <button onClick={e => { e.stopPropagation(); moveDown(idx); }} disabled={idx === exercises.length - 1 || reordering} style={{ background: "none", border: "none", fontSize: 14, cursor: idx === exercises.length - 1 ? "default" : "pointer", color: idx === exercises.length - 1 ? "#E2EAF0" : "#9CA3AF", padding: "2px 6px" }}>▼</button>
             </div>
           )}
           {!supersetMode && (
-            <button onClick={() => toggleExpand(ex)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: isExpanded ? "#1B68B4" : "#C0CBD6", padding: "4px 6px", flexShrink: 0, transform: isExpanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>›</button>
+            <button onClick={e => { e.stopPropagation(); toggleExpand(ex); }} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: isExpanded ? "#1B68B4" : "#C0CBD6", padding: "4px 6px", flexShrink: 0, transform: isExpanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>›</button>
           )}
         </div>
 
@@ -388,7 +395,7 @@ export default function WorkoutBuilderPage() {
 
         {renderItems.map(item => {
           if (item.kind === "standalone") {
-            return <ExerciseCard key={item.ex.id} ex={item.ex} idx={item.idx} />;
+            return <div key={item.ex.id}>{renderExCard(item.ex, item.idx, false)}</div>;
           }
 
           const color = groupColor(item.gid);
@@ -420,7 +427,7 @@ export default function WorkoutBuilderPage() {
               <div style={{ border: `1.5px solid ${color}44`, borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
                 {item.items.map(({ ex, idx }, i) => (
                   <div key={ex.id}>
-                    <ExerciseCard ex={ex} idx={idx} grouped isFirst={i === 0} isLast={i === item.items.length - 1} />
+                    {renderExCard(ex, idx, true)}
                     {i < item.items.length - 1 && (
                       <div style={{ background: "#F8FAFB", padding: "6px 14px 6px 20px", borderTop: `1px solid ${color}22`, borderBottom: `1px solid ${color}22`, display: "flex", alignItems: "center", gap: 6 }}>
                         <div style={{ width: 2, height: 16, background: color + "60", borderRadius: 1 }} />
