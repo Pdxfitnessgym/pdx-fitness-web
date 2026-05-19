@@ -6,7 +6,7 @@ import Link from "next/link";
 type Session = {
   id: string;
   scheduled_at: string;
-  status: "scheduled" | "completed" | "no_show" | "rescheduled";
+  status: "scheduled" | "completed" | "no_show" | "rescheduled" | "cancelled" | "pending";
   notes: string | null;
   client_name: string;
   client_id: string;
@@ -22,12 +22,16 @@ const STATUS_COLOR: Record<string, string> = {
   completed: "#10B981",
   no_show: "#EF4444",
   rescheduled: "#F59E0B",
+  cancelled: "#9CA3AF",
+  pending: "#8B5CF6",
 };
 const STATUS_LABEL: Record<string, string> = {
   scheduled: "Scheduled",
   completed: "Completed",
   no_show: "No Show",
   rescheduled: "Rescheduled",
+  cancelled: "Cancelled",
+  pending: "Pending",
 };
 
 export default function TrainerCalendarPage() {
@@ -163,6 +167,25 @@ export default function TrainerCalendarPage() {
     setSelectedDate(scheduleDate);
   }
 
+  async function cancelSession(sessionId: string) {
+    const supabase = createClient();
+    const { error } = await supabase.from("training_sessions").update({ status: "cancelled" }).eq("id", sessionId);
+    if (!error) {
+      setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, status: "cancelled" } : s));
+      setSelected(prev => prev ? prev.map(s => s.id === sessionId ? { ...s, status: "cancelled" } : s) : null);
+    }
+  }
+
+  async function handleConfirmDecline(sessionId: string, action: "confirm" | "decline") {
+    await fetch("/api/sessions/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId, action }),
+    });
+    const newStatus = action === "confirm" ? "scheduled" : "cancelled";
+    setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, status: newStatus } : s));
+  }
+
   function copyWebcal() {
     if (!calToken) return;
     const url = `webcals://${window.location.host}/api/calendar/trainer/${calToken}`;
@@ -288,6 +311,9 @@ export default function TrainerCalendarPage() {
                       {STATUS_LABEL[s.status]}
                     </span>
                     <Link href={`/trainer/clients/${s.client_id}`} style={{ fontSize: 12, color: "#2DC4B8", textDecoration: "none", fontWeight: 600 }}>View →</Link>
+                    {(s.status === "scheduled" || s.status === "rescheduled") && (
+                      <button onClick={() => cancelSession(s.id)} style={{ fontSize: 12, color: "#EF4444", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>Cancel</button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -353,6 +379,46 @@ export default function TrainerCalendarPage() {
                   {scheduleSaving ? "Scheduling…" : "Confirm Session"}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Pending session requests */}
+        {sessions.filter(s => s.status === "pending").length > 0 && (
+          <div style={{ background: "#fff", borderRadius: 14, padding: 18, border: "2px solid #8B5CF6" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#8B5CF6", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>
+              🔔 Pending Requests ({sessions.filter(s => s.status === "pending").length})
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {sessions.filter(s => s.status === "pending").map(s => (
+                <div key={s.id} style={{ background: "#FAF5FF", borderRadius: 10, padding: "12px 14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827" }}>{s.client_name}</div>
+                      <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>
+                        {new Date(s.scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                        {" · "}
+                        {new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                      </div>
+                      {s.notes && <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2, fontStyle: "italic" }}>{s.notes}</div>}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={() => handleConfirmDecline(s.id, "confirm")}
+                      style={{ flex: 1, padding: "10px", borderRadius: 10, background: "#10B981", color: "#fff", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer" }}
+                    >
+                      ✓ Confirm
+                    </button>
+                    <button
+                      onClick={() => handleConfirmDecline(s.id, "decline")}
+                      style={{ flex: 1, padding: "10px", borderRadius: 10, background: "#FEE2E2", color: "#EF4444", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer" }}
+                    >
+                      ✕ Decline
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

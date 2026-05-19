@@ -117,6 +117,18 @@ export default async function ClientDashboard() {
           )}
         </div>
 
+        {/* Book a session shortcut */}
+        <div style={{ marginBottom: 16 }}>
+          <a href="/client/book" style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 14, textDecoration: "none", border: "2px solid #1B68B4" }}>
+            <div style={{ fontSize: 32 }}>📆</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: "#1B68B4" }}>Book a Session</div>
+              <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 2 }}>View your trainer's open slots and reserve a time</div>
+            </div>
+            <div style={{ color: "#1B68B4", fontSize: 20 }}>›</div>
+          </a>
+        </div>
+
         {/* Challenges shortcut */}
         <div style={{ marginBottom: 16 }}>
           <a href="/client/challenges" style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 14, textDecoration: "none" }}>

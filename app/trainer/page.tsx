@@ -79,6 +79,11 @@ export default async function TrainerDashboard() {
             <span style={{ fontWeight: 700, fontSize: 15, color: "#1B68B4" }}>Messages</span>
             <span style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>Chat with clients</span>
           </Link>
+          <Link href="/trainer/availability" style={{ ...buildCard, background: "#fff" }}>
+            <span style={{ fontSize: 24, marginBottom: 4 }}>🗓️</span>
+            <span style={{ fontWeight: 700, fontSize: 15, color: "#1B68B4" }}>Availability</span>
+            <span style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>Set bookable time slots</span>
+          </Link>
         </div>
 
         {/* Calendar quick link */}
@@ -102,6 +107,7 @@ export default async function TrainerDashboard() {
             { label: "Calendar", href: "/trainer/calendar", icon: "📅" },
             { label: "Challenges", href: "/trainer/challenges", icon: "🏆" },
             { label: "Messages", href: "/trainer/messages", icon: "💬" },
+            { label: "Availability", href: "/trainer/availability", icon: "🗓️" },
           ].map(item => (
             <a key={item.href} href={item.href} style={navItem}>
               <span style={{ fontSize: 22 }}>{item.icon}</span>
