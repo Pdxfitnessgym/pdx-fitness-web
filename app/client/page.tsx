@@ -99,6 +99,15 @@ export default async function ClientDashboard() {
           </a>
         </div>
 
+        {/* Calendar quick link */}
+        <a href="/client/calendar" style={{ ...cardStyle, display: "flex", alignItems: "center", justifyContent: "space-between", textDecoration: "none", marginBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#0D1827" }}>📅 Workout Calendar</div>
+            <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>View schedule · Sync to Apple/Google</div>
+          </div>
+          <div style={{ color: "#1B68B4", fontSize: 18 }}>›</div>
+        </a>
+
         {/* Progress Grid */}
         <a href="/client/progress" style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 12, display: "block", textDecoration: "none" }}>My Progress →</a>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>

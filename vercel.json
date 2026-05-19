@@ -3,6 +3,10 @@
     {
       "path": "/api/push/weekly-reminder",
       "schedule": "0 9 * * 1"
+    },
+    {
+      "path": "/api/push/daily-reminder",
+      "schedule": "0 15 * * *"
     }
   ]
 }
