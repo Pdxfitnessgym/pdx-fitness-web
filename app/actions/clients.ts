@@ -1,5 +1,6 @@
 "use server";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { sendPushToUser } from "@/lib/push";
@@ -27,7 +28,8 @@ export async function addClientByEmail(formData: FormData) {
     redirect("/trainer/clients?error=has_trainer");
   }
 
-  await supabase.from("profiles").update({ trainer_id: user.id }).eq("id", clientProfile.id);
+  const svc = createServiceClient();
+  await svc.from("profiles").update({ trainer_id: user.id }).eq("id", clientProfile.id);
   redirect("/trainer/clients?success=1");
 }
 
