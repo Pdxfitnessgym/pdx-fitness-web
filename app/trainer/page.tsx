@@ -76,14 +76,24 @@ export default async function TrainerDashboard() {
           </Link>
         </div>
 
+        {/* Calendar quick link */}
+        <Link href="/trainer/calendar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fff", borderRadius: 14, padding: "14px 18px", border: "1px solid #E2EAF0", textDecoration: "none", marginBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#0D1827" }}>📅 Session Calendar</div>
+            <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>View schedule · Sync to Apple/Google</div>
+          </div>
+          <div style={{ color: "#1B68B4", fontSize: 18 }}>›</div>
+        </Link>
+
         {/* Nav */}
         <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Navigate</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8 }}>
           {[
             { label: "Home", href: "/trainer", icon: "🏠" },
             { label: "Clients", href: "/trainer/clients", icon: "👥" },
             { label: "Programs", href: "/trainer/programs", icon: "📋" },
             { label: "Exercises", href: "/trainer/exercises", icon: "🏋️" },
+            { label: "Calendar", href: "/trainer/calendar", icon: "📅" },
             { label: "Challenges", href: "/trainer/challenges", icon: "🏆" },
             { label: "Messages", href: "/trainer/messages", icon: "💬" },
           ].map(item => (
