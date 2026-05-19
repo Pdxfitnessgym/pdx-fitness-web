@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -30,6 +30,16 @@ type Client = {
   id: string;
   full_name: string;
   assigned: boolean;
+};
+
+type FoodResult = {
+  id: string;
+  name: string;
+  brand: string;
+  calories_100g: number | null;
+  protein_100g: number | null;
+  carbs_100g: number | null;
+  fat_100g: number | null;
 };
 
 const MEAL_TYPES = [
@@ -88,6 +98,7 @@ export default function MealPlanEditorPage({
   const [saving, setSaving] = useState(false);
 
   // New meal form state
+  const [nmMode, setNmMode] = useState<"search" | "manual">("search");
   const [nmName, setNmName] = useState("");
   const [nmType, setNmType] = useState("lunch");
   const [nmCals, setNmCals] = useState("");
@@ -97,6 +108,16 @@ export default function MealPlanEditorPage({
   const [nmDesc, setNmDesc] = useState("");
   const [nmIngredients, setNmIngredients] = useState("");
   const [nmInstructions, setNmInstructions] = useState("");
+
+  // Food database search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<FoodResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedFood, setSelectedFood] = useState<FoodResult | null>(null);
+  const [portionAmt, setPortionAmt] = useState("100");
+  const [portionUnit, setPortionUnit] = useState<"g" | "oz">("g");
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     (async () => {
@@ -151,6 +172,109 @@ export default function MealPlanEditorPage({
     })();
   }, [planId]);
 
+  function handleSearchInput(q: string) {
+    setSearchQuery(q);
+    setSelectedFood(null);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (!q.trim()) { setSearchResults([]); return; }
+    searchTimer.current = setTimeout(() => doFoodSearch(q), 500);
+  }
+
+  async function doFoodSearch(q: string) {
+    setSearching(true);
+    try {
+      const res = await fetch(
+        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&fields=id,product_name,brands,nutriments&page_size=12`
+      );
+      const data = await res.json();
+      const results: FoodResult[] = (data.products ?? [])
+        .filter((p: Record<string, unknown>) => p.product_name)
+        .map((p: Record<string, unknown>) => {
+          const n = (p.nutriments ?? {}) as Record<string, number>;
+          return {
+            id: String(p.id ?? p._id ?? Math.random()),
+            name: String(p.product_name),
+            brand: String(p.brands ?? ""),
+            calories_100g: n["energy-kcal_100g"] ?? null,
+            protein_100g: n["proteins_100g"] ?? null,
+            carbs_100g: n["carbohydrates_100g"] ?? null,
+            fat_100g: n["fat_100g"] ?? null,
+          };
+        });
+      setSearchResults(results);
+    } catch { setSearchResults([]); }
+    setSearching(false);
+  }
+
+  async function lookupBarcode(barcode: string) {
+    setSearching(true);
+    try {
+      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+      const data = await res.json();
+      if (data.status === 1 && data.product) {
+        const p = data.product;
+        const n = (p.nutriments ?? {}) as Record<string, number>;
+        const food: FoodResult = {
+          id: barcode,
+          name: p.product_name || "Unknown product",
+          brand: p.brands || "",
+          calories_100g: n["energy-kcal_100g"] ?? null,
+          protein_100g: n["proteins_100g"] ?? null,
+          carbs_100g: n["carbohydrates_100g"] ?? null,
+          fat_100g: n["fat_100g"] ?? null,
+        };
+        setSearchResults([food]);
+        setSearchQuery(food.name);
+      } else {
+        setSearchResults([]);
+        alert("Product not found in database.");
+      }
+    } catch { setSearchResults([]); }
+    setSearching(false);
+  }
+
+  async function handleBarcodeImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!("BarcodeDetector" in window)) {
+      alert("Barcode scanning isn't supported on this browser. Try typing the food name instead.");
+      return;
+    }
+    const img = await createImageBitmap(file);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const detector = new (window as any).BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e"] });
+    const barcodes = await detector.detect(img);
+    if (barcodes.length > 0) {
+      await lookupBarcode(barcodes[0].rawValue);
+    } else {
+      alert("No barcode found. Try again with better lighting.");
+    }
+    e.target.value = "";
+  }
+
+  function applyPortion(food: FoodResult, amt: string, unit: "g" | "oz") {
+    const grams = unit === "oz" ? parseFloat(amt) * 28.3495 : parseFloat(amt);
+    if (!grams || isNaN(grams)) { setNmCals(""); setNmProtein(""); setNmCarbs(""); setNmFat(""); return; }
+    const f = grams / 100;
+    setNmCals(food.calories_100g != null ? String(Math.round(food.calories_100g * f)) : "");
+    setNmProtein(food.protein_100g != null ? String(Math.round(food.protein_100g * f)) : "");
+    setNmCarbs(food.carbs_100g != null ? String(Math.round(food.carbs_100g * f)) : "");
+    setNmFat(food.fat_100g != null ? String(Math.round(food.fat_100g * f)) : "");
+  }
+
+  function selectFood(food: FoodResult) {
+    setSelectedFood(food);
+    setSearchQuery(food.name);
+    setSearchResults([]);
+    applyPortion(food, portionAmt, portionUnit);
+  }
+
+  function handlePortionChange(amt: string, unit: "g" | "oz") {
+    setPortionAmt(amt);
+    setPortionUnit(unit);
+    if (selectedFood) applyPortion(selectedFood, amt, unit);
+  }
+
   function resetMealForm() {
     setNmName("");
     setNmType("lunch");
@@ -161,10 +285,16 @@ export default function MealPlanEditorPage({
     setNmDesc("");
     setNmIngredients("");
     setNmInstructions("");
+    setSearchQuery("");
+    setSearchResults([]);
+    setSelectedFood(null);
+    setPortionAmt("100");
+    setPortionUnit("g");
   }
 
   async function addMeal() {
-    if (!nmName.trim()) return;
+    const mealName = nmMode === "search" ? (selectedFood?.name ?? searchQuery).trim() : nmName.trim();
+    if (!mealName) return;
     setSaving(true);
     const supabase = createClient();
 
@@ -172,7 +302,7 @@ export default function MealPlanEditorPage({
       .from("meals")
       .insert({
         plan_id: planId,
-        name: nmName.trim(),
+        name: mealName,
         meal_type: nmType,
         description: nmDesc.trim() || null,
         calories: parseInt(nmCals) || null,
@@ -369,65 +499,105 @@ export default function MealPlanEditorPage({
 
           {/* Add meal form */}
           {addingMeal && (
-            <div
-              style={{
-                background: "#fff",
-                borderRadius: 14,
-                border: "1px solid #E2EAF0",
-                padding: "18px",
-                marginBottom: 12,
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
-              }}
-            >
-              <div style={{ fontSize: 15, fontWeight: 800, color: "#0D1827" }}>
-                Add Meal
+            <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2EAF0", padding: "18px", marginBottom: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: "#0D1827" }}>Add Meal</div>
+
+              {/* Mode toggle */}
+              <div style={{ display: "flex", gap: 0, background: "#F4F7FA", borderRadius: 10, padding: 3 }}>
+                {(["search", "manual"] as const).map(m => (
+                  <button key={m} onClick={() => { setNmMode(m); resetMealForm(); }}
+                    style={{ flex: 1, padding: "9px", borderRadius: 8, border: "none", background: nmMode === m ? "#fff" : "transparent", color: nmMode === m ? "#0D1827" : "#6B7A8D", fontWeight: nmMode === m ? 700 : 500, fontSize: 13, cursor: "pointer", boxShadow: nmMode === m ? "0 1px 4px rgba(0,0,0,0.08)" : "none" }}>
+                    {m === "search" ? "🔍 Search Database" : "✏️ Enter Manually"}
+                  </button>
+                ))}
               </div>
 
-              <div>
-                <label style={smallLabel}>Meal Name *</label>
-                <input
-                  type="text"
-                  value={nmName}
-                  onChange={(e) => setNmName(e.target.value)}
-                  placeholder="e.g. Grilled Chicken & Rice"
-                  style={fieldInput}
-                  autoFocus
-                />
-              </div>
+              {nmMode === "search" ? (
+                <>
+                  <div>
+                    <label style={smallLabel}>Food Name or Brand</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input type="text" value={searchQuery} onChange={e => handleSearchInput(e.target.value)}
+                        placeholder="e.g. chicken breast, brown rice…" style={{ ...fieldInput, flex: 1 }} autoComplete="off" />
+                      <button type="button" onClick={() => barcodeInputRef.current?.click()} title="Scan barcode"
+                        style={{ flexShrink: 0, padding: "0 12px", borderRadius: 8, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 18, cursor: "pointer" }}>
+                        📷
+                      </button>
+                      <input ref={barcodeInputRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={handleBarcodeImage} />
+                    </div>
+                  </div>
+
+                  {searching && <div style={{ fontSize: 13, color: "#6B7A8D", textAlign: "center" }}>Searching…</div>}
+
+                  {searchResults.length > 0 && !selectedFood && (
+                    <div style={{ border: "1px solid #E2EAF0", borderRadius: 10, overflow: "hidden", maxHeight: 240, overflowY: "auto" }}>
+                      {searchResults.map((food, i) => (
+                        <button key={food.id} onClick={() => selectFood(food)}
+                          style={{ width: "100%", display: "flex", flexDirection: "column", padding: "10px 14px", background: "#fff", border: "none", borderBottom: i < searchResults.length - 1 ? "1px solid #F4F7FA" : "none", cursor: "pointer", textAlign: "left" }}>
+                          <span style={{ fontSize: 14, fontWeight: 600, color: "#0D1827" }}>{food.name}</span>
+                          {food.brand && <span style={{ fontSize: 12, color: "#9CA3AF", marginTop: 1 }}>{food.brand}</span>}
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+                            {food.calories_100g != null && <span style={{ fontSize: 11, color: "#F59E0B", fontWeight: 600 }}>{Math.round(food.calories_100g)} kcal</span>}
+                            {food.protein_100g != null && <span style={{ fontSize: 11, color: "#1B68B4", fontWeight: 600 }}>P {Math.round(food.protein_100g)}g</span>}
+                            {food.carbs_100g != null && <span style={{ fontSize: 11, color: "#10B981", fontWeight: 600 }}>C {Math.round(food.carbs_100g)}g</span>}
+                            {food.fat_100g != null && <span style={{ fontSize: 11, color: "#EF4444", fontWeight: 600 }}>F {Math.round(food.fat_100g)}g</span>}
+                            <span style={{ fontSize: 11, color: "#9CA3AF" }}>per 100g</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {selectedFood && (
+                    <div style={{ background: "#F0FDF9", border: "1.5px solid #2DC4B8", borderRadius: 12, padding: "12px 14px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827" }}>{selectedFood.name}</div>
+                          {selectedFood.brand && <div style={{ fontSize: 12, color: "#6B7A8D" }}>{selectedFood.brand}</div>}
+                        </div>
+                        <button onClick={() => { setSelectedFood(null); setSearchQuery(""); setSearchResults([]); }}
+                          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#9CA3AF" }}>✕</button>
+                      </div>
+                      <div style={{ marginTop: 10 }}>
+                        <label style={smallLabel}>Portion Size</label>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <input type="number" min="1" value={portionAmt} onChange={e => handlePortionChange(e.target.value, portionUnit)} style={{ ...fieldInput, flex: 1 }} />
+                          <button onClick={() => handlePortionChange(portionAmt, portionUnit === "g" ? "oz" : "g")}
+                            style={{ flexShrink: 0, padding: "0 16px", borderRadius: 8, border: "2px solid #2DC4B8", background: "#fff", color: "#2DC4B8", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                            {portionUnit}
+                          </button>
+                        </div>
+                        <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 6 }}>
+                          Quick:{" "}
+                          {[["1oz","1","oz"],["3oz","3","oz"],["4oz","4","oz"],["6oz","6","oz"],["100g","100","g"],["200g","200","g"]].map(([label,amt,unit]) => (
+                            <button key={label} onClick={() => handlePortionChange(amt, unit as "g"|"oz")}
+                              style={{ marginRight: 5, marginBottom: 4, fontSize: 11, padding: "2px 8px", borderRadius: 20, border: "1px solid #E2EAF0", background: "#fff", color: "#1B68B4", cursor: "pointer", fontWeight: 600 }}>
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div>
+                  <label style={smallLabel}>Meal Name *</label>
+                  <input type="text" value={nmName} onChange={e => setNmName(e.target.value)}
+                    placeholder="e.g. Grilled Chicken & Rice" style={fieldInput} autoFocus />
+                </div>
+              )}
 
               {/* Meal type chips */}
               <div>
                 <label style={smallLabel}>Meal Type</label>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 6,
-                    overflowX: "auto",
-                    paddingBottom: 4,
-                  }}
-                >
+                <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
                   {MEAL_TYPES.map((mt) => {
                     const sel = nmType === mt.value;
                     const c = MEAL_TYPE_COLORS[mt.value];
                     return (
-                      <button
-                        key={mt.value}
-                        onClick={() => setNmType(mt.value)}
-                        style={{
-                          padding: "7px 13px",
-                          borderRadius: 8,
-                          border: sel ? "none" : "1px solid #E2EAF0",
-                          background: sel ? c.bg : "#F4F7FA",
-                          color: sel ? c.color : "#6B7A8D",
-                          fontWeight: sel ? 700 : 500,
-                          fontSize: 12,
-                          cursor: "pointer",
-                          whiteSpace: "nowrap",
-                          flexShrink: 0,
-                        }}
-                      >
+                      <button key={mt.value} onClick={() => setNmType(mt.value)}
+                        style={{ padding: "7px 13px", borderRadius: 8, border: sel ? "none" : "1px solid #E2EAF0", background: sel ? c.bg : "#F4F7FA", color: sel ? c.color : "#6B7A8D", fontWeight: sel ? 700 : 500, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
                         {mt.label}
                       </button>
                     );
@@ -436,118 +606,55 @@ export default function MealPlanEditorPage({
               </div>
 
               {/* Macros 2x2 grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <div>
-                  <label style={smallLabel}>Calories</label>
-                  <input
-                    type="number"
-                    value={nmCals}
-                    onChange={(e) => setNmCals(e.target.value)}
-                    placeholder="450"
-                    style={fieldInput}
-                  />
-                </div>
-                <div>
-                  <label style={smallLabel}>Protein (g)</label>
-                  <input
-                    type="number"
-                    value={nmProtein}
-                    onChange={(e) => setNmProtein(e.target.value)}
-                    placeholder="40"
-                    style={fieldInput}
-                  />
-                </div>
-                <div>
-                  <label style={smallLabel}>Carbs (g)</label>
-                  <input
-                    type="number"
-                    value={nmCarbs}
-                    onChange={(e) => setNmCarbs(e.target.value)}
-                    placeholder="50"
-                    style={fieldInput}
-                  />
-                </div>
-                <div>
-                  <label style={smallLabel}>Fat (g)</label>
-                  <input
-                    type="number"
-                    value={nmFat}
-                    onChange={(e) => setNmFat(e.target.value)}
-                    placeholder="12"
-                    style={fieldInput}
-                  />
+              <div>
+                <label style={smallLabel}>
+                  Macros {nmMode === "search" && selectedFood ? <span style={{ fontWeight: 400, color: "#2DC4B8", textTransform: "none" }}>(auto-calculated)</span> : null}
+                </label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  {[
+                    { label: "Calories", val: nmCals, set: setNmCals, ph: "450", color: "#F59E0B" },
+                    { label: "Protein (g)", val: nmProtein, set: setNmProtein, ph: "40", color: "#1B68B4" },
+                    { label: "Carbs (g)", val: nmCarbs, set: setNmCarbs, ph: "50", color: "#10B981" },
+                    { label: "Fat (g)", val: nmFat, set: setNmFat, ph: "12", color: "#EF4444" },
+                  ].map(({ label, val, set, ph, color }) => (
+                    <div key={label}>
+                      <label style={{ ...smallLabel, color }}>{label}</label>
+                      <input type="number" value={val} onChange={e => set(e.target.value)} placeholder={ph}
+                        style={{ ...fieldInput, borderColor: val ? color + "88" : "#E2EAF0" }} />
+                    </div>
+                  ))}
                 </div>
               </div>
 
               <div>
                 <label style={smallLabel}>Description (optional)</label>
-                <textarea
-                  value={nmDesc}
-                  onChange={(e) => setNmDesc(e.target.value)}
-                  placeholder="Brief notes about this meal..."
-                  rows={2}
-                  style={{ ...fieldInput, resize: "vertical", fontFamily: "inherit", lineHeight: 1.4 }}
-                />
+                <textarea value={nmDesc} onChange={e => setNmDesc(e.target.value)} placeholder="Brief notes about this meal..."
+                  rows={2} style={{ ...fieldInput, resize: "vertical", fontFamily: "inherit", lineHeight: 1.4 }} />
               </div>
 
               <div>
                 <label style={smallLabel}>Ingredients (optional)</label>
-                <textarea
-                  value={nmIngredients}
-                  onChange={(e) => setNmIngredients(e.target.value)}
-                  placeholder="200g chicken breast, 1 cup brown rice..."
-                  rows={3}
-                  style={{ ...fieldInput, resize: "vertical", fontFamily: "inherit", lineHeight: 1.4 }}
-                />
+                <textarea value={nmIngredients} onChange={e => setNmIngredients(e.target.value)}
+                  placeholder="200g chicken breast, 1 cup brown rice..." rows={3}
+                  style={{ ...fieldInput, resize: "vertical", fontFamily: "inherit", lineHeight: 1.4 }} />
               </div>
 
               <div>
                 <label style={smallLabel}>Instructions (optional)</label>
-                <textarea
-                  value={nmInstructions}
-                  onChange={(e) => setNmInstructions(e.target.value)}
-                  placeholder="Grill chicken, steam rice, combine..."
-                  rows={3}
-                  style={{ ...fieldInput, resize: "vertical", fontFamily: "inherit", lineHeight: 1.4 }}
-                />
+                <textarea value={nmInstructions} onChange={e => setNmInstructions(e.target.value)}
+                  placeholder="Grill chicken, steam rice, combine..." rows={3}
+                  style={{ ...fieldInput, resize: "vertical", fontFamily: "inherit", lineHeight: 1.4 }} />
               </div>
 
               <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  onClick={() => {
-                    resetMealForm();
-                    setAddingMeal(false);
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: "11px",
-                    borderRadius: 10,
-                    border: "1px solid #E2EAF0",
-                    background: "#F4F7FA",
-                    color: "#6B7A8D",
-                    fontWeight: 600,
-                    fontSize: 14,
-                    cursor: "pointer",
-                  }}
-                >
+                <button onClick={() => { resetMealForm(); setAddingMeal(false); }}
+                  style={{ flex: 1, padding: "11px", borderRadius: 10, border: "1px solid #E2EAF0", background: "#F4F7FA", color: "#6B7A8D", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>
                   Cancel
                 </button>
-                <button
-                  onClick={addMeal}
-                  disabled={saving || !nmName.trim()}
-                  style={{
-                    flex: 2,
-                    padding: "11px",
-                    borderRadius: 10,
-                    border: "none",
-                    background: "#1B68B4",
-                    color: "#fff",
-                    fontWeight: 700,
-                    fontSize: 14,
-                    cursor: saving || !nmName.trim() ? "not-allowed" : "pointer",
-                    opacity: saving || !nmName.trim() ? 0.6 : 1,
-                  }}
-                >
+                <button onClick={addMeal}
+                  disabled={saving || !(nmMode === "search" ? (selectedFood?.name ?? searchQuery).trim() : nmName.trim())}
+                  style={{ flex: 2, padding: "11px", borderRadius: 10, border: "none", background: "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer",
+                    opacity: saving || !(nmMode === "search" ? (selectedFood?.name ?? searchQuery).trim() : nmName.trim()) ? 0.6 : 1 }}>
                   {saving ? "Saving..." : "Save Meal"}
                 </button>
               </div>
