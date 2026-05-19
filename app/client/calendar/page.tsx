@@ -88,10 +88,19 @@ export default function CalendarPage() {
   const workoutMap: Record<string, WorkoutDay> = {};
   for (const w of workoutDays) workoutMap[w.date] = w;
 
-  function copyWebcal() {
+  function getCalUrl(scheme: "webcal" | "https") {
+    if (!calToken) return "";
+    return `${scheme}://${window.location.host}/api/calendar/${calToken}`;
+  }
+
+  function openAppleCalendar() {
     if (!calToken) return;
-    const url = `webcals://${window.location.host}/api/calendar/${calToken}`;
-    navigator.clipboard.writeText(url);
+    window.location.href = getCalUrl("webcal");
+  }
+
+  function copyGoogleUrl() {
+    if (!calToken) return;
+    navigator.clipboard.writeText(getCalUrl("https"));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -213,34 +222,36 @@ export default function CalendarPage() {
         {/* Calendar sync */}
         <div style={{ background: "#fff", borderRadius: 14, padding: 18, border: "1px solid #E2EAF0" }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 4 }}>Sync to your calendar</div>
-          <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 16 }}>Add your workouts to Apple Calendar or Google Calendar — they'll stay updated automatically.</div>
+          <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 16 }}>Your workouts will appear in your calendar and stay updated automatically.</div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {/* Apple Calendar — opens Calendar app directly */}
             <button
-              onClick={copyWebcal}
+              onClick={openAppleCalendar}
               disabled={!calToken}
-              style={{ padding: "13px", borderRadius: 12, background: copied ? "#10B981" : "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer" }}
+              style={{ padding: "14px 16px", borderRadius: 12, background: "#000", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: calToken ? "pointer" : "default", display: "flex", alignItems: "center", gap: 10, opacity: calToken ? 1 : 0.5 }}
             >
-              {copied ? "✓ Link copied!" : "Copy Calendar Link"}
+              <span style={{ fontSize: 22 }}>📅</span>
+              <div style={{ textAlign: "left" }}>
+                <div>Add to Apple Calendar</div>
+                <div style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.7)", marginTop: 1 }}>Tap to open Calendar app</div>
+              </div>
             </button>
 
-            <div style={{ background: "#F4F7FA", borderRadius: 12, padding: 14 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#0D1827", marginBottom: 8 }}>Apple Calendar</div>
-              <div style={{ fontSize: 13, color: "#6B7A8D", lineHeight: 1.6 }}>
-                1. Copy the calendar link above<br />
-                2. Open Calendar app → File → New Calendar Subscription<br />
-                3. Paste the link and click Subscribe
+            {/* Google Calendar — copy https URL */}
+            <button
+              onClick={copyGoogleUrl}
+              disabled={!calToken}
+              style={{ padding: "14px 16px", borderRadius: 12, background: copied ? "#10B981" : "#4285F4", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: calToken ? "pointer" : "default", display: "flex", alignItems: "center", gap: 10, opacity: calToken ? 1 : 0.5 }}
+            >
+              <span style={{ fontSize: 22 }}>📋</span>
+              <div style={{ textAlign: "left" }}>
+                <div>{copied ? "✓ Link copied!" : "Copy link for Google Calendar"}</div>
+                <div style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.8)", marginTop: 1 }}>
+                  {copied ? "Paste into Google Calendar → Other calendars → From URL" : "Then paste in Google Calendar → Other calendars → From URL"}
+                </div>
               </div>
-            </div>
-
-            <div style={{ background: "#F4F7FA", borderRadius: 12, padding: 14 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#0D1827", marginBottom: 8 }}>Google Calendar</div>
-              <div style={{ fontSize: 13, color: "#6B7A8D", lineHeight: 1.6 }}>
-                1. Copy the calendar link above<br />
-                2. Open Google Calendar → Other calendars → From URL<br />
-                3. Paste the link and click Add Calendar
-              </div>
-            </div>
+            </button>
           </div>
         </div>
 
