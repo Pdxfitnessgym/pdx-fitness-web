@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Image from "next/image";
 import { NotificationBanner } from "@/app/components/NotificationBanner";
 import { LogoutButton } from "@/app/components/LogoutButton";
+import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -53,7 +54,7 @@ export default async function ClientDashboard() {
   }
 
   return (
-    <div style={{ minHeight: "100dvh", background: "#F4F7FA" }}>
+    <div style={{ minHeight: "100dvh", background: "#F4F7FA", paddingBottom: 80 }}>
       {/* Header */}
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "20px 20px 16px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -179,21 +180,7 @@ export default async function ClientDashboard() {
           </a>
         </div>
 
-        {/* Nav */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
-          {[
-            { label: "Home", href: "/client", icon: "🏠" },
-            { label: "Workouts", href: "/client/workouts", icon: "🏋️" },
-            { label: "Habits", href: "/client/habits", icon: "🌱" },
-            { label: "Progress", href: "/client/progress", icon: "📈" },
-            { label: "Profile", href: "/client/profile", icon: "👤" },
-          ].map(item => (
-            <a key={item.href} href={item.href} style={navItem}>
-              <span style={{ fontSize: 22 }}>{item.icon}</span>
-              <span style={{ fontSize: 11, color: "#6B7A8D", marginTop: 4 }}>{item.label}</span>
-            </a>
-          ))}
-        </div>
+        <ClientBottomNav />
       </div>
     </div>
   );
@@ -206,13 +193,3 @@ const cardStyle: React.CSSProperties = {
   border: "1px solid #E2EAF0",
 };
 
-const navItem: React.CSSProperties = {
-  background: "#fff",
-  borderRadius: 12,
-  border: "1px solid #E2EAF0",
-  padding: "12px 8px",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  textDecoration: "none",
-};

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 
 function calcStreak(dates: string[]): number {
   if (!dates.length) return 0;
@@ -155,23 +156,7 @@ export default async function ClientChallengeDetailPage({ params }: { params: Pr
         </div>
       </div>
 
-      {/* Bottom nav */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid #E2EAF0", padding: "8px 16px 20px" }}>
-        <div style={{ maxWidth: 640, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(5, 1fr)" }}>
-          {[
-            { label: "Home", href: "/client", icon: "🏠" },
-            { label: "Feed", href: "/client/feed", icon: "🔥" },
-            { label: "Workouts", href: "/client/workouts", icon: "🏋️" },
-            { label: "Progress", href: "/client/progress", icon: "📈" },
-            { label: "Profile", href: "/client/profile", icon: "👤" },
-          ].map(item => (
-            <a key={item.href} href={item.href} style={{ display: "flex", flexDirection: "column", alignItems: "center", textDecoration: "none", padding: "6px 0" }}>
-              <span style={{ fontSize: 22 }}>{item.icon}</span>
-              <span style={{ fontSize: 11, color: "#6B7A8D", marginTop: 2 }}>{item.label}</span>
-            </a>
-          ))}
-        </div>
-      </div>
+      <ClientBottomNav />
     </div>
   );
 }

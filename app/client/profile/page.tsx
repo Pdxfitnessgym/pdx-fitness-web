@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 
 type Profile = {
   full_name: string;
@@ -11,7 +12,7 @@ type Profile = {
   sessions_purchased: number;
 };
 
-type TrainerInfo = { full_name: string; email: string };
+type TrainerInfo = { id: string; full_name: string; email: string };
 type ProgramInfo = { name: string; duration_weeks: number; start_date: string };
 
 export default function ClientProfilePage() {
@@ -20,12 +21,11 @@ export default function ClientProfilePage() {
   const [program, setProgram] = useState<ProgramInfo | null>(null);
   const [logCount, setLogCount] = useState(0);
   const [completedSessions, setCompletedSessions] = useState(0);
+  const [lastWorkout, setLastWorkout] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
   const [editing, setEditing] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -43,13 +43,14 @@ export default function ClientProfilePage() {
       setProfile(prof);
       setNameInput(prof?.full_name ?? "");
 
-      const [trainerRes, cpRes, logRes, sessRes] = await Promise.all([
+      const [trainerRes, cpRes, logRes, sessRes, lastLogRes] = await Promise.all([
         prof?.trainer_id
-          ? supabase.from("profiles").select("full_name, email").eq("id", prof.trainer_id).single()
+          ? supabase.from("profiles").select("id, full_name, email").eq("id", prof.trainer_id).single()
           : Promise.resolve({ data: null }),
         supabase.from("client_programs").select("start_date, programs(name, duration_weeks)").eq("client_id", user.id).eq("is_active", true).maybeSingle(),
         supabase.from("workout_logs").select("*", { count: "exact", head: true }).eq("client_id", user.id),
         supabase.from("training_sessions").select("*", { count: "exact", head: true }).eq("client_id", user.id).eq("status", "completed"),
+        supabase.from("workout_logs").select("logged_at").eq("client_id", user.id).order("logged_at", { ascending: false }).limit(1),
       ]);
 
       setTrainer(trainerRes.data as TrainerInfo | null);
@@ -60,6 +61,13 @@ export default function ClientProfilePage() {
       }
       setLogCount(logRes.count ?? 0);
       setCompletedSessions(sessRes.count ?? 0);
+
+      const lastLog = (lastLogRes.data ?? [])[0] as { logged_at: string } | undefined;
+      if (lastLog) {
+        const diffDays = Math.floor((Date.now() - new Date(lastLog.logged_at).getTime()) / 86400000);
+        setLastWorkout(diffDays === 0 ? "Today" : diffDays === 1 ? "Yesterday" : `${diffDays} days ago`);
+      }
+
       setLoading(false);
     }
     load();
@@ -75,8 +83,6 @@ export default function ClientProfilePage() {
     setProfile(p => p ? { ...p, full_name: nameInput.trim() } : p);
     setSaving(false);
     setEditing(false);
-    setSaveMsg("Saved!");
-    setTimeout(() => setSaveMsg(""), 2000);
   }
 
   async function handleLogout() {
@@ -85,7 +91,11 @@ export default function ClientProfilePage() {
     window.location.href = "/login";
   }
 
-  if (loading) return <div style={{ minHeight: "100dvh", background: "#F4F7FA", display: "flex", alignItems: "center", justifyContent: "center", color: "#6B7A8D" }}>Loading...</div>;
+  if (loading) return (
+    <div style={{ minHeight: "100dvh", background: "#F4F7FA", display: "flex", alignItems: "center", justifyContent: "center", color: "#6B7A8D" }}>
+      Loading...
+    </div>
+  );
 
   const memberSince = profile?.created_at
     ? new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" })
@@ -95,169 +105,157 @@ export default function ClientProfilePage() {
     ? Math.min(Math.max(Math.floor((Date.now() - new Date(program.start_date).getTime()) / 604800000) + 1, 1), program.duration_weeks)
     : null;
 
-  const sessionsRemaining = (profile?.sessions_purchased ?? 0) - completedSessions;
-  const initial = (profile?.full_name ?? "A")[0].toUpperCase();
+  const sessionsPurchased = profile?.sessions_purchased ?? 0;
+  const sessionsRemaining = sessionsPurchased - completedSessions;
+  const initials = (profile?.full_name ?? "A").split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
 
   return (
-    <div style={{ minHeight: "100dvh", background: "#F4F7FA", paddingBottom: 80 }}>
-      <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "20px 20px 16px" }}>
-        <div style={{ maxWidth: 640, margin: "0 auto" }}>
+    <div style={{ minHeight: "100dvh", background: "#F4F7FA", paddingBottom: 90 }}>
+
+      {/* Header */}
+      <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "16px 20px" }}>
+        <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <Link href="/client" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Home</Link>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginTop: 4 }}>Profile</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#0D1827" }}>Profile</div>
+          <button onClick={() => setEditing(v => !v)} style={{ fontSize: 13, color: "#1B68B4", fontWeight: 600, background: "none", border: "none", cursor: "pointer" }}>
+            {editing ? "Cancel" : "Edit"}
+          </button>
         </div>
       </div>
 
-      <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ maxWidth: 640, margin: "0 auto" }}>
 
-        {/* Hero card */}
-        <div style={{ background: "linear-gradient(135deg, #2DC4B8, #1B68B4)", borderRadius: 16, padding: "28px 24px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: editing ? 16 : 0 }}>
-            <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 800, color: "#fff", flexShrink: 0 }}>
-              {initial}
+        {/* Avatar + name hero */}
+        <div style={{ background: "#fff", padding: "32px 24px 24px", display: "flex", flexDirection: "column", alignItems: "center", borderBottom: "1px solid #F0F4F8" }}>
+          <div style={{ width: 88, height: 88, borderRadius: "50%", background: "linear-gradient(135deg, #2DC4B8, #1B68B4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, fontWeight: 800, color: "#fff", marginBottom: 14, boxShadow: "0 4px 16px rgba(27,104,180,0.25)" }}>
+            {initials}
+          </div>
+
+          {editing ? (
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+              <input
+                type="text"
+                value={nameInput}
+                onChange={e => setNameInput(e.target.value)}
+                autoFocus
+                onKeyDown={e => { if (e.key === "Enter") saveName(); }}
+                style={{ textAlign: "center", fontSize: 20, fontWeight: 700, color: "#0D1827", border: "none", borderBottom: "2px solid #1B68B4", background: "none", outline: "none", width: "100%", padding: "4px 0" }}
+              />
+              <button onClick={saveName} disabled={saving || !nameInput.trim()} style={{ padding: "8px 24px", borderRadius: 20, background: "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer", opacity: saving ? 0.7 : 1 }}>
+                {saving ? "Saving…" : "Save Name"}
+              </button>
             </div>
-            <div style={{ flex: 1 }}>
-              {!editing && (
-                <>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: "#fff" }}>{profile?.full_name}</div>
-                  <div style={{ fontSize: 14, color: "rgba(255,255,255,0.8)", marginTop: 2 }}>{profile?.email}</div>
-                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 4 }}>Member since {memberSince}</div>
-                </>
+          ) : (
+            <>
+              <div style={{ fontSize: 24, fontWeight: 800, color: "#0D1827", marginBottom: 4 }}>{profile?.full_name}</div>
+              <div style={{ fontSize: 13, color: "#6B7A8D" }}>{profile?.email}</div>
+              <div style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 6, background: "#EFF6FF", borderRadius: 20, padding: "5px 14px" }}>
+                <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#2DC4B8" }} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#1B68B4" }}>
+                  PDX Fitness · Member since {memberSince}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Quick action buttons */}
+        <div style={{ background: "#fff", padding: "16px 24px 20px", borderBottom: "8px solid #F4F7FA" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+            {[
+              { icon: "💬", label: "Message", href: "/client/messages" },
+              { icon: "📆", label: "Book", href: "/client/book" },
+              { icon: "📈", label: "Progress", href: "/client/progress" },
+              { icon: "🌱", label: "Habits", href: "/client/habits" },
+            ].map(item => (
+              <a key={item.href} href={item.href} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, textDecoration: "none", padding: "12px 6px", borderRadius: 12, background: "#F4F7FA", border: "1px solid #E2EAF0" }}>
+                <span style={{ fontSize: 22 }}>{item.icon}</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: "#374151" }}>{item.label}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {/* Activity section */}
+        <div style={{ background: "#fff", marginBottom: 8 }}>
+          <div style={{ padding: "16px 20px 4px" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 1 }}>Activity</div>
+          </div>
+          {[
+            { label: "Total Workouts", value: String(logCount), icon: "🏋️" },
+            { label: "Sessions Completed", value: String(completedSessions), icon: "✅" },
+            { label: "Last Workout", value: lastWorkout ?? "Not yet", icon: "🕐" },
+            { label: "Active Program", value: program ? `${program.name} · Wk ${currentWeek}/${program.duration_weeks}` : "None assigned", icon: "📋" },
+          ].map((row, i, arr) => (
+            <div key={row.label} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 20px", borderBottom: i < arr.length - 1 ? "1px solid #F4F7FA" : "none" }}>
+              <span style={{ fontSize: 18, width: 28, textAlign: "center", flexShrink: 0 }}>{row.icon}</span>
+              <span style={{ flex: 1, fontSize: 14, color: "#374151" }}>{row.label}</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: "#0D1827", textAlign: "right", maxWidth: 160 }}>{row.value}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Session credits */}
+        {sessionsPurchased > 0 && (
+          <div style={{ background: "#fff", marginBottom: 8 }}>
+            <div style={{ padding: "16px 20px 4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 1 }}>Session Credits</div>
+              <Link href="/client/book" style={{ fontSize: 13, fontWeight: 700, color: "#1B68B4", textDecoration: "none" }}>+ Book</Link>
+            </div>
+            <div style={{ padding: "12px 20px 20px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+                <span style={{ fontSize: 14, color: "#374151" }}>
+                  {sessionsRemaining > 0 ? `${sessionsRemaining} session${sessionsRemaining !== 1 ? "s" : ""} remaining` : "No sessions remaining"}
+                </span>
+                <span style={{ fontSize: 13, color: "#9CA3AF" }}>{sessionsRemaining} / {sessionsPurchased}</span>
+              </div>
+              <div style={{ height: 8, background: "#E2EAF0", borderRadius: 99, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${Math.min(100, (sessionsRemaining / sessionsPurchased) * 100)}%`, background: sessionsRemaining <= 2 ? "#EF4444" : "#2DC4B8", borderRadius: 99, transition: "width 0.4s" }} />
+              </div>
+              {sessionsRemaining <= 2 && (
+                <div style={{ fontSize: 12, color: "#EF4444", fontWeight: 600, marginTop: 6 }}>Contact your trainer to renew</div>
               )}
             </div>
-            {!editing && (
-              <button onClick={() => setEditing(true)} style={{ padding: "7px 14px", borderRadius: 8, background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.35)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                Edit
-              </button>
-            )}
-          </div>
-
-          {editing && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: 6 }}>Display Name</label>
-                <input
-                  type="text"
-                  value={nameInput}
-                  onChange={e => setNameInput(e.target.value)}
-                  autoFocus
-                  onKeyDown={e => { if (e.key === "Enter") saveName(); if (e.key === "Escape") setEditing(false); }}
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "none", background: "rgba(255,255,255,0.2)", color: "#fff", fontSize: 15, outline: "none", boxSizing: "border-box" }}
-                />
-              </div>
-              <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.7)", marginBottom: 6 }}>Email</label>
-                <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)", fontSize: 14 }}>{profile?.email}</div>
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={saveName} disabled={saving || !nameInput.trim()} style={{ flex: 1, padding: "10px", borderRadius: 10, background: "#fff", color: "#1B68B4", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer", opacity: saving ? 0.7 : 1 }}>
-                  {saving ? "Saving..." : "Save"}
-                </button>
-                <button onClick={() => { setEditing(false); setNameInput(profile?.full_name ?? ""); }} style={{ padding: "10px 16px", borderRadius: 10, background: "rgba(255,255,255,0.15)", color: "#fff", fontWeight: 600, fontSize: 14, border: "1px solid rgba(255,255,255,0.3)", cursor: "pointer" }}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
-          {saveMsg && <div style={{ fontSize: 13, color: "rgba(255,255,255,0.9)", marginTop: 8 }}>✓ {saveMsg}</div>}
-        </div>
-
-        {/* Stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-          <div style={{ background: "#fff", borderRadius: 14, padding: "14px 8px", border: "1px solid #E2EAF0", textAlign: "center" }}>
-            <div style={{ fontSize: 26, fontWeight: 800, color: "#1B68B4" }}>{logCount}</div>
-            <div style={{ fontSize: 11, color: "#6B7A8D", marginTop: 4 }}>Workouts</div>
-          </div>
-          <div style={{ background: "#fff", borderRadius: 14, padding: "14px 8px", border: "1px solid #E2EAF0", textAlign: "center" }}>
-            <div style={{ fontSize: 26, fontWeight: 800, color: currentWeek ? "#1B68B4" : "#D1D5DB" }}>{currentWeek ?? "—"}</div>
-            <div style={{ fontSize: 11, color: "#6B7A8D", marginTop: 4 }}>Current Wk</div>
-          </div>
-          <div style={{ background: "#fff", borderRadius: 14, padding: "14px 8px", border: `1px solid ${sessionsRemaining <= 2 && (profile?.sessions_purchased ?? 0) > 0 ? "#FEE2E2" : "#E2EAF0"}`, textAlign: "center" }}>
-            <div style={{ fontSize: 26, fontWeight: 800, color: sessionsRemaining <= 2 && (profile?.sessions_purchased ?? 0) > 0 ? "#EF4444" : "#1B68B4" }}>
-              {(profile?.sessions_purchased ?? 0) > 0 ? sessionsRemaining : "—"}
-            </div>
-            <div style={{ fontSize: 11, color: "#6B7A8D", marginTop: 4 }}>Sessions Left</div>
-          </div>
-        </div>
-
-        {/* Active program */}
-        {program && (
-          <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2EAF0", padding: "18px" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Active Program</div>
-            <div style={{ fontSize: 17, fontWeight: 700, color: "#0D1827" }}>{program.name}</div>
-            <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 4 }}>
-              Week {currentWeek} of {program.duration_weeks} · started {new Date(program.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-            </div>
-            <Link href="/client/workouts" style={{ display: "inline-block", marginTop: 10, fontSize: 14, fontWeight: 700, color: "#2DC4B8", textDecoration: "none" }}>
-              Go to workouts →
-            </Link>
           </div>
         )}
 
-        {/* Trainer */}
-        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2EAF0", padding: "18px" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>My Trainer</div>
-          {trainer ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#EBF4FF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: "#1B68B4", flexShrink: 0 }}>
-                {trainer.full_name[0].toUpperCase()}
+        {/* My Trainer */}
+        <div style={{ background: "#fff", marginBottom: 8 }}>
+          <div style={{ padding: "16px 20px 4px" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 1 }}>My Trainer</div>
+          </div>
+          <div style={{ padding: "12px 20px 20px" }}>
+            {trainer ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#EBF4FF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800, color: "#1B68B4", flexShrink: 0 }}>
+                  {trainer.full_name[0].toUpperCase()}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: "#0D1827" }}>{trainer.full_name}</div>
+                  <div style={{ fontSize: 13, color: "#6B7A8D" }}>{trainer.email}</div>
+                </div>
+                <a href="/client/messages" style={{ padding: "8px 16px", borderRadius: 20, background: "#EFF6FF", border: "1px solid #BFDBFE", color: "#1B68B4", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+                  Message
+                </a>
               </div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: "#0D1827" }}>{trainer.full_name}</div>
-                <div style={{ fontSize: 13, color: "#6B7A8D" }}>{trainer.email}</div>
-              </div>
-            </div>
-          ) : (
-            <div style={{ fontSize: 14, color: "#9CA3AF" }}>No trainer assigned yet</div>
-          )}
-        </div>
-
-        {/* Quick links */}
-        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2EAF0", overflow: "hidden" }}>
-          {[
-            { label: "My Workouts", href: "/client/workouts", icon: "🏋️" },
-            { label: "My Progress", href: "/client/progress", icon: "📈" },
-            { label: "Habits", href: "/client/habits", icon: "🌱" },
-            { label: "Community Feed", href: "/client/feed", icon: "🔥" },
-          ].map((item, i, arr) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              style={{ display: "flex", alignItems: "center", gap: 14, padding: "15px 18px", textDecoration: "none", borderBottom: i < arr.length - 1 ? "1px solid #F4F7FA" : "none" }}
-            >
-              <span style={{ fontSize: 20 }}>{item.icon}</span>
-              <span style={{ flex: 1, fontSize: 15, fontWeight: 600, color: "#0D1827" }}>{item.label}</span>
-              <span style={{ color: "#9CA3AF", fontSize: 18 }}>›</span>
-            </Link>
-          ))}
+            ) : (
+              <div style={{ fontSize: 14, color: "#9CA3AF" }}>No trainer assigned yet</div>
+            )}
+          </div>
         </div>
 
         {/* Sign out */}
-        <button
-          onClick={handleLogout}
-          style={{ width: "100%", padding: "15px", borderRadius: 14, background: "#fff", color: "#DC2626", fontWeight: 700, fontSize: 16, border: "1.5px solid #FEE2E2", cursor: "pointer" }}
-        >
-          Sign Out
-        </button>
-      </div>
-
-      {/* Bottom nav */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid #E2EAF0", padding: "8px 20px 20px" }}>
-        <div style={{ maxWidth: 640, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4 }}>
-          {[
-            { label: "Home", href: "/client", icon: "🏠" },
-            { label: "Workouts", href: "/client/workouts", icon: "🏋️" },
-            { label: "Habits", href: "/client/habits", icon: "🌱" },
-            { label: "Progress", href: "/client/progress", icon: "📈" },
-            { label: "Profile", href: "/client/profile", icon: "👤", active: true },
-          ].map(item => (
-            <a key={item.href} href={item.href} style={{ display: "flex", flexDirection: "column", alignItems: "center", textDecoration: "none", padding: "6px 0" }}>
-              <span style={{ fontSize: 22 }}>{item.icon}</span>
-              <span style={{ fontSize: 10, color: (item as any).active ? "#2DC4B8" : "#6B7A8D", marginTop: 3, fontWeight: (item as any).active ? 700 : 400 }}>{item.label}</span>
-            </a>
-          ))}
+        <div style={{ padding: "0 20px 20px" }}>
+          <button
+            onClick={handleLogout}
+            style={{ width: "100%", padding: "15px", borderRadius: 14, background: "#fff", color: "#DC2626", fontWeight: 700, fontSize: 15, border: "1.5px solid #FEE2E2", cursor: "pointer" }}
+          >
+            Sign Out
+          </button>
         </div>
       </div>
+
+      <ClientBottomNav />
     </div>
   );
 }
