@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { assignProgram } from "@/app/actions/clients";
 import Link from "next/link";
 import { SessionsPanel } from "@/app/components/SessionsPanel";
+import { ClientNotesEditor } from "@/app/components/ClientNotesEditor";
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -10,6 +11,7 @@ const TABS = [
   { key: "progress", label: "Progress" },
   { key: "goals", label: "Goals" },
   { key: "habits", label: "Habits" },
+  { key: "notes", label: "Notes" },
 ];
 
 const DIFF_COLORS: Record<string, string> = {
@@ -39,7 +41,7 @@ export default async function ClientDetailPage({
 
   const { data: client } = await supabase
     .from("profiles")
-    .select("id, full_name, email, trainer_id, sessions_purchased")
+    .select("id, full_name, email, trainer_id, sessions_purchased, client_notes")
     .eq("id", clientId)
     .single();
 
@@ -463,6 +465,11 @@ export default async function ClientDetailPage({
               <EmptyState icon="🎯" text="Client hasn't set any goals yet" />
             )}
           </>
+        )}
+
+        {/* ── NOTES TAB ── */}
+        {tab === "notes" && (
+          <ClientNotesEditor clientId={clientId} initialNotes={(client as any).client_notes ?? ""} />
         )}
 
         {/* ── HABITS TAB ── */}

@@ -130,7 +130,10 @@ export default async function ClientWorkoutsPage({
       {/* Header */}
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "16px 20px 0" }}>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
-          <Link href="/client" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Home</Link>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <Link href="/client" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Home</Link>
+            <Link href="/client/workouts/history" style={{ fontSize: 13, color: "#2DC4B8", fontWeight: 600, textDecoration: "none" }}>History →</Link>
+          </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 4, marginBottom: 12 }}>
             <div>
               <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4" }}>{program?.name}</div>

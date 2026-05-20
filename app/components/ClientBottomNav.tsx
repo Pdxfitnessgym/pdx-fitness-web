@@ -1,5 +1,7 @@
 "use client";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 const NAV = [
   {
@@ -55,6 +57,45 @@ const NAV = [
 
 export function ClientBottomNav() {
   const pathname = usePathname();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    async function checkUnread() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: memberships } = await supabase
+        .from("conversation_members")
+        .select("conversation_id, last_read_at")
+        .eq("profile_id", user.id);
+
+      if (!memberships?.length) return;
+
+      const convoIds = memberships.map(m => m.conversation_id);
+      const { data: lastMsgs } = await supabase
+        .from("messages")
+        .select("conversation_id, created_at, sender_id")
+        .in("conversation_id", convoIds)
+        .neq("sender_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (!lastMsgs?.length) return;
+
+      const lastReadMap: Record<string, string | null> = {};
+      memberships.forEach(m => { lastReadMap[m.conversation_id] = m.last_read_at; });
+
+      const unread = new Set<string>();
+      for (const msg of lastMsgs) {
+        const lastRead = lastReadMap[msg.conversation_id];
+        if (!lastRead || new Date(msg.created_at) > new Date(lastRead)) {
+          unread.add(msg.conversation_id);
+        }
+      }
+      setUnreadCount(unread.size);
+    }
+    checkUnread();
+  }, [pathname]);
 
   function isActive(href: string) {
     if (href === "/client") return pathname === "/client";
@@ -75,6 +116,7 @@ export function ClientBottomNav() {
       <div style={{ maxWidth: 640, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(5, 1fr)" }}>
         {NAV.map(item => {
           const active = isActive(item.href);
+          const isMessages = item.href === "/client/messages";
           return (
             <a
               key={item.href}
@@ -89,7 +131,30 @@ export function ClientBottomNav() {
                 gap: 4,
               }}
             >
-              {item.icon(active)}
+              <div style={{ position: "relative" }}>
+                {item.icon(active)}
+                {isMessages && unreadCount > 0 && !active && (
+                  <div style={{
+                    position: "absolute",
+                    top: -2,
+                    right: -4,
+                    minWidth: 16,
+                    height: 16,
+                    borderRadius: 8,
+                    background: "#EF4444",
+                    border: "2px solid #fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 9,
+                    fontWeight: 800,
+                    color: "#fff",
+                    padding: "0 3px",
+                  }}>
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </div>
+                )}
+              </div>
               <span style={{
                 fontSize: 10,
                 fontWeight: active ? 700 : 400,

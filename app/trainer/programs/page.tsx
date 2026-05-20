@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { duplicateProgram } from "@/app/actions/programs";
 
 type Program = { id: string; name: string; description: string | null; duration_weeks: number; workout_count: number };
 
@@ -14,6 +15,7 @@ export default function ProgramsPage() {
   const [editName, setEditName] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [duplicating, setDuplicating] = useState<string | null>(null);
 
   useEffect(() => { load(); }, []);
 
@@ -45,6 +47,15 @@ export default function ProgramsPage() {
     setPrograms(programs.map(p => p.id === id ? { ...p, name: editName.trim() } : p));
     setEditingId(null);
     setSaving(false);
+  }
+
+  async function handleDuplicate(id: string, e: React.MouseEvent) {
+    e.preventDefault(); e.stopPropagation();
+    setDuplicating(id);
+    const { id: newId } = await duplicateProgram(id);
+    await load();
+    setDuplicating(null);
+    router.push(`/trainer/programs/${newId}`);
   }
 
   async function confirmDelete(id: string) {
@@ -107,6 +118,12 @@ export default function ProgramsPage() {
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                     <Link href={`/trainer/programs/${p.id}`} style={{ fontSize: 20, color: "#2DC4B8", textDecoration: "none" }}>→</Link>
+                    <button
+                      onClick={e => handleDuplicate(p.id, e)}
+                      title="Duplicate program"
+                      disabled={duplicating === p.id}
+                      style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "#9CA3AF", fontSize: 16, lineHeight: 1, opacity: duplicating === p.id ? 0.4 : 1 }}
+                    >📋</button>
                     <button
                       onClick={e => { e.preventDefault(); setConfirmDeleteId(p.id); }}
                       title="Delete program"
