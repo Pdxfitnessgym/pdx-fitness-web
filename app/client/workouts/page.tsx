@@ -53,8 +53,8 @@ export default async function ClientWorkoutsPage({
   const sp = await searchParams;
   const todayDow = new Date().getDay();
 
-  // Fetch program + on-demand workouts in parallel
-  const [cpResult, standaloneResult] = await Promise.all([
+  // Fetch program + on-demand workouts + assigned workouts in parallel
+  const [cpResult, standaloneResult, assignedResult] = await Promise.all([
     supabase
       .from("client_programs")
       .select("id, start_date, programs(id, name, duration_weeks)")
@@ -69,10 +69,24 @@ export default async function ClientWorkoutsPage({
           .eq("is_standalone", true)
           .order("created_at", { ascending: false })
       : Promise.resolve({ data: [] }),
+    supabase
+      .from("client_workout_assignments")
+      .select("workout_id, workouts(id, name, description, difficulty, est_duration_mins, category, exercises(count))")
+      .eq("client_id", user.id)
+      .order("assigned_at", { ascending: false }),
   ]);
 
   const cp = cpResult.data;
-  const standaloneWorkouts = (standaloneResult.data ?? []) as StandaloneWorkout[];
+  const globalStandalone = (standaloneResult.data ?? []) as StandaloneWorkout[];
+  // Merge assigned workouts — put trainer-assigned first, dedupe with global on-demand
+  const assignedWorkouts = ((assignedResult.data ?? []) as unknown as { workout_id: string; workouts: StandaloneWorkout }[])
+    .map(r => r.workouts)
+    .filter(Boolean);
+  const assignedIds = new Set(assignedWorkouts.map(w => w.id));
+  const standaloneWorkouts: StandaloneWorkout[] = [
+    ...assignedWorkouts,
+    ...globalStandalone.filter(w => !assignedIds.has(w.id)),
+  ];
 
   // No program + no on-demand → simple message
   if (!cp && standaloneWorkouts.length === 0) {

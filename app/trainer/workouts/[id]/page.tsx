@@ -67,6 +67,14 @@ export default function StandaloneWorkoutEditorPage() {
   const [addingToProgram, setAddingToProgram] = useState(false);
   const [addedSuccess, setAddedSuccess] = useState(false);
 
+  // Assign to Client modal
+  const [showAssignClient, setShowAssignClient] = useState(false);
+  const [clients, setClients] = useState<{ id: string; full_name: string | null; email: string | null }[]>([]);
+  const [assignedClientIds, setAssignedClientIds] = useState<string[]>([]);
+  const [clientsLoading, setClientsLoading] = useState(false);
+  const [assigning, setAssigning] = useState(false);
+  const [assignSuccess, setAssignSuccess] = useState(false);
+
   async function openAddToProgram() {
     setShowAddToProgram(true);
     setAddedSuccess(false);
@@ -110,6 +118,63 @@ export default function StandaloneWorkoutEditorPage() {
 
     setAddingToProgram(false);
     setAddedSuccess(true);
+  }
+
+  async function openAssignClient() {
+    setShowAssignClient(true);
+    setAssignSuccess(false);
+    if (clients.length) return;
+    setClientsLoading(true);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setClientsLoading(false); return; }
+    const [{ data: clientList }, { data: existing }] = await Promise.all([
+      supabase.from("profiles").select("id, full_name, email").eq("trainer_id", user.id).eq("role", "client").order("full_name"),
+      supabase.from("client_workout_assignments").select("client_id").eq("workout_id", workoutId),
+    ]);
+    setClients((clientList ?? []) as { id: string; full_name: string | null; email: string | null }[]);
+    setAssignedClientIds((existing ?? []).map(r => r.client_id));
+    setClientsLoading(false);
+  }
+
+  function toggleAssignClient(clientId: string) {
+    setAssignedClientIds(prev =>
+      prev.includes(clientId) ? prev.filter(id => id !== clientId) : [...prev, clientId]
+    );
+  }
+
+  async function handleAssignClients() {
+    setAssigning(true);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setAssigning(false); return; }
+
+    // Get current assignments
+    const { data: current } = await supabase
+      .from("client_workout_assignments")
+      .select("client_id")
+      .eq("workout_id", workoutId);
+    const currentIds = (current ?? []).map(r => r.client_id);
+
+    // Insert new assignments
+    const toAdd = assignedClientIds.filter(id => !currentIds.includes(id));
+    if (toAdd.length) {
+      await supabase.from("client_workout_assignments").insert(
+        toAdd.map(client_id => ({ client_id, workout_id: workoutId, assigned_by: user.id }))
+      );
+    }
+
+    // Remove unselected
+    const toRemove = currentIds.filter(id => !assignedClientIds.includes(id));
+    if (toRemove.length) {
+      await supabase.from("client_workout_assignments")
+        .delete()
+        .eq("workout_id", workoutId)
+        .in("client_id", toRemove);
+    }
+
+    setAssigning(false);
+    setAssignSuccess(true);
   }
 
   // inline exercise picker
@@ -256,7 +321,10 @@ export default function StandaloneWorkoutEditorPage() {
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <Link href="/trainer/workouts" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← On-Demand Workouts</Link>
-            <button onClick={openAddToProgram} style={{ fontSize: 13, fontWeight: 700, color: "#fff", background: "#1B68B4", border: "none", borderRadius: 10, padding: "8px 14px", cursor: "pointer" }}>+ Add to Program</button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={openAssignClient} style={{ fontSize: 13, fontWeight: 700, color: "#fff", background: "#2DC4B8", border: "none", borderRadius: 10, padding: "8px 14px", cursor: "pointer" }}>👤 Assign</button>
+              <button onClick={openAddToProgram} style={{ fontSize: 13, fontWeight: 700, color: "#fff", background: "#1B68B4", border: "none", borderRadius: 10, padding: "8px 14px", cursor: "pointer" }}>+ Program</button>
+            </div>
           </div>
           <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginTop: 4 }}>{workout.name}</div>
           <div style={{ display: "flex", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
@@ -479,6 +547,64 @@ export default function StandaloneWorkoutEditorPage() {
                 {addingSaved ? "Adding..." : pickSelected.length ? `Add ${pickSelected.length} Exercise${pickSelected.length > 1 ? "s" : ""}` : "Select exercises above"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign to Client modal */}
+      {showAssignClient && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 50 }}>
+          <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 640, maxHeight: "80dvh", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexShrink: 0 }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#0D1827" }}>Assign to Clients</div>
+              <button onClick={() => { setShowAssignClient(false); setAssignSuccess(false); }} style={{ background: "none", border: "none", fontSize: 20, color: "#9CA3AF", cursor: "pointer" }}>✕</button>
+            </div>
+
+            {assignSuccess ? (
+              <div style={{ textAlign: "center", padding: "24px 0" }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+                <div style={{ fontWeight: 700, fontSize: 17, color: "#0D1827", marginBottom: 6 }}>Assignments saved!</div>
+                <div style={{ fontSize: 14, color: "#6B7A8D", marginBottom: 20 }}>Selected clients can now see this workout in their library.</div>
+                <button onClick={() => { setShowAssignClient(false); setAssignSuccess(false); }} style={{ padding: "12px 32px", borderRadius: 12, background: "#2DC4B8", border: "none", fontWeight: 700, color: "#fff", fontSize: 14, cursor: "pointer" }}>Done</button>
+              </div>
+            ) : clientsLoading ? (
+              <div style={{ textAlign: "center", padding: 32, color: "#6B7A8D" }}>Loading clients...</div>
+            ) : !clients.length ? (
+              <div style={{ textAlign: "center", padding: 32, color: "#6B7A8D", fontSize: 14 }}>No clients yet. Add clients first.</div>
+            ) : (
+              <>
+                <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 14, flexShrink: 0 }}>
+                  Select which clients can access this workout in their library.
+                </div>
+                <div style={{ overflow: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                  {clients.map(c => {
+                    const isSelected = assignedClientIds.includes(c.id);
+                    return (
+                      <div
+                        key={c.id}
+                        onClick={() => toggleAssignClient(c.id)}
+                        style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 12, border: `1.5px solid ${isSelected ? "#2DC4B8" : "#E2EAF0"}`, background: isSelected ? "#F0FDFC" : "#fff", cursor: "pointer" }}
+                      >
+                        <div style={{ width: 24, height: 24, borderRadius: 6, border: `2px solid ${isSelected ? "#2DC4B8" : "#D1D5DB"}`, background: isSelected ? "#2DC4B8" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          {isSelected && <span style={{ color: "#fff", fontSize: 13, fontWeight: 800 }}>✓</span>}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827" }}>{c.full_name ?? "Unnamed"}</div>
+                          {c.email && <div style={{ fontSize: 12, color: "#9CA3AF" }}>{c.email}</div>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <button
+                  onClick={handleAssignClients}
+                  disabled={assigning}
+                  style={{ width: "100%", padding: "14px", borderRadius: 12, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 16, border: "none", cursor: "pointer", opacity: assigning ? 0.6 : 1, flexShrink: 0 }}
+                >
+                  {assigning ? "Saving..." : "Save Assignments"}
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
