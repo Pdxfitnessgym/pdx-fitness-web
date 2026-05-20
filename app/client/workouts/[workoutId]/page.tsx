@@ -68,7 +68,7 @@ export default function WorkoutSessionPage() {
         return { ...ex, exercise_library: Array.isArray(ex.exercise_library) ? (ex.exercise_library[0] ?? null) : ex.exercise_library };
       }) as ExerciseRow[]);
 
-      if (!user) return;
+      if (!user) { setLoading(false); return; }
       setUserId(user.id);
 
       const today = new Date().toISOString().split("T")[0];
@@ -144,7 +144,7 @@ export default function WorkoutSessionPage() {
     const supabase = createClient();
     let logId = workoutLogId;
     if (!logId) {
-      const { data } = await supabase.from("workout_logs").insert({ client_id: userId, workout_id: workoutId, completed_at: new Date().toISOString() }).select("id").single();
+      const { data } = await supabase.from("workout_logs").insert({ client_id: userId, workout_id: workoutId }).select("id").single();
       logId = data?.id ?? null;
       setWorkoutLogId(logId);
     }
@@ -544,7 +544,7 @@ function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId }: { workoutN
   );
 
   return (
-    <div style={{ minHeight: "100dvh", background: "#F4F7FA", display: "flex", flexDirection: "column", padding: "32px 24px" }}>
+    <div style={{ minHeight: "100dvh", background: "#F4F7FA", display: "flex", flexDirection: "column", padding: "32px 24px", paddingBottom: 100 }}>
       <div style={{ textAlign: "center", marginBottom: 28 }}>
         <div style={{ fontSize: 64, marginBottom: 12 }}>🎉</div>
         <div style={{ fontSize: 26, fontWeight: 800, color: "#1B68B4", marginBottom: 6 }}>Workout Complete!</div>

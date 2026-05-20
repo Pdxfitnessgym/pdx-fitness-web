@@ -79,9 +79,10 @@ export default async function ClientWorkoutsPage({
   const cp = cpResult.data;
   const globalStandalone = (standaloneResult.data ?? []) as StandaloneWorkout[];
   // Merge assigned workouts — put trainer-assigned first, dedupe with global on-demand
-  const assignedWorkouts = ((assignedResult.data ?? []) as unknown as { workout_id: string; workouts: StandaloneWorkout }[])
-    .map(r => r.workouts)
-    .filter(Boolean);
+  // Supabase returns related rows as an array, so workouts is StandaloneWorkout[]
+  const assignedWorkouts = ((assignedResult.data ?? []) as unknown as { workout_id: string; workouts: StandaloneWorkout[] }[])
+    .map(r => (Array.isArray(r.workouts) ? r.workouts[0] : r.workouts))
+    .filter((w): w is StandaloneWorkout => Boolean(w));
   const assignedIds = new Set(assignedWorkouts.map(w => w.id));
   const standaloneWorkouts: StandaloneWorkout[] = [
     ...assignedWorkouts,

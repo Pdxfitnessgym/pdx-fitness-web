@@ -102,8 +102,23 @@ export default async function ClientDetailPage({
   }
 
   if (tab === "goals") {
-    const { data } = await supabase.from("goals").select("id, type, title, start_value, target_value, exercise_name, target_date, completed").eq("client_id", clientId).order("created_at", { ascending: false });
-    goals = data;
+    const [goalsRes, plRes, setRes] = await Promise.all([
+      supabase.from("goals").select("id, type, title, start_value, target_value, exercise_name, target_date, completed").eq("client_id", clientId).order("created_at", { ascending: false }),
+      supabase.from("progress_logs").select("id, logged_at, weight_lbs, body_fat_pct, notes, photo_url").eq("client_id", clientId).order("logged_at", { ascending: false }).limit(50),
+      supabase.from("set_logs").select("weight_lbs, reps_completed, created_at, exercises(name)").eq("client_id", clientId).not("weight_lbs", "is", null).order("weight_lbs", { ascending: false }),
+    ]);
+    goals = goalsRes.data;
+    progressLogs = plRes.data;
+    const best: Record<string, typeof prs[0]> = {};
+    for (const row of setRes.data ?? []) {
+      const name = (row.exercises as unknown as { name: string } | null)?.name;
+      if (!name) continue;
+      const w = row.weight_lbs as number;
+      if (!best[name] || w > best[name].best_weight) {
+        best[name] = { exercise_name: name, best_weight: w, best_reps: row.reps_completed };
+      }
+    }
+    prs = Object.values(best).sort((a, b) => b.best_weight - a.best_weight);
   }
 
   if (tab === "habits") {

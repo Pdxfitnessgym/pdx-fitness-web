@@ -93,13 +93,15 @@ export default function StandaloneWorkoutEditorPage() {
     const supabase = createClient();
 
     // Create the workout inside the program
-    const { data: newWorkout } = await supabase.from("workouts").insert({
+    const { data: newWorkout, error: insertErr } = await supabase.from("workouts").insert({
       program_id: selectedProgram,
       name: workout!.name,
       day_of_week: parseInt(selectedDay) === 7 ? 0 : parseInt(selectedDay),
       week_number: parseInt(selectedWeek),
       is_standalone: false,
     }).select("id").single();
+
+    if (insertErr || !newWorkout) { setAddingToProgram(false); alert("Failed to add to program. Please try again."); return; }
 
     if (newWorkout && exercises.length) {
       await supabase.from("exercises").insert(
