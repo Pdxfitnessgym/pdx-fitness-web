@@ -26,19 +26,5 @@ CREATE POLICY "Clients manage own checkins"
 
 CREATE POLICY "Trainers read and respond to client checkins"
   ON weekly_checkins FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-        AND profiles.role = 'trainer'
-        AND profiles.id = weekly_checkins.trainer_id
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-        AND profiles.role = 'trainer'
-        AND profiles.id = weekly_checkins.trainer_id
-    )
-  );
+  USING (auth.uid() = trainer_id)
+  WITH CHECK (auth.uid() = trainer_id);
