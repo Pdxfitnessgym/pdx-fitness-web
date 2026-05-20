@@ -13,10 +13,11 @@ export default async function TrainerDashboard() {
   const { data: profile } = await supabase.from("profiles").select("full_name, role").eq("id", user.id).single();
   if (profile && profile.role !== "trainer") redirect("/client");
 
-  const [{ count: clientCount }, { count: programCount }, { count: unassignedCount }] = await Promise.all([
+  const [{ count: clientCount }, { count: programCount }, { count: unassignedCount }, { count: pendingSessionsCount }] = await Promise.all([
     supabase.from("profiles").select("*", { count: "exact", head: true }).eq("trainer_id", user.id),
     supabase.from("programs").select("*", { count: "exact", head: true }).eq("trainer_id", user.id),
     supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "client").is("trainer_id", null),
+    supabase.from("training_sessions").select("*", { count: "exact", head: true }).eq("trainer_id", user.id).eq("status", "pending"),
   ]);
 
   return (
@@ -37,6 +38,22 @@ export default async function TrainerDashboard() {
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px" }}>
         <NotificationBanner />
+
+        {/* Pending session requests alert */}
+        {pendingSessionsCount != null && pendingSessionsCount > 0 && (
+          <Link href="/trainer/sessions" style={{ display: "flex", alignItems: "center", gap: 12, background: "#EFF6FF", border: "1.5px solid #93C5FD", borderRadius: 14, padding: "14px 18px", textDecoration: "none", marginBottom: 16 }}>
+            <span style={{ fontSize: 22 }}>🤝</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, fontSize: 15, color: "#1B68B4" }}>
+                {pendingSessionsCount} session request{pendingSessionsCount !== 1 ? "s" : ""} waiting
+              </div>
+              <div style={{ fontSize: 13, color: "#3B82F6", marginTop: 1 }}>Tap to confirm or decline →</div>
+            </div>
+            <div style={{ background: "#1B68B4", color: "#fff", borderRadius: "50%", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
+              {pendingSessionsCount}
+            </div>
+          </Link>
+        )}
 
         {/* Unassigned signups alert */}
         {unassignedCount != null && unassignedCount > 0 && (

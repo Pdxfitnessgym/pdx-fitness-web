@@ -142,15 +142,19 @@ export default async function ClientDashboard() {
           </a>
         </div>
 
-        {/* Challenges shortcut */}
-        <div style={{ marginBottom: 16 }}>
-          <a href="/client/challenges" style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 14, textDecoration: "none" }}>
-            <div style={{ fontSize: 32 }}>🏆</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 15, color: "#0D1827" }}>Community Challenges</div>
-              <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 2 }}>Join challenges, track streaks, compete with the crew</div>
-            </div>
-            <div style={{ color: "#9CA3AF", fontSize: 20 }}>›</div>
+        {/* Community / Habits row */}
+        <div style={{ marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+          <a href="/client/feed" style={{ ...cardStyle, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", textDecoration: "none", padding: "16px 12px" }}>
+            <div style={{ fontSize: 28, marginBottom: 6 }}>🔥</div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: "#0D1827" }}>Feed</div>
+          </a>
+          <a href="/client/habits" style={{ ...cardStyle, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", textDecoration: "none", padding: "16px 12px" }}>
+            <div style={{ fontSize: 28, marginBottom: 6 }}>✅</div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: "#0D1827" }}>Habits</div>
+          </a>
+          <a href="/client/challenges" style={{ ...cardStyle, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", textDecoration: "none", padding: "16px 12px" }}>
+            <div style={{ fontSize: 28, marginBottom: 6 }}>🏆</div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: "#0D1827" }}>Challenges</div>
           </a>
         </div>
 
