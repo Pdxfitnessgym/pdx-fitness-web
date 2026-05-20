@@ -58,6 +58,60 @@ export default function StandaloneWorkoutEditorPage() {
   const [saving, setSaving] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
 
+  // Add to Program modal
+  const [showAddToProgram, setShowAddToProgram] = useState(false);
+  const [programs, setPrograms] = useState<{ id: string; name: string; duration_weeks: number }[]>([]);
+  const [selectedProgram, setSelectedProgram] = useState("");
+  const [selectedWeek, setSelectedWeek] = useState("1");
+  const [selectedDay, setSelectedDay] = useState("1");
+  const [addingToProgram, setAddingToProgram] = useState(false);
+  const [addedSuccess, setAddedSuccess] = useState(false);
+
+  async function openAddToProgram() {
+    setShowAddToProgram(true);
+    setAddedSuccess(false);
+    if (programs.length) return;
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase.from("programs").select("id, name, duration_weeks").eq("trainer_id", user.id).order("name");
+    setPrograms(data ?? []);
+    if (data?.length) setSelectedProgram(data[0].id);
+  }
+
+  async function handleAddToProgram() {
+    if (!selectedProgram) return;
+    setAddingToProgram(true);
+    const supabase = createClient();
+
+    // Create the workout inside the program
+    const { data: newWorkout } = await supabase.from("workouts").insert({
+      program_id: selectedProgram,
+      name: workout!.name,
+      day_of_week: parseInt(selectedDay) === 7 ? 0 : parseInt(selectedDay),
+      week_number: parseInt(selectedWeek),
+      is_standalone: false,
+    }).select("id").single();
+
+    if (newWorkout && exercises.length) {
+      await supabase.from("exercises").insert(
+        exercises.map(ex => ({
+          workout_id: newWorkout.id,
+          name: ex.name,
+          sets: ex.sets,
+          reps: ex.reps,
+          rest_seconds: ex.rest_seconds,
+          notes: ex.notes,
+          order: ex.order,
+          exercise_library_id: ex.exercise_library_id,
+        }))
+      );
+    }
+
+    setAddingToProgram(false);
+    setAddedSuccess(true);
+  }
+
   // inline exercise picker
   const [showPicker, setShowPicker] = useState(false);
   const [libExercises, setLibExercises] = useState<LibExercise[]>([]);
@@ -200,7 +254,10 @@ export default function StandaloneWorkoutEditorPage() {
       {/* Header */}
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "20px 20px 16px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
-          <Link href="/trainer/workouts" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← On-Demand Workouts</Link>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Link href="/trainer/workouts" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← On-Demand Workouts</Link>
+            <button onClick={openAddToProgram} style={{ fontSize: 13, fontWeight: 700, color: "#fff", background: "#1B68B4", border: "none", borderRadius: 10, padding: "8px 14px", cursor: "pointer" }}>+ Add to Program</button>
+          </div>
           <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginTop: 4 }}>{workout.name}</div>
           <div style={{ display: "flex", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
             {workout.difficulty && (
@@ -425,9 +482,70 @@ export default function StandaloneWorkoutEditorPage() {
           </div>
         </div>
       )}
+
+      {/* Add to Program modal */}
+      {showAddToProgram && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 50 }}>
+          <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", padding: "24px 20px 40px", width: "100%", maxWidth: 640 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#0D1827" }}>Add to Program</div>
+              <button onClick={() => setShowAddToProgram(false)} style={{ background: "none", border: "none", fontSize: 20, color: "#9CA3AF", cursor: "pointer" }}>✕</button>
+            </div>
+
+            {addedSuccess ? (
+              <div style={{ textAlign: "center", padding: "24px 0" }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+                <div style={{ fontWeight: 700, fontSize: 17, color: "#0D1827", marginBottom: 6 }}>Added to program!</div>
+                <div style={{ fontSize: 14, color: "#6B7A8D", marginBottom: 20 }}>"{workout.name}" is now in the selected program week.</div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => { setShowAddToProgram(false); setAddedSuccess(false); }} style={{ flex: 1, padding: "12px", borderRadius: 12, background: "#F4F7FA", border: "1px solid #E2EAF0", fontWeight: 600, color: "#6B7A8D", fontSize: 14, cursor: "pointer" }}>Done</button>
+                  <button onClick={() => setAddedSuccess(false)} style={{ flex: 1, padding: "12px", borderRadius: 12, background: "#1B68B4", border: "none", fontWeight: 700, color: "#fff", fontSize: 14, cursor: "pointer" }}>Add Again</button>
+                </div>
+              </div>
+            ) : !programs.length ? (
+              <div style={{ textAlign: "center", padding: "24px 0", color: "#6B7A8D", fontSize: 14 }}>No programs yet. Create a program first.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div>
+                  <label style={modalLabel}>Program</label>
+                  <select value={selectedProgram} onChange={e => { setSelectedProgram(e.target.value); setSelectedWeek("1"); }} style={modalInput}>
+                    {programs.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <label style={modalLabel}>Week</label>
+                    <select value={selectedWeek} onChange={e => setSelectedWeek(e.target.value)} style={modalInput}>
+                      {Array.from({ length: programs.find(p => p.id === selectedProgram)?.duration_weeks ?? 12 }, (_, i) => (
+                        <option key={i + 1} value={i + 1}>Week {i + 1}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={modalLabel}>Day in week</label>
+                    <select value={selectedDay} onChange={e => setSelectedDay(e.target.value)} style={modalInput}>
+                      {[1,2,3,4,5,6,7].map(d => <option key={d} value={d}>Day {d}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <button
+                  onClick={handleAddToProgram}
+                  disabled={addingToProgram}
+                  style={{ padding: "14px", borderRadius: 12, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 16, border: "none", cursor: "pointer", opacity: addingToProgram ? 0.6 : 1, marginTop: 4 }}
+                >
+                  {addingToProgram ? "Adding..." : `Add to Program →`}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+const modalLabel: React.CSSProperties = { display: "block", fontSize: 13, fontWeight: 600, color: "#0D1827", marginBottom: 6 };
+const modalInput: React.CSSProperties = { width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 14, color: "#0D1827", outline: "none" };
 
 const smallLabel: React.CSSProperties = { display: "block", fontSize: 11, fontWeight: 600, color: "#6B7A8D", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.3 };
 const inlineInput: React.CSSProperties = { width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 14, color: "#0D1827", outline: "none", boxSizing: "border-box" };
