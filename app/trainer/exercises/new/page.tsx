@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -10,6 +10,8 @@ const ADMIN_EMAIL = "pdxfitnessgym@gmail.com";
 
 export default function NewExercisePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
   const fileRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState("");
   const [muscleGroup, setMuscleGroup] = useState("");
@@ -83,7 +85,7 @@ export default function NewExercisePage() {
 
       if (dbError) { setError("Save failed: " + dbError.message); setLoading(false); return; }
       setUploadProgress(100);
-      router.push("/trainer/exercises");
+      router.push(returnTo ?? "/trainer/exercises");
     } catch (err: unknown) {
       setError("Error: " + (err instanceof Error ? err.message : String(err)));
       setLoading(false);
@@ -94,7 +96,7 @@ export default function NewExercisePage() {
     <div style={{ minHeight: "100dvh", background: "#F4F7FA" }}>
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "20px 20px 16px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
-          <Link href="/trainer/exercises" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Exercise Library</Link>
+          <Link href={returnTo ?? "/trainer/exercises"} style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← {returnTo ? "Back" : "Exercise Library"}</Link>
           <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginTop: 4 }}>New Exercise</div>
         </div>
       </div>

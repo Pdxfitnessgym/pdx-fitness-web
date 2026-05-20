@@ -145,7 +145,7 @@ export default function AddExercisePage() {
         ) : !exercises.length ? (
           <div style={{ textAlign: "center", padding: "40px" }}>
             <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 16 }}>Your library is empty</div>
-            <Link href="/trainer/exercises/new" style={{ color: "#2DC4B8", fontWeight: 600, fontSize: 14 }}>+ Add exercises to your library</Link>
+            <Link href={`/trainer/exercises/new?returnTo=/trainer/programs/${programId}/workouts/${workoutId}/add-exercise`} style={{ color: "#2DC4B8", fontWeight: 600, fontSize: 14 }}>+ Add exercises to your library</Link>
           </div>
         ) : !filtered.length ? (
           <div style={{ textAlign: "center", padding: "40px", color: "#6B7A8D", fontSize: 14 }}>No exercises match "{search}"</div>
@@ -200,7 +200,10 @@ export default function AddExercisePage() {
         )}
 
         <div style={{ marginTop: 16, textAlign: "center" }}>
-          <Link href="/trainer/exercises/new" style={{ color: "#2DC4B8", fontSize: 14, fontWeight: 600, textDecoration: "none" }}>+ Add custom exercise</Link>
+          <Link
+            href={`/trainer/exercises/new?returnTo=/trainer/programs/${programId}/workouts/${workoutId}/add-exercise`}
+            style={{ color: "#2DC4B8", fontSize: 14, fontWeight: 600, textDecoration: "none" }}
+          >+ Create new exercise</Link>
         </div>
       </div>
 
