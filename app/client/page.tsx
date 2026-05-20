@@ -81,25 +81,6 @@ export default async function ClientDashboard() {
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px" }}>
         <NotificationBanner />
 
-        {/* Announcements */}
-        {announcements && announcements.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            {(announcements as { id: string; content: string; created_at: string }[]).map((a, i) => (
-              <div key={a.id} style={{ background: "linear-gradient(135deg, #1B68B4, #2DC4B8)", borderRadius: 14, padding: "16px 18px", marginBottom: i < announcements.length - 1 ? 8 : 0 }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <span style={{ fontSize: 20, flexShrink: 0 }}>📢</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-                      {new Date(a.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                    </div>
-                    <div style={{ fontSize: 14, color: "#fff", lineHeight: 1.5 }}>{a.content}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
         {/* Sessions remaining */}
         {sessionsPurchased > 0 && (
           <div style={{ ...cardStyle, display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, border: sessionsRemaining <= 2 ? "1.5px solid #EF4444" : "1px solid #E2EAF0" }}>
@@ -145,6 +126,26 @@ export default async function ClientDashboard() {
             </div>
           )}
         </div>
+
+        {/* Announcements */}
+        {announcements && announcements.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>📢 From your trainer</div>
+            {(announcements as { id: string; content: string; created_at: string }[]).map(a => (
+              <div key={a.id} style={{ background: "linear-gradient(135deg, #1B68B4 0%, #2DC4B8 100%)", borderRadius: 16, padding: "18px 20px", marginBottom: 8, boxShadow: "0 4px 16px rgba(27,104,180,0.25)" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                  <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>📢</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.65)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 5 }}>
+                      {new Date(a.created_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: "#fff", lineHeight: 1.55 }}>{a.content}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Nutrition shortcut */}
         <div style={{ marginBottom: 16 }}>
