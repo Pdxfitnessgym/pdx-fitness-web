@@ -12,7 +12,7 @@ export default async function ClientDashboard() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase.from("profiles").select("full_name, role, sessions_purchased").eq("id", user.id).single();
+  const { data: profile } = await supabase.from("profiles").select("full_name, role, sessions_purchased, trainer_id").eq("id", user.id).single();
   if (profile && profile.role !== "client") redirect("/trainer");
 
   const todayDow = new Date().getDay();
@@ -33,6 +33,15 @@ export default async function ClientDashboard() {
     .eq("client_id", user.id)
     .eq("is_active", true)
     .maybeSingle();
+
+  const trainerId = (profile as unknown as { trainer_id: string | null } | null)?.trainer_id;
+  const { data: announcements } = trainerId ? await supabase
+    .from("posts")
+    .select("id, content, created_at")
+    .eq("post_type", "announcement")
+    .eq("author_id", trainerId)
+    .order("created_at", { ascending: false })
+    .limit(3) : { data: [] };
 
   const { count: completedSessionsCount } = await supabase
     .from("training_sessions")
@@ -71,6 +80,25 @@ export default async function ClientDashboard() {
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px" }}>
         <NotificationBanner />
+
+        {/* Announcements */}
+        {announcements && announcements.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            {(announcements as { id: string; content: string; created_at: string }[]).map((a, i) => (
+              <div key={a.id} style={{ background: "linear-gradient(135deg, #1B68B4, #2DC4B8)", borderRadius: 14, padding: "16px 18px", marginBottom: i < announcements.length - 1 ? 8 : 0 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <span style={{ fontSize: 20, flexShrink: 0 }}>📢</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
+                      {new Date(a.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    </div>
+                    <div style={{ fontSize: 14, color: "#fff", lineHeight: 1.5 }}>{a.content}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Sessions remaining */}
         {sessionsPurchased > 0 && (

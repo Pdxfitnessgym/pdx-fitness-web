@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 
 type ExerciseRow = {
   id: string;
@@ -327,7 +328,7 @@ export default function WorkoutSessionPage() {
   }
 
   return (
-    <div style={{ minHeight: "100dvh", background: "#F4F7FA", paddingBottom: 100 }}>
+    <div style={{ minHeight: "100dvh", background: "#F4F7FA", paddingBottom: 160 }}>
       {/* Header */}
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "16px 20px", position: "sticky", top: 0, zIndex: 10 }}>
         <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -573,6 +574,7 @@ function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId }: { workoutN
           Skip, back to workouts
         </a>
       </div>
+      <ClientBottomNav />
     </div>
   );
 }

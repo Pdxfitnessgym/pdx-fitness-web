@@ -169,6 +169,7 @@ export default async function TrainerDashboard() {
             { label: "Availability", href: "/trainer/availability", icon: "🗓️" },
             { label: "Sessions", href: "/trainer/sessions", icon: "🤝" },
             { label: "Check-ins", href: "/trainer/checkins", icon: "📋" },
+            { label: "Announce", href: "/trainer/announcements", icon: "📢" },
             { label: "Groups", href: "/trainer/groups", icon: "👥" },
             { label: "Nutrition", href: "/trainer/nutrition", icon: "🥗" },
           ].map(item => (
