@@ -198,12 +198,16 @@ export default function TrainerCalendarPage() {
     setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, status: newStatus } : s));
   }
 
-  function copyWebcal() {
+  function copyCalUrl() {
     if (!calToken) return;
-    const url = `webcal://${window.location.host}/api/calendar/trainer/${calToken}`;
-    navigator.clipboard.writeText(url);
+    navigator.clipboard.writeText(`https://${window.location.host}/api/calendar/trainer/${calToken}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  function getWebcalUrl() {
+    if (!calToken) return "";
+    return `webcal://${window.location.host}/api/calendar/trainer/${calToken}`;
   }
 
   // upcoming sessions for the sidebar list
@@ -464,23 +468,30 @@ export default function TrainerCalendarPage() {
         <div style={{ background: "#fff", borderRadius: 14, padding: 18, border: "1px solid #E2EAF0" }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 4 }}>Sync to your calendar</div>
           <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 14 }}>All your client sessions in Apple Calendar or Google Calendar, auto-updated.</div>
+
+          {calToken && (
+            <a
+              href={getWebcalUrl()}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderRadius: 12, background: "#000", color: "#fff", fontWeight: 700, fontSize: 15, textDecoration: "none", marginBottom: 12 }}
+            >
+              <span style={{ fontSize: 22 }}>📅</span>
+              <div>
+                <div>Add to Apple Calendar</div>
+                <div style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.7)", marginTop: 1 }}>Tap to open Calendar app instantly</div>
+              </div>
+            </a>
+          )}
+
           <button
-            onClick={copyWebcal}
+            onClick={copyCalUrl}
             disabled={!calToken}
             style={{ width: "100%", padding: "13px", borderRadius: 12, background: copied ? "#10B981" : "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer", marginBottom: 12 }}
           >
-            {copied ? "✓ Link copied!" : "Copy Calendar Link"}
+            {copied ? "✓ Copied!" : "Copy Link (for Google Calendar)"}
           </button>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {[
-              { title: "Apple Calendar", steps: "File → New Calendar Subscription → Paste link" },
-              { title: "Google Calendar", steps: "Other calendars → From URL → Paste link" },
-            ].map(c => (
-              <div key={c.title} style={{ background: "#F4F7FA", borderRadius: 10, padding: "12px 14px" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#0D1827", marginBottom: 4 }}>{c.title}</div>
-                <div style={{ fontSize: 12, color: "#6B7A8D" }}>{c.steps}</div>
-              </div>
-            ))}
+          <div style={{ background: "#F4F7FA", borderRadius: 10, padding: "12px 14px" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#0D1827", marginBottom: 4 }}>Google Calendar</div>
+            <div style={{ fontSize: 12, color: "#6B7A8D" }}>Other calendars + → From URL → Paste link</div>
           </div>
         </div>
 

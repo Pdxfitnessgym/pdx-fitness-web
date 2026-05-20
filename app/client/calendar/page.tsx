@@ -95,7 +95,7 @@ export default function CalendarPage() {
 
   function copyGoogleUrl() {
     if (!calToken) return;
-    navigator.clipboard.writeText(getCalUrl("webcal"));
+    navigator.clipboard.writeText(getCalUrl("https"));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
