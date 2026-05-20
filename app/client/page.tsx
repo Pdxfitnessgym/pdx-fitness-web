@@ -143,18 +143,22 @@ export default async function ClientDashboard() {
         </div>
 
         {/* Community / Habits row */}
-        <div style={{ marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-          <a href="/client/feed" style={{ ...cardStyle, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", textDecoration: "none", padding: "16px 12px" }}>
-            <div style={{ fontSize: 28, marginBottom: 6 }}>🔥</div>
-            <div style={{ fontWeight: 700, fontSize: 13, color: "#0D1827" }}>Feed</div>
+        <div style={{ marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
+          <a href="/client/checkin" style={{ ...cardStyle, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", textDecoration: "none", padding: "14px 8px" }}>
+            <div style={{ fontSize: 26, marginBottom: 4 }}>📋</div>
+            <div style={{ fontWeight: 700, fontSize: 12, color: "#1B68B4" }}>Check-in</div>
           </a>
-          <a href="/client/habits" style={{ ...cardStyle, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", textDecoration: "none", padding: "16px 12px" }}>
-            <div style={{ fontSize: 28, marginBottom: 6 }}>✅</div>
-            <div style={{ fontWeight: 700, fontSize: 13, color: "#0D1827" }}>Habits</div>
+          <a href="/client/feed" style={{ ...cardStyle, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", textDecoration: "none", padding: "14px 8px" }}>
+            <div style={{ fontSize: 26, marginBottom: 4 }}>🔥</div>
+            <div style={{ fontWeight: 700, fontSize: 12, color: "#0D1827" }}>Feed</div>
           </a>
-          <a href="/client/challenges" style={{ ...cardStyle, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", textDecoration: "none", padding: "16px 12px" }}>
-            <div style={{ fontSize: 28, marginBottom: 6 }}>🏆</div>
-            <div style={{ fontWeight: 700, fontSize: 13, color: "#0D1827" }}>Challenges</div>
+          <a href="/client/habits" style={{ ...cardStyle, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", textDecoration: "none", padding: "14px 8px" }}>
+            <div style={{ fontSize: 26, marginBottom: 4 }}>✅</div>
+            <div style={{ fontWeight: 700, fontSize: 12, color: "#0D1827" }}>Habits</div>
+          </a>
+          <a href="/client/challenges" style={{ ...cardStyle, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", textDecoration: "none", padding: "14px 8px" }}>
+            <div style={{ fontSize: 26, marginBottom: 4 }}>🏆</div>
+            <div style={{ fontWeight: 700, fontSize: 12, color: "#0D1827" }}>Challenges</div>
           </a>
         </div>
 

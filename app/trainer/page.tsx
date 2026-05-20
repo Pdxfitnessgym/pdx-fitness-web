@@ -13,11 +13,12 @@ export default async function TrainerDashboard() {
   const { data: profile } = await supabase.from("profiles").select("full_name, role").eq("id", user.id).single();
   if (profile && profile.role !== "trainer") redirect("/client");
 
-  const [{ count: clientCount }, { count: programCount }, { count: unassignedCount }, { count: pendingSessionsCount }] = await Promise.all([
+  const [{ count: clientCount }, { count: programCount }, { count: unassignedCount }, { count: pendingSessionsCount }, { count: unreviewedCheckinsCount }] = await Promise.all([
     supabase.from("profiles").select("*", { count: "exact", head: true }).eq("trainer_id", user.id),
     supabase.from("programs").select("*", { count: "exact", head: true }).eq("trainer_id", user.id),
     supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "client").is("trainer_id", null),
     supabase.from("training_sessions").select("*", { count: "exact", head: true }).eq("trainer_id", user.id).eq("status", "pending"),
+    supabase.from("weekly_checkins").select("*", { count: "exact", head: true }).eq("trainer_id", user.id).is("trainer_reviewed_at", null),
   ]);
 
   return (
@@ -38,6 +39,22 @@ export default async function TrainerDashboard() {
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px" }}>
         <NotificationBanner />
+
+        {/* Unreviewed check-ins alert */}
+        {unreviewedCheckinsCount != null && unreviewedCheckinsCount > 0 && (
+          <Link href="/trainer/checkins" style={{ display: "flex", alignItems: "center", gap: 12, background: "#F0FDF4", border: "1.5px solid #86EFAC", borderRadius: 14, padding: "14px 18px", textDecoration: "none", marginBottom: 16 }}>
+            <span style={{ fontSize: 22 }}>📋</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, fontSize: 15, color: "#166534" }}>
+                {unreviewedCheckinsCount} check-in{unreviewedCheckinsCount !== 1 ? "s" : ""} need review
+              </div>
+              <div style={{ fontSize: 13, color: "#16A34A", marginTop: 1 }}>Tap to read and respond →</div>
+            </div>
+            <div style={{ background: "#16A34A", color: "#fff", borderRadius: "50%", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14, flexShrink: 0 }}>
+              {unreviewedCheckinsCount}
+            </div>
+          </Link>
+        )}
 
         {/* Pending session requests alert */}
         {pendingSessionsCount != null && pendingSessionsCount > 0 && (
@@ -151,6 +168,7 @@ export default async function TrainerDashboard() {
             { label: "Messages", href: "/trainer/messages", icon: "💬" },
             { label: "Availability", href: "/trainer/availability", icon: "🗓️" },
             { label: "Sessions", href: "/trainer/sessions", icon: "🤝" },
+            { label: "Check-ins", href: "/trainer/checkins", icon: "📋" },
             { label: "Groups", href: "/trainer/groups", icon: "👥" },
             { label: "Nutrition", href: "/trainer/nutrition", icon: "🥗" },
           ].map(item => (
