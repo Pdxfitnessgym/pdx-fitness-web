@@ -15,31 +15,11 @@ function toICSDate(d: Date): string {
   return d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
 }
 
-function toICSDateLocal(d: Date): string {
-  // Format as local floating time (YYYYMMDDTHHMMSS) for use with TZID
+function toICSDateOnly(d: Date): string {
+  // Format UTC date as YYYYMMDD for all-day events
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}`;
 }
-
-const VTIMEZONE_LA = [
-  "BEGIN:VTIMEZONE",
-  "TZID:America/Los_Angeles",
-  "BEGIN:STANDARD",
-  "DTSTART:19671029T020000",
-  "RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11",
-  "TZOFFSETFROM:-0700",
-  "TZOFFSETTO:-0800",
-  "TZNAME:PST",
-  "END:STANDARD",
-  "BEGIN:DAYLIGHT",
-  "DTSTART:19870405T020000",
-  "RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3",
-  "TZOFFSETFROM:-0800",
-  "TZOFFSETTO:-0700",
-  "TZNAME:PDT",
-  "END:DAYLIGHT",
-  "END:VTIMEZONE",
-];
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -65,10 +45,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     "VERSION:2.0",
     "PRODID:-//PDX Fitness//EN",
     "X-WR-CALNAME:PDX Fitness Workouts",
-    "X-WR-TIMEZONE:America/Los_Angeles",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
-    ...VTIMEZONE_LA,
   ];
 
   if (cp) {
@@ -76,15 +54,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     if (program) {
       for (const w of program.workouts) {
         const d = workoutDate(cp.start_date, w.week_number, w.day_of_week);
-        const dtStart = toICSDate(d);
-        const dtEnd = toICSDate(new Date(d.getTime() + 60 * 60 * 1000));
+        // Next day for exclusive DTEND on all-day events
+        const dNext = new Date(d);
+        dNext.setUTCDate(dNext.getUTCDate() + 1);
         const exCount = Array.isArray(w.exercises) ? w.exercises.length : 0;
         lines.push(
           "BEGIN:VEVENT",
           `UID:pdxfit-${w.id}@pdx-fitness`,
           `DTSTAMP:${toICSDate(new Date())}`,
-          `DTSTART;TZID=America/Los_Angeles:${toICSDateLocal(d)}`,
-          `DTEND;TZID=America/Los_Angeles:${toICSDateLocal(new Date(d.getTime() + 60 * 60 * 1000))}`,
+          `DTSTART;VALUE=DATE:${toICSDateOnly(d)}`,
+          `DTEND;VALUE=DATE:${toICSDateOnly(dNext)}`,
           `SUMMARY:${w.name.replace(/[,;\\]/g, "\\$&")}`,
           `DESCRIPTION:${program.name.replace(/[,;\\]/g, "\\$&")} - ${exCount} exercise${exCount !== 1 ? "s" : ""}`,
           "END:VEVENT",
