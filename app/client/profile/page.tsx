@@ -244,6 +244,17 @@ export default function ClientProfilePage() {
           </div>
         </div>
 
+        {/* Install App */}
+        <div style={{ padding: "0 20px 12px" }}>
+          <a
+            href="/install"
+            style={{ width: "100%", padding: "15px", borderRadius: 14, background: "#0D1827", color: "#2DC4B8", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, textDecoration: "none" }}
+          >
+            <span style={{ fontSize: 20 }}>📲</span>
+            Install App + Enable Notifications
+          </a>
+        </div>
+
         {/* Sign out */}
         <div style={{ padding: "0 20px 20px" }}>
           <button
