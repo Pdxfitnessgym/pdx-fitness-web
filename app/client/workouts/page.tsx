@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -88,6 +89,7 @@ export default async function ClientWorkoutsPage({
           <div style={{ fontWeight: 700, color: "#0D1827", marginBottom: 6 }}>No program assigned yet</div>
           <div style={{ fontSize: 14, color: "#6B7A8D" }}>Your trainer will assign a program soon.</div>
         </div>
+        <ClientBottomNav />
       </div>
     );
   }
@@ -108,6 +110,7 @@ export default async function ClientWorkoutsPage({
           </div>
           <OnDemandGrid workouts={standaloneWorkouts} />
         </div>
+        <ClientBottomNav />
       </div>
     );
   }
@@ -231,6 +234,7 @@ export default async function ClientWorkoutsPage({
           </div>
         )}
       </div>
+      <ClientBottomNav />
     </div>
   );
 }
