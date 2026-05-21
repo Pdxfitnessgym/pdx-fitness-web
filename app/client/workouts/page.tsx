@@ -51,7 +51,9 @@ export default async function ClientWorkoutsPage({
   if (profile && profile.role !== "client") redirect("/trainer");
 
   const sp = await searchParams;
-  const todayDow = new Date().getDay();
+  const todayDow = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].indexOf(
+    new Date().toLocaleDateString("en-US", { weekday: "short", timeZone: "America/Chicago" })
+  );
 
   // Fetch program + on-demand workouts + assigned workouts in parallel
   const [cpResult, standaloneResult, assignedResult] = await Promise.all([

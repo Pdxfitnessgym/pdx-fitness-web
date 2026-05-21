@@ -15,7 +15,8 @@ export default async function ClientDashboard() {
   const { data: profile } = await supabase.from("profiles").select("full_name, role, sessions_purchased, trainer_id").eq("id", user.id).single();
   if (profile && profile.role !== "client") redirect("/trainer");
 
-  const todayDow = new Date().getDay();
+  // Server runs UTC; use America/Chicago (Central) so US clients get the right day.
+  const todayDow = localDayOfWeek("America/Chicago");
 
   const { data: recentProgress } = await supabase
     .from("progress_logs")
@@ -220,6 +221,12 @@ export default async function ClientDashboard() {
         <ClientBottomNav />
       </div>
     </div>
+  );
+}
+
+function localDayOfWeek(tz: string): number {
+  return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].indexOf(
+    new Date().toLocaleDateString("en-US", { weekday: "short", timeZone: tz })
   );
 }
 

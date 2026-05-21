@@ -71,7 +71,8 @@ export default function WorkoutSessionPage() {
       if (!user) { setLoading(false); return; }
       setUserId(user.id);
 
-      const today = new Date().toISOString().split("T")[0];
+      // Use local date (not UTC) so Central/West coast users aren't shifted to next day
+      const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in device timezone
       const { data: todayLog } = await supabase
         .from("workout_logs").select("id").eq("client_id", user.id).eq("workout_id", workoutId)
         .gte("created_at", today).maybeSingle();
@@ -154,7 +155,6 @@ export default function WorkoutSessionPage() {
   const handleLogSet = useCallback(async (exerciseId: string, setNum: number) => {
     const key: SetKey = `${exerciseId}-${setNum}`;
     const inp = inputs[key] ?? { reps: "", weight: "" };
-    if (!inp.reps && !inp.weight) return;
     if (!workoutLogId || !userId) return;
 
     const reps = inp.reps ? parseInt(inp.reps) : null;
@@ -476,9 +476,9 @@ export default function WorkoutSessionPage() {
               Start Workout →
             </button>
           ) : (
-            <button onClick={handleComplete} disabled={completing || doneSetCount === 0}
-              style={{ width: "100%", padding: "16px", borderRadius: 14, background: doneSetCount === 0 ? "#E2EAF0" : "#1B68B4", color: doneSetCount === 0 ? "#9CA3AF" : "#fff", fontWeight: 800, fontSize: 17, border: "none", cursor: doneSetCount === 0 ? "default" : "pointer", boxShadow: doneSetCount > 0 ? "0 4px 20px rgba(27,104,180,0.35)" : "none" }}>
-              {completing ? "Saving…" : `Complete Workout (${doneSetCount}/${totalSets} sets)`}
+            <button onClick={handleComplete} disabled={completing}
+              style={{ width: "100%", padding: "16px", borderRadius: 14, background: "#1B68B4", color: "#fff", fontWeight: 800, fontSize: 17, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(27,104,180,0.35)" }}>
+              {completing ? "Saving…" : doneSetCount > 0 ? `Complete Workout (${doneSetCount}/${totalSets} sets)` : "Complete Workout"}
             </button>
           )}
         </div>
