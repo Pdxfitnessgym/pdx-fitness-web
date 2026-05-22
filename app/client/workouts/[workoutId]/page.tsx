@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
+import { buildSetKey, calcTotalSets, isExerciseDone, parseRepsInput, parseWeightInput, repsToNumber, weightToNumber, type Side } from "@/lib/workout-utils";
 
 type ExerciseRow = {
   id: string;
@@ -153,13 +154,13 @@ export default function WorkoutSessionPage() {
     setMode("session");
   }, [workoutId, workoutLogId, userId]);
 
-  const handleLogSet = useCallback(async (exerciseId: string, setNum: number, side: "both" | "left" | "right" = "both") => {
-    const key: SetKey = `${exerciseId}-${setNum}-${side}`;
+  const handleLogSet = useCallback(async (exerciseId: string, setNum: number, side: Side = "both") => {
+    const key: SetKey = buildSetKey(exerciseId, setNum, side);
     const inp = inputs[key] ?? { reps: "", weight: "" };
     if (!workoutLogId || !userId) return;
 
-    const reps = inp.reps ? parseInt(inp.reps) : null;
-    const weight = inp.weight ? parseFloat(inp.weight) : null;
+    const reps = repsToNumber(inp.reps);
+    const weight = weightToNumber(inp.weight);
 
     setLogged(prev => ({ ...prev, [key]: { reps, weight } }));
 
@@ -201,7 +202,7 @@ export default function WorkoutSessionPage() {
   }, [workoutLogId, workoutId]);
 
   const doneSetCount = Object.keys(logged).length;
-  const totalSets = exercises.reduce((acc, ex) => acc + ex.sets * (ex.is_unilateral ? 2 : 1), 0);
+  const totalSets = calcTotalSets(exercises);
 
   // Group exercises for rendering
   const renderItems = useMemo(() => {
@@ -232,8 +233,7 @@ export default function WorkoutSessionPage() {
   }
 
   function renderExCard(ex: ExerciseRow, inGroup?: boolean, groupExs?: ExerciseRow[]) {
-    const expectedLogCount = ex.sets * (ex.is_unilateral ? 2 : 1);
-    const allSetsLogged = Object.keys(logged).filter(k => k.startsWith(ex.id + "-")).length >= expectedLogCount;
+    const allSetsLogged = isExerciseDone(logged, ex.id, ex.sets, ex.is_unilateral);
     const videoUrl = ex.exercise_library?.video_url ?? null;
     const color = ex.group_id != null ? groupColor(ex.group_id) : "#2DC4B8";
 
@@ -323,13 +323,13 @@ export default function WorkoutSessionPage() {
                                 type="text" inputMode="numeric" pattern="[0-9]*"
                                 placeholder={logged[key]?.reps != null ? String(logged[key].reps) : ex.reps.split(/[-x]/)[0].trim()}
                                 value={inp.reps}
-                                onChange={e => { const v = e.target.value.replace(/[^0-9]/g, ""); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
+                                onChange={e => { const v = parseRepsInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
                                 style={inputStyle(isDone)} />
                               <input
                                 type="text" inputMode="decimal"
                                 placeholder={logged[key]?.weight != null ? String(logged[key].weight) : prev?.weight != null ? String(prev.weight) : "0"}
                                 value={inp.weight}
-                                onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, ""); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
+                                onChange={e => { const v = parseWeightInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
                                 style={inputStyle(isDone)} />
                               <button onClick={() => handleLogSet(ex.id, setNum, side)}
                                 style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : sideColor, color: isDone ? "#059669" : "#fff", fontWeight: 700, fontSize: 16, border: `1.5px solid ${isDone ? "#6EE7B7" : sideColor}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -373,13 +373,13 @@ export default function WorkoutSessionPage() {
                           type="text" inputMode="numeric" pattern="[0-9]*"
                           placeholder={logged[key]?.reps != null ? String(logged[key].reps) : ex.reps.split(/[-x]/)[0].trim()}
                           value={inp.reps}
-                          onChange={e => { const v = e.target.value.replace(/[^0-9]/g, ""); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
+                          onChange={e => { const v = parseRepsInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
                           style={inputStyle(isDone)} />
                         <input
                           type="text" inputMode="decimal"
                           placeholder={logged[key]?.weight != null ? String(logged[key].weight) : prev?.weight != null ? String(prev.weight) : "0"}
                           value={inp.weight}
-                          onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, ""); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
+                          onChange={e => { const v = parseWeightInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
                           style={inputStyle(isDone)} />
                         <button onClick={() => handleLogSet(ex.id, setNum, "both")}
                           style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : color, color: isDone ? "#059669" : "#fff", fontWeight: 700, fontSize: 20, border: `1.5px solid ${isDone ? "#6EE7B7" : color}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
