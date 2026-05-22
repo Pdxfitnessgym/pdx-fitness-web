@@ -16,6 +16,7 @@ type ExerciseRow = {
   exercise_library: { video_url: string | null } | null;
   group_id: number | null;
   group_round_rest_seconds: number | null;
+  is_unilateral: boolean;
 };
 
 type SetKey = string;
@@ -57,7 +58,7 @@ export default function WorkoutSessionPage() {
       const [{ data: w }, { data: exs }, { data: { user } }] = await Promise.all([
         supabase.from("workouts").select("name").eq("id", workoutId).single(),
         supabase.from("exercises")
-          .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library(video_url), group_id, group_round_rest_seconds")
+          .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library(video_url), group_id, group_round_rest_seconds, is_unilateral")
           .eq("workout_id", workoutId)
           .order("order"),
         supabase.auth.getUser(),
@@ -79,9 +80,9 @@ export default function WorkoutSessionPage() {
 
       if (todayLog) {
         setWorkoutLogId(todayLog.id);
-        const { data: sl } = await supabase.from("set_logs").select("exercise_id, set_number, reps_completed, weight_lbs").eq("workout_log_id", todayLog.id);
+        const { data: sl } = await supabase.from("set_logs").select("exercise_id, set_number, reps_completed, weight_lbs, side").eq("workout_log_id", todayLog.id);
         const map: Record<SetKey, LoggedSet> = {};
-        sl?.forEach(s => { map[`${s.exercise_id}-${s.set_number}`] = { reps: s.reps_completed, weight: s.weight_lbs }; });
+        sl?.forEach(s => { map[`${s.exercise_id}-${s.set_number}-${s.side ?? "both"}`] = { reps: s.reps_completed, weight: s.weight_lbs }; });
         setLogged(map);
         if (Object.keys(map).length > 0) setMode("session");
       }
@@ -91,9 +92,9 @@ export default function WorkoutSessionPage() {
         .lt("created_at", today).order("created_at", { ascending: false }).limit(1).maybeSingle();
 
       if (prevLog) {
-        const { data: sl } = await supabase.from("set_logs").select("exercise_id, set_number, reps_completed, weight_lbs").eq("workout_log_id", prevLog.id);
+        const { data: sl } = await supabase.from("set_logs").select("exercise_id, set_number, reps_completed, weight_lbs, side").eq("workout_log_id", prevLog.id);
         const map: Record<SetKey, LoggedSet> = {};
-        sl?.forEach(s => { map[`${s.exercise_id}-${s.set_number}`] = { reps: s.reps_completed, weight: s.weight_lbs }; });
+        sl?.forEach(s => { map[`${s.exercise_id}-${s.set_number}-${s.side ?? "both"}`] = { reps: s.reps_completed, weight: s.weight_lbs }; });
         setPrevLogged(map);
       }
 
@@ -152,8 +153,8 @@ export default function WorkoutSessionPage() {
     setMode("session");
   }, [workoutId, workoutLogId, userId]);
 
-  const handleLogSet = useCallback(async (exerciseId: string, setNum: number) => {
-    const key: SetKey = `${exerciseId}-${setNum}`;
+  const handleLogSet = useCallback(async (exerciseId: string, setNum: number, side: "both" | "left" | "right" = "both") => {
+    const key: SetKey = `${exerciseId}-${setNum}-${side}`;
     const inp = inputs[key] ?? { reps: "", weight: "" };
     if (!workoutLogId || !userId) return;
 
@@ -170,7 +171,8 @@ export default function WorkoutSessionPage() {
       set_number: setNum,
       reps_completed: reps,
       weight_lbs: weight,
-    }, { onConflict: "workout_log_id,exercise_id,set_number" });
+      side,
+    }, { onConflict: "workout_log_id,exercise_id,set_number,side" });
 
     // Auto-start rest timer immediately
     const ex = exercises.find(e => e.id === exerciseId);
@@ -199,7 +201,7 @@ export default function WorkoutSessionPage() {
   }, [workoutLogId, workoutId]);
 
   const doneSetCount = Object.keys(logged).length;
-  const totalSets = exercises.reduce((acc, ex) => acc + ex.sets, 0);
+  const totalSets = exercises.reduce((acc, ex) => acc + ex.sets * (ex.is_unilateral ? 2 : 1), 0);
 
   // Group exercises for rendering
   const renderItems = useMemo(() => {
@@ -230,7 +232,8 @@ export default function WorkoutSessionPage() {
   }
 
   function renderExCard(ex: ExerciseRow, inGroup?: boolean, groupExs?: ExerciseRow[]) {
-    const allSetsLogged = Object.keys(logged).filter(k => k.startsWith(ex.id + "-")).length >= ex.sets;
+    const expectedLogCount = ex.sets * (ex.is_unilateral ? 2 : 1);
+    const allSetsLogged = Object.keys(logged).filter(k => k.startsWith(ex.id + "-")).length >= expectedLogCount;
     const videoUrl = ex.exercise_library?.video_url ?? null;
     const color = ex.group_id != null ? groupColor(ex.group_id) : "#2DC4B8";
 
@@ -256,8 +259,9 @@ export default function WorkoutSessionPage() {
             <div style={{ width: 56, height: 56, borderRadius: 10, background: "#F4F7FA", border: "1px solid #E2EAF0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 22 }}>💪</div>
           )}
           <div style={{ flex: 1 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2, flexWrap: "wrap" }}>
               <div style={{ fontWeight: 800, fontSize: 15, color: "#0D1827" }}>{ex.name}</div>
+              {ex.is_unilateral && <span style={{ fontSize: 10, fontWeight: 700, color: "#2DC4B8", background: "#F0FDFC", border: "1px solid #A7F3D0", borderRadius: 4, padding: "1px 5px" }}>L/R</span>}
               {allSetsLogged && <span style={{ fontSize: 12, color: "#059669", fontWeight: 700 }}>✓</span>}
             </div>
             <div style={{ fontSize: 12, color: "#6B7A8D" }}>{ex.sets} sets × {ex.reps}</div>
@@ -276,51 +280,117 @@ export default function WorkoutSessionPage() {
         {/* Set rows */}
         {mode === "session" && (
           <div style={{ padding: "0 16px 12px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 1fr 72px", gap: 8, padding: "8px 0 6px", borderBottom: "1px solid #F4F7FA", marginBottom: 4 }}>
-              <div style={colHdr}>Set</div>
-              <div style={colHdr}>Reps</div>
-              <div style={colHdr}>lbs</div>
-              <div />
-            </div>
-
-            {Array.from({ length: ex.sets }, (_, i) => i + 1).map(setNum => {
-              const key: SetKey = `${ex.id}-${setNum}`;
-              const isDone = !!logged[key];
-              const prev = prevLogged[key];
-              const inp = inputs[key] ?? { reps: "", weight: "" };
-              return (
-                <div key={setNum}>
-                  {setNum === 1 && prev && (
-                    <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 5, marginTop: 2 }}>
-                      Prev: {prev.reps != null ? `${prev.reps} reps` : ""}{prev.reps != null && prev.weight != null ? " × " : ""}{prev.weight != null && prev.weight > 0 ? `${prev.weight} lbs` : ""}
-                    </div>
-                  )}
-                  <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 1fr 72px", gap: 8, alignItems: "center", marginBottom: 6 }}>
-                    <div style={{ width: 30, height: 30, borderRadius: "50%", background: isDone ? color : "#F4F7FA", border: `2px solid ${isDone ? color : "#E2EAF0"}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}>
-                      {isDone
-                        ? <span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>✓</span>
-                        : <span style={{ color: "#6B7A8D", fontSize: 12, fontWeight: 700 }}>{setNum}</span>}
-                    </div>
-                    <input
-                      type="text" inputMode="numeric" pattern="[0-9]*"
-                      placeholder={logged[key]?.reps != null ? String(logged[key].reps) : ex.reps.split(/[-x]/)[0].trim()}
-                      value={inp.reps}
-                      onChange={e => { const v = e.target.value.replace(/[^0-9]/g, ""); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
-                      style={inputStyle(isDone)} />
-                    <input
-                      type="text" inputMode="decimal"
-                      placeholder={logged[key]?.weight != null ? String(logged[key].weight) : prev?.weight != null ? String(prev.weight) : "0"}
-                      value={inp.weight}
-                      onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, ""); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
-                      style={inputStyle(isDone)} />
-                    <button onClick={() => handleLogSet(ex.id, setNum)}
-                      style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : color, color: isDone ? "#059669" : "#fff", fontWeight: 700, fontSize: 20, border: `1.5px solid ${isDone ? "#6EE7B7" : color}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {isDone ? "✓" : "⏱"}
-                    </button>
-                  </div>
+            {ex.is_unilateral ? (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "44px 36px 1fr 1fr 64px", gap: 6, padding: "8px 0 6px", borderBottom: "1px solid #F4F7FA", marginBottom: 4 }}>
+                  <div style={colHdr}>Set</div>
+                  <div style={colHdr}>Side</div>
+                  <div style={colHdr}>Reps</div>
+                  <div style={colHdr}>lbs</div>
+                  <div />
                 </div>
-              );
-            })}
+                {Array.from({ length: ex.sets }, (_, i) => i + 1).map(setNum => {
+                  const bothDone = !!logged[`${ex.id}-${setNum}-left`] && !!logged[`${ex.id}-${setNum}-right`];
+                  return (
+                    <div key={setNum} style={{ marginBottom: 10 }}>
+                      {(["left", "right"] as const).map((side, sideIdx) => {
+                        const key: SetKey = `${ex.id}-${setNum}-${side}`;
+                        const isDone = !!logged[key];
+                        const prev = prevLogged[key];
+                        const inp = inputs[key] ?? { reps: "", weight: "" };
+                        const sideLabel = side === "left" ? "L" : "R";
+                        const sideColor = side === "left" ? "#1B68B4" : "#8B5CF6";
+                        return (
+                          <div key={side}>
+                            {sideIdx === 0 && setNum === 1 && prev && (
+                              <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 4 }}>
+                                Prev L: {prev.reps != null ? `${prev.reps} reps` : "—"}
+                                {prevLogged[`${ex.id}-${setNum}-right`] ? ` · R: ${prevLogged[`${ex.id}-${setNum}-right`]?.reps ?? "—"} reps` : ""}
+                              </div>
+                            )}
+                            <div style={{ display: "grid", gridTemplateColumns: "44px 36px 1fr 1fr 64px", gap: 6, alignItems: "center", marginBottom: 4 }}>
+                              {sideIdx === 0 ? (
+                                <div style={{ width: 30, height: 30, borderRadius: "50%", background: bothDone ? color : "#F4F7FA", border: `2px solid ${bothDone ? color : "#E2EAF0"}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}>
+                                  {bothDone
+                                    ? <span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>✓</span>
+                                    : <span style={{ color: "#6B7A8D", fontSize: 12, fontWeight: 700 }}>{setNum}</span>}
+                                </div>
+                              ) : <div />}
+                              <div style={{ width: 28, height: 28, borderRadius: 6, background: isDone ? sideColor + "22" : "#F4F7FA", border: `1.5px solid ${isDone ? sideColor : "#E2EAF0"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: isDone ? sideColor : "#9CA3AF" }}>
+                                {sideLabel}
+                              </div>
+                              <input
+                                type="text" inputMode="numeric" pattern="[0-9]*"
+                                placeholder={logged[key]?.reps != null ? String(logged[key].reps) : ex.reps.split(/[-x]/)[0].trim()}
+                                value={inp.reps}
+                                onChange={e => { const v = e.target.value.replace(/[^0-9]/g, ""); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
+                                style={inputStyle(isDone)} />
+                              <input
+                                type="text" inputMode="decimal"
+                                placeholder={logged[key]?.weight != null ? String(logged[key].weight) : prev?.weight != null ? String(prev.weight) : "0"}
+                                value={inp.weight}
+                                onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, ""); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
+                                style={inputStyle(isDone)} />
+                              <button onClick={() => handleLogSet(ex.id, setNum, side)}
+                                style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : sideColor, color: isDone ? "#059669" : "#fff", fontWeight: 700, fontSize: 16, border: `1.5px solid ${isDone ? "#6EE7B7" : sideColor}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                {isDone ? "✓" : "⏱"}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </>
+            ) : (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 1fr 72px", gap: 8, padding: "8px 0 6px", borderBottom: "1px solid #F4F7FA", marginBottom: 4 }}>
+                  <div style={colHdr}>Set</div>
+                  <div style={colHdr}>Reps</div>
+                  <div style={colHdr}>lbs</div>
+                  <div />
+                </div>
+                {Array.from({ length: ex.sets }, (_, i) => i + 1).map(setNum => {
+                  const key: SetKey = `${ex.id}-${setNum}-both`;
+                  const isDone = !!logged[key];
+                  const prev = prevLogged[key];
+                  const inp = inputs[key] ?? { reps: "", weight: "" };
+                  return (
+                    <div key={setNum}>
+                      {setNum === 1 && prev && (
+                        <div style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 5, marginTop: 2 }}>
+                          Prev: {prev.reps != null ? `${prev.reps} reps` : ""}{prev.reps != null && prev.weight != null ? " × " : ""}{prev.weight != null && prev.weight > 0 ? `${prev.weight} lbs` : ""}
+                        </div>
+                      )}
+                      <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 1fr 72px", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                        <div style={{ width: 30, height: 30, borderRadius: "50%", background: isDone ? color : "#F4F7FA", border: `2px solid ${isDone ? color : "#E2EAF0"}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}>
+                          {isDone
+                            ? <span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>✓</span>
+                            : <span style={{ color: "#6B7A8D", fontSize: 12, fontWeight: 700 }}>{setNum}</span>}
+                        </div>
+                        <input
+                          type="text" inputMode="numeric" pattern="[0-9]*"
+                          placeholder={logged[key]?.reps != null ? String(logged[key].reps) : ex.reps.split(/[-x]/)[0].trim()}
+                          value={inp.reps}
+                          onChange={e => { const v = e.target.value.replace(/[^0-9]/g, ""); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
+                          style={inputStyle(isDone)} />
+                        <input
+                          type="text" inputMode="decimal"
+                          placeholder={logged[key]?.weight != null ? String(logged[key].weight) : prev?.weight != null ? String(prev.weight) : "0"}
+                          value={inp.weight}
+                          onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, ""); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
+                          style={inputStyle(isDone)} />
+                        <button onClick={() => handleLogSet(ex.id, setNum, "both")}
+                          style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : color, color: isDone ? "#059669" : "#fff", fontWeight: 700, fontSize: 20, border: `1.5px solid ${isDone ? "#6EE7B7" : color}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          {isDone ? "✓" : "⏱"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
           </div>
         )}
       </div>

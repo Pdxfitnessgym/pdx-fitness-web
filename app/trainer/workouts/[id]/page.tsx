@@ -14,6 +14,7 @@ type Exercise = {
   order: number;
   exercise_library_id: string | null;
   exercise_library: { video_url: string | null } | null;
+  is_unilateral: boolean;
 };
 
 type LibExercise = {
@@ -54,7 +55,7 @@ export default function StandaloneWorkoutEditorPage() {
 
   // exercise editing
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [edits, setEdits] = useState<Record<string, { sets: string; reps: string; rest_seconds: string; notes: string }>>({});
+  const [edits, setEdits] = useState<Record<string, { sets: string; reps: string; rest_seconds: string; notes: string; is_unilateral: boolean }>>({});
   const [saving, setSaving] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
 
@@ -192,7 +193,7 @@ export default function StandaloneWorkoutEditorPage() {
     const [{ data: w }, { data: exs }] = await Promise.all([
       supabase.from("workouts").select("id, name, description, difficulty, est_duration_mins, category").eq("id", workoutId).single(),
       supabase.from("exercises")
-        .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library_id, exercise_library(video_url)")
+        .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library_id, exercise_library(video_url), is_unilateral")
         .eq("workout_id", workoutId).order("order"),
     ]);
     setWorkout(w as Workout);
@@ -210,7 +211,7 @@ export default function StandaloneWorkoutEditorPage() {
     setExpandedId(id);
     setEdits(prev => ({
       ...prev,
-      [id]: { sets: String(ex.sets), reps: ex.reps, rest_seconds: String(ex.rest_seconds), notes: ex.notes ?? "" },
+      [id]: { sets: String(ex.sets), reps: ex.reps, rest_seconds: String(ex.rest_seconds), notes: ex.notes ?? "", is_unilateral: ex.is_unilateral },
     }));
   }
 
@@ -224,6 +225,7 @@ export default function StandaloneWorkoutEditorPage() {
       reps: e.reps,
       rest_seconds: parseInt(e.rest_seconds) || 60,
       notes: e.notes.trim() || null,
+      is_unilateral: e.is_unilateral,
     }).eq("id", id);
     setExercises(prev => prev.map(ex => ex.id === id ? {
       ...ex,
@@ -231,6 +233,7 @@ export default function StandaloneWorkoutEditorPage() {
       reps: e.reps,
       rest_seconds: parseInt(e.rest_seconds) || 60,
       notes: e.notes.trim() || null,
+      is_unilateral: e.is_unilateral,
     } : ex));
     setSaving(null);
     setExpandedId(null);
@@ -378,7 +381,10 @@ export default function StandaloneWorkoutEditorPage() {
                 )}
 
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827" }}>{ex.name}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    {ex.name}
+                    {ex.is_unilateral && <span style={{ fontSize: 10, fontWeight: 700, color: "#2DC4B8", background: "#F0FDFC", border: "1px solid #A7F3D0", borderRadius: 4, padding: "1px 5px" }}>L/R</span>}
+                  </div>
                   <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>
                     {ex.sets} sets · {ex.reps} reps · {ex.rest_seconds}s rest
                   </div>
@@ -414,7 +420,7 @@ export default function StandaloneWorkoutEditorPage() {
                         <label style={smallLabel}>{f.label}</label>
                         <input
                           type="text"
-                          value={edit[f.field as keyof typeof edit]}
+                          value={edit[f.field as "sets" | "reps" | "rest_seconds" | "notes"]}
                           onChange={ev => setEdits(prev => ({ ...prev, [ex.id]: { ...prev[ex.id], [f.field]: ev.target.value } }))}
                           placeholder={f.placeholder}
                           style={inlineInput}
@@ -433,6 +439,20 @@ export default function StandaloneWorkoutEditorPage() {
                       style={inlineInput}
                     />
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setEdits(prev => ({ ...prev, [ex.id]: { ...prev[ex.id], is_unilateral: !prev[ex.id].is_unilateral } }))}
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 12px", borderRadius: 8, border: `1.5px solid ${edit.is_unilateral ? "#2DC4B8" : "#E2EAF0"}`, background: edit.is_unilateral ? "#F0FDFC" : "#fff", cursor: "pointer", textAlign: "left" }}
+                  >
+                    <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${edit.is_unilateral ? "#2DC4B8" : "#D1D5DB"}`, background: edit.is_unilateral ? "#2DC4B8" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {edit.is_unilateral && <span style={{ color: "#fff", fontSize: 12, fontWeight: 800 }}>✓</span>}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#0D1827" }}>Single-Side Exercise</div>
+                      <div style={{ fontSize: 11, color: "#6B7A8D" }}>Clients log reps separately for Left and Right</div>
+                    </div>
+                  </button>
 
                   <div style={{ display: "flex", gap: 8 }}>
                     <button onClick={() => saveExercise(ex.id)} disabled={saving === ex.id} style={{ flex: 1, padding: "10px", borderRadius: 10, background: "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer", opacity: saving === ex.id ? 0.6 : 1 }}>

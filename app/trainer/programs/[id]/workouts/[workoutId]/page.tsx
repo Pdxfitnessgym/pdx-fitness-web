@@ -19,6 +19,7 @@ type Exercise = {
   exercise_library: { video_url: string | null } | null;
   group_id: number | null;
   group_round_rest_seconds: number | null;
+  is_unilateral: boolean;
 };
 
 type Workout = {
@@ -28,7 +29,7 @@ type Workout = {
   programs: { name: string; trainer_id: string } | null;
 };
 
-type EditState = { sets: string; reps: string; rest_seconds: string; notes: string; group_round_rest_seconds: string };
+type EditState = { sets: string; reps: string; rest_seconds: string; notes: string; group_round_rest_seconds: string; is_unilateral: boolean };
 
 function groupLetter(id: number) { return String.fromCharCode(64 + id); }
 function groupColor(id: number) { return GROUP_COLORS[(id - 1) % GROUP_COLORS.length]; }
@@ -59,7 +60,7 @@ export default function WorkoutBuilderPage() {
       const [{ data: w }, { data: exs }] = await Promise.all([
         supabase.from("workouts").select("name, week_number, day_of_week, programs(name, trainer_id)").eq("id", workoutId).single(),
         supabase.from("exercises")
-          .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library_id, exercise_library(video_url), group_id, group_round_rest_seconds")
+          .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library_id, exercise_library(video_url), group_id, group_round_rest_seconds, is_unilateral")
           .eq("workout_id", workoutId)
           .order("order"),
       ]);
@@ -82,6 +83,7 @@ export default function WorkoutBuilderPage() {
         rest_seconds: String(ex.rest_seconds),
         notes: ex.notes ?? "",
         group_round_rest_seconds: String(ex.group_round_rest_seconds ?? 90),
+        is_unilateral: ex.is_unilateral,
       },
     }));
   }
@@ -111,6 +113,7 @@ export default function WorkoutBuilderPage() {
       reps: edit.reps,
       rest_seconds: parseInt(edit.rest_seconds) || 45,
       notes: edit.notes || null,
+      is_unilateral: edit.is_unilateral,
       ...(ex?.group_id != null ? { group_round_rest_seconds: parseInt(edit.group_round_rest_seconds) || 90 } : {}),
     };
     await supabase.from("exercises").update(patch).eq("id", exId);
@@ -256,7 +259,10 @@ export default function WorkoutBuilderPage() {
           )}
 
           <div style={{ flex: 1 }} onClick={!supersetMode ? () => toggleExpand(ex) : undefined}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827" }}>{idx + 1}. {ex.name}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              {idx + 1}. {ex.name}
+              {ex.is_unilateral && <span style={{ fontSize: 10, fontWeight: 700, color: "#2DC4B8", background: "#F0FDFC", border: "1px solid #A7F3D0", borderRadius: 4, padding: "1px 5px" }}>L/R</span>}
+            </div>
             <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>
               {ex.sets} sets × {ex.reps}
               {grouped ? <span style={{ color }}> · {ex.rest_seconds}s rest →</span> : <span> · {ex.rest_seconds}s rest</span>}
@@ -298,6 +304,21 @@ export default function WorkoutBuilderPage() {
                 <div style={{ fontSize: 11, color: "#6B7A8D", marginTop: 4 }}>Rest after completing all exercises in the superset</div>
               </div>
             )}
+            <div style={{ marginBottom: 12 }}>
+              <button
+                type="button"
+                onClick={() => setEdits(p => ({ ...p, [ex.id]: { ...p[ex.id], is_unilateral: !p[ex.id].is_unilateral } }))}
+                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 12px", borderRadius: 8, border: `1.5px solid ${edit.is_unilateral ? "#2DC4B8" : "#E2EAF0"}`, background: edit.is_unilateral ? "#F0FDFC" : "#fff", cursor: "pointer", textAlign: "left" }}
+              >
+                <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${edit.is_unilateral ? "#2DC4B8" : "#D1D5DB"}`, background: edit.is_unilateral ? "#2DC4B8" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  {edit.is_unilateral && <span style={{ color: "#fff", fontSize: 12, fontWeight: 800 }}>✓</span>}
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#0D1827" }}>Single-Side Exercise</div>
+                  <div style={{ fontSize: 11, color: "#6B7A8D" }}>Clients log reps separately for Left and Right</div>
+                </div>
+              </button>
+            </div>
             <div style={{ marginBottom: 12 }}>
               <div style={lbl}>Notes</div>
               <input value={edit.notes} onChange={e => setEdits(p => ({ ...p, [ex.id]: { ...p[ex.id], notes: e.target.value } }))} placeholder="Coaching cues, form tips…" style={{ ...inp, width: "100%" }} />
