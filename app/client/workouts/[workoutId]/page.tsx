@@ -70,7 +70,11 @@ export default function WorkoutSessionPage() {
         return { ...ex, exercise_library: Array.isArray(ex.exercise_library) ? (ex.exercise_library[0] ?? null) : ex.exercise_library };
       }) as ExerciseRow[]);
 
-      if (!user) { setLoading(false); return; }
+      if (!user) {
+        // Session expired or not logged in — redirect to login so the workout saves properly
+        window.location.href = "/login?redirect=" + encodeURIComponent(window.location.pathname);
+        return;
+      }
       setUserId(user.id);
 
       // Use local date (not UTC) so Central/West coast users aren't shifted to next day

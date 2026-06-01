@@ -4,6 +4,7 @@ import { assignProgram } from "@/app/actions/clients";
 import Link from "next/link";
 import { SessionsPanel } from "@/app/components/SessionsPanel";
 import { ClientNotesEditor } from "@/app/components/ClientNotesEditor";
+import { WorkoutLogCards } from "@/app/components/WorkoutLogCards";
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -75,9 +76,13 @@ export default async function ClientDetailPage({
   if (tab === "workouts") {
     const { data } = await supabase
       .from("workout_logs")
-      .select("id, completed_at, notes, logged_by, workouts(name, day_of_week)")
+      .select(`
+        id, completed_at, created_at, notes, logged_by,
+        workouts(name),
+        set_logs(id, exercise_id, set_number, weight_lbs, reps_completed, side, exercises(name))
+      `)
       .eq("client_id", clientId)
-      .order("completed_at", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(50);
     workoutLogs = data;
   }
@@ -282,7 +287,7 @@ export default async function ClientDetailPage({
         {tab === "workouts" && (
           <>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 13, color: "#6B7A8D" }}>{logCount ?? 0} workouts completed total</div>
+              <div style={{ fontSize: 13, color: "#6B7A8D" }}>{logCount ?? 0} sessions logged</div>
               <Link
                 href={`/trainer/clients/${clientId}/log-workout`}
                 style={{ padding: "10px 16px", borderRadius: 10, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 14, textDecoration: "none" }}
@@ -290,30 +295,7 @@ export default async function ClientDetailPage({
                 + Log Workout
               </Link>
             </div>
-            {workoutLogs && workoutLogs.length > 0 ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {workoutLogs.map((log: any) => (
-                  <div key={log.id} style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827" }}>
-                          {(log.workouts as unknown as { name: string } | null)?.name ?? "Workout"}
-                        </div>
-                        {log.logged_by && (
-                          <span style={{ fontSize: 10, fontWeight: 700, color: "#2DC4B8", background: "#F0FDFC", border: "1px solid #A7F3D0", borderRadius: 6, padding: "2px 6px" }}>Trainer</span>
-                        )}
-                      </div>
-                      {log.notes && <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>{log.notes}</div>}
-                    </div>
-                    <div style={{ fontSize: 12, color: "#6B7A8D", textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
-                      {log.completed_at ? new Date(log.completed_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <EmptyState icon="🏋️" text="No workouts logged yet" />
-            )}
+            <WorkoutLogCards logs={(workoutLogs ?? []) as any} />
           </>
         )}
 
