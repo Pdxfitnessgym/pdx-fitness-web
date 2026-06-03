@@ -169,8 +169,12 @@ export default function WorkoutSessionPage() {
     const supabase = createClient();
     let logId = workoutLogId;
     if (!logId) {
-      const { data } = await supabase.from("workout_logs").insert({ client_id: userId, workout_id: workoutId }).select("id").single();
-      logId = data?.id ?? null;
+      const { data, error } = await supabase.from("workout_logs").insert({ client_id: userId, workout_id: workoutId }).select("id").single();
+      if (error || !data?.id) {
+        alert("Could not start workout. Please check your connection and try again.");
+        return;
+      }
+      logId = data.id;
       setWorkoutLogId(logId);
     }
     setMode("session");
@@ -180,7 +184,11 @@ export default function WorkoutSessionPage() {
     unlockAudio();
     const key: SetKey = buildSetKey(exerciseId, setNum, side);
     const inp = inputs[key] ?? { reps: "", weight: "" };
-    if (!workoutLogId || !userId) return;
+    if (!userId) return;
+    if (!workoutLogId) {
+      alert("Workout not started yet. Please tap 'Start Workout' first.");
+      return;
+    }
 
     const reps = repsToNumber(inp.reps);
     const weight = weightToNumber(inp.weight);
