@@ -23,7 +23,7 @@ type ExerciseRow = {
 type SetKey = string;
 type LoggedSet = { reps: number | null; weight: number | null };
 type Mode = "preview" | "session" | "done" | "share";
-type RestTimer = { key: SetKey; remaining: number; total: number; kind: "exercise" | "round" };
+type RestTimer = { key: SetKey; endTime: number; total: number; kind: "exercise" | "round" };
 
 const GROUP_COLORS = ["#1B68B4", "#8B5CF6", "#F59E0B", "#10B981", "#EF4444", "#EC4899"];
 function groupColor(id: number) { return GROUP_COLORS[(id - 1) % GROUP_COLORS.length]; }
@@ -145,24 +145,57 @@ export default function WorkoutSessionPage() {
     try { navigator.vibrate([200, 150, 200, 150, 200, 150, 200]); } catch { /* not supported */ }
   }
 
-  useEffect(() => {
-    if (!restTimer || restTimer.remaining <= 0) return;
+  function scheduleSwNotification(delayMs: number, kind: "exercise" | "round") {
+    try {
+      navigator.serviceWorker.controller?.postMessage({
+        type: "SCHEDULE_TIMER",
+        delayMs,
+        title: "Time to lift! 💪",
+        body: kind === "round" ? "Round rest is over — start your next round." : "Rest is over — next set!",
+      });
+    } catch { /* sw not available */ }
+  }
+
+  function cancelSwNotification() {
+    try { navigator.serviceWorker.controller?.postMessage({ type: "CANCEL_TIMER" }); } catch { /* sw not available */ }
+  }
+
+  function startTimerInterval() {
+    if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setRestTimer(prev => {
         if (!prev) return null;
-        if (prev.remaining <= 1) {
+        const remaining = Math.ceil((prev.endTime - Date.now()) / 1000);
+        if (remaining <= 0) {
           clearInterval(timerRef.current!);
           setTimeout(() => {
+            cancelSwNotification();
             playAlarm();
             setRestDone(true);
             setTimeout(() => setRestDone(false), 2500);
           }, 0);
           return null;
         }
-        return { ...prev, remaining: prev.remaining - 1 };
+        return { ...prev };
       });
-    }, 1000);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    }, 500);
+  }
+
+  useEffect(() => {
+    if (!restTimer) return;
+    startTimerInterval();
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible" && restTimer) {
+        startTimerInterval();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restTimer?.key]);
 
   const startWorkout = useCallback(async () => {
@@ -211,17 +244,22 @@ export default function WorkoutSessionPage() {
     // Auto-start rest timer immediately
     const ex = exercises.find(e => e.id === exerciseId);
     if (timerRef.current) clearInterval(timerRef.current);
+    const startTimer = (secs: number, kind: "exercise" | "round") => {
+      const endTime = Date.now() + secs * 1000;
+      setRestTimer({ key, endTime, total: secs, kind });
+      scheduleSwNotification(secs * 1000, kind);
+    };
     if (ex?.group_id != null) {
       const groupExs = exercises.filter(e => e.group_id === ex.group_id);
       const isLastInGroup = groupExs.findIndex(e => e.id === exerciseId) === groupExs.length - 1;
       if (isLastInGroup) {
         const secs = ex.group_round_rest_seconds ?? 90;
-        if (secs > 0) setRestTimer({ key, remaining: secs, total: secs, kind: "round" });
+        if (secs > 0) startTimer(secs, "round");
       } else {
-        if (ex.rest_seconds > 0) setRestTimer({ key, remaining: ex.rest_seconds, total: ex.rest_seconds, kind: "exercise" });
+        if (ex.rest_seconds > 0) startTimer(ex.rest_seconds, "exercise");
       }
     } else {
-      if (ex && ex.rest_seconds > 0) setRestTimer({ key, remaining: ex.rest_seconds, total: ex.rest_seconds, kind: "exercise" });
+      if (ex && ex.rest_seconds > 0) startTimer(ex.rest_seconds, "exercise");
     }
   }, [inputs, workoutLogId, userId, exercises]);
 
@@ -533,13 +571,13 @@ export default function WorkoutSessionPage() {
                 {restTimer.kind === "round" ? "Round Rest" : "Rest"}
               </div>
               <div style={{ fontSize: 36, fontWeight: 900, color: "#fff", lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
-                {Math.floor(restTimer.remaining / 60)}:{String(restTimer.remaining % 60).padStart(2, "0")}
+                {(() => { const r = Math.max(0, Math.ceil((restTimer.endTime - Date.now()) / 1000)); return `${Math.floor(r / 60)}:${String(r % 60).padStart(2, "0")}`; })()}
               </div>
               <div style={{ height: 4, background: "rgba(255,255,255,0.25)", borderRadius: 2, marginTop: 6, overflow: "hidden" }}>
-                <div style={{ height: "100%", background: "#fff", borderRadius: 2, width: `${(restTimer.remaining / restTimer.total) * 100}%`, transition: "width 1s linear" }} />
+                <div style={{ height: "100%", background: "#fff", borderRadius: 2, width: `${(Math.max(0, restTimer.endTime - Date.now()) / (restTimer.total * 1000)) * 100}%`, transition: "width 0.5s linear" }} />
               </div>
             </div>
-            <button onClick={() => { if (timerRef.current) clearInterval(timerRef.current); setRestTimer(null); }}
+            <button onClick={() => { if (timerRef.current) clearInterval(timerRef.current); cancelSwNotification(); setRestTimer(null); }}
               style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 10, padding: "8px 14px", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
               Skip
             </button>
