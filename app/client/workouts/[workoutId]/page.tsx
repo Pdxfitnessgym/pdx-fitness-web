@@ -52,6 +52,7 @@ export default function WorkoutSessionPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [videoModal, setVideoModal] = useState<{ url: string; name: string } | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -107,10 +108,26 @@ export default function WorkoutSessionPage() {
     })();
   }, [workoutId]);
 
-  function playAlarm() {
+  function unlockAudio() {
     try {
+      if (audioCtxRef.current) return;
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const ctx = new AudioCtx();
+      // Play a silent buffer to unlock the context on iOS/Android
+      const buf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start(0);
+      audioCtxRef.current = ctx;
+    } catch { /* audio not available */ }
+  }
+
+  function playAlarm() {
+    try {
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+      if (ctx.state === "suspended") ctx.resume();
       [0, 0.18, 0.36].forEach(delay => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -147,6 +164,7 @@ export default function WorkoutSessionPage() {
   }, [restTimer?.key]);
 
   const startWorkout = useCallback(async () => {
+    unlockAudio();
     if (!userId) return;
     const supabase = createClient();
     let logId = workoutLogId;
@@ -159,6 +177,7 @@ export default function WorkoutSessionPage() {
   }, [workoutId, workoutLogId, userId]);
 
   const handleLogSet = useCallback(async (exerciseId: string, setNum: number, side: Side = "both") => {
+    unlockAudio();
     const key: SetKey = buildSetKey(exerciseId, setNum, side);
     const inp = inputs[key] ?? { reps: "", weight: "" };
     if (!workoutLogId || !userId) return;
