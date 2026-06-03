@@ -145,19 +145,33 @@ export default function WorkoutSessionPage() {
     try { navigator.vibrate([200, 150, 200, 150, 200, 150, 200]); } catch { /* not supported */ }
   }
 
+  const scheduledPushIdRef = useRef<string | null>(null);
+
   function scheduleSwNotification(delayMs: number, kind: "exercise" | "round") {
+    const title = "Time to lift! 💪";
+    const body = kind === "round" ? "Round rest is over — start your next round." : "Rest is over — next set!";
+    // SW-based (Android / immediate)
     try {
-      navigator.serviceWorker.controller?.postMessage({
-        type: "SCHEDULE_TIMER",
-        delayMs,
-        title: "Time to lift! 💪",
-        body: kind === "round" ? "Round rest is over — start your next round." : "Rest is over — next set!",
-      });
+      navigator.serviceWorker.controller?.postMessage({ type: "SCHEDULE_TIMER", delayMs, title, body });
     } catch { /* sw not available */ }
+    // Server-based (iPhone backup via 1-min cron)
+    fetch("/api/push/rest-timer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ delaySeconds: Math.round(delayMs / 1000), title, body }),
+    }).then(r => r.json()).then(d => { if (d.id) scheduledPushIdRef.current = d.id; }).catch(() => {});
   }
 
   function cancelSwNotification() {
     try { navigator.serviceWorker.controller?.postMessage({ type: "CANCEL_TIMER" }); } catch { /* sw not available */ }
+    if (scheduledPushIdRef.current) {
+      fetch("/api/push/rest-timer", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: scheduledPushIdRef.current }),
+      }).catch(() => {});
+      scheduledPushIdRef.current = null;
+    }
   }
 
   function startTimerInterval() {
