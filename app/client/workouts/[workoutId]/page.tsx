@@ -128,7 +128,7 @@ export default function WorkoutSessionPage() {
       const ctx = audioCtxRef.current;
       if (!ctx) return;
       if (ctx.state === "suspended") ctx.resume();
-      [0, 0.18, 0.36].forEach(delay => {
+      [0, 0.36, 0.72].forEach(delay => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
@@ -136,11 +136,13 @@ export default function WorkoutSessionPage() {
         osc.frequency.value = 880;
         osc.type = "sine";
         gain.gain.setValueAtTime(0.6, ctx.currentTime + delay);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.35);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.7);
         osc.start(ctx.currentTime + delay);
-        osc.stop(ctx.currentTime + delay + 0.35);
+        osc.stop(ctx.currentTime + delay + 0.7);
       });
     } catch { /* audio not available */ }
+    // Vibrate even on silent: 4 pulses of 200ms on / 150ms off
+    try { navigator.vibrate([200, 150, 200, 150, 200, 150, 200]); } catch { /* not supported */ }
   }
 
   useEffect(() => {
