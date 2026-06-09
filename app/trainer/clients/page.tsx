@@ -47,42 +47,43 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px", display: "flex", flexDirection: "column", gap: 16 }}>
 
-        {/* New signups waiting to be assigned */}
-        {unassigned && unassigned.length > 0 && (
-          <div style={{ background: "#FFFBEB", border: "1.5px solid #FCD34D", borderRadius: 14, overflow: "hidden" }}>
-            <div style={{ padding: "12px 18px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid #FDE68A" }}>
-              <span style={{ fontSize: 18 }}>🔔</span>
-              <div style={{ flex: 1 }}>
-                <span style={{ fontWeight: 800, fontSize: 15, color: "#92400E" }}>
-                  {unassigned.length} New Signup{unassigned.length !== 1 ? "s" : ""}
-                </span>
-                <span style={{ fontSize: 13, color: "#B45309", marginLeft: 8 }}>waiting to be assigned</span>
-              </div>
+        {/* New signups waiting to be assigned — always visible */}
+        <div style={{ background: "#FFFBEB", border: "1.5px solid #FCD34D", borderRadius: 14, overflow: "hidden" }}>
+          <div style={{ padding: "12px 18px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid #FDE68A" }}>
+            <span style={{ fontSize: 18 }}>🔔</span>
+            <div style={{ flex: 1 }}>
+              <span style={{ fontWeight: 800, fontSize: 15, color: "#92400E" }}>New Signups</span>
+              <span style={{ fontSize: 13, color: "#B45309", marginLeft: 8 }}>waiting to be assigned</span>
             </div>
-            {unassigned.map((c, i) => {
-              const joinedDays = Math.floor((Date.now() - new Date(c.created_at).getTime()) / 86400000);
-              const joinedLabel = joinedDays === 0 ? "Today" : joinedDays === 1 ? "Yesterday" : `${joinedDays}d ago`;
-              return (
-                <div key={c.id} style={{ padding: "12px 18px", borderBottom: i < unassigned.length - 1 ? "1px solid #FDE68A" : "none", display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#FDE68A", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 800, color: "#92400E", flexShrink: 0 }}>
-                    {(c.full_name ?? "?")[0].toUpperCase()}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: "#0D1827" }}>{c.full_name ?? "—"}</div>
-                    <div style={{ fontSize: 12, color: "#6B7A8D", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.email}</div>
-                    <div style={{ fontSize: 11, color: "#B45309", fontWeight: 600, marginTop: 1 }}>Joined {joinedLabel}</div>
-                  </div>
-                  <form action={assignClientToMe}>
-                    <input type="hidden" name="client_id" value={c.id} />
-                    <button type="submit" style={{ padding: "8px 16px", borderRadius: 20, background: "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
-                      Assign to me
-                    </button>
-                  </form>
-                </div>
-              );
-            })}
+            <span style={{ background: unassigned && unassigned.length > 0 ? "#F59E0B" : "#D1D5DB", color: "#fff", borderRadius: 20, padding: "2px 10px", fontWeight: 800, fontSize: 13 }}>
+              {unassigned?.length ?? 0}
+            </span>
           </div>
-        )}
+          {unassigned && unassigned.length > 0 ? unassigned.map((c, i) => {
+            const joinedDays = Math.floor((Date.now() - new Date(c.created_at).getTime()) / 86400000);
+            const joinedLabel = joinedDays === 0 ? "Today" : joinedDays === 1 ? "Yesterday" : `${joinedDays}d ago`;
+            return (
+              <div key={c.id} style={{ padding: "12px 18px", borderBottom: i < unassigned.length - 1 ? "1px solid #FDE68A" : "none", display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#FDE68A", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 800, color: "#92400E", flexShrink: 0 }}>
+                  {(c.full_name ?? "?")[0].toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: "#0D1827" }}>{c.full_name ?? "—"}</div>
+                  <div style={{ fontSize: 12, color: "#6B7A8D", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.email}</div>
+                  <div style={{ fontSize: 11, color: "#B45309", fontWeight: 600, marginTop: 1 }}>Joined {joinedLabel}</div>
+                </div>
+                <form action={assignClientToMe}>
+                  <input type="hidden" name="client_id" value={c.id} />
+                  <button type="submit" style={{ padding: "8px 16px", borderRadius: 20, background: "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
+                    Assign to me
+                  </button>
+                </form>
+              </div>
+            );
+          }) : (
+            <div style={{ padding: "16px 18px", color: "#B45309", fontSize: 14 }}>No new signups right now.</div>
+          )}
+        </div>
 
         {success && (
           <div style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
