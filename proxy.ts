@@ -25,7 +25,7 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isCalendarFeed = pathname.startsWith("/api/calendar/") && !pathname.endsWith("/subscribe");
-  const isPublic = pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname === "/" || isCalendarFeed;
+  const isPublic = pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname === "/" || isCalendarFeed || pathname.startsWith("/forgot-password") || pathname.startsWith("/reset-password");
   const isPendingPage = pathname.startsWith("/pending-approval");
 
   if (!user && !isPublic) {
