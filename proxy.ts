@@ -25,11 +25,16 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isCalendarFeed = pathname.startsWith("/api/calendar/") && !pathname.endsWith("/subscribe");
-  const isPublic = pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname === "/" || isCalendarFeed || pathname.startsWith("/forgot-password") || pathname.startsWith("/reset-password");
+  const isResetPassword = pathname.startsWith("/reset-password");
+  const isPublic = pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname === "/" || isCalendarFeed || pathname.startsWith("/forgot-password") || isResetPassword;
   const isPendingPage = pathname.startsWith("/pending-approval");
 
   if (!user && !isPublic) {
     return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  if (user && isResetPassword) {
+    return supabaseResponse;
   }
 
   if (user && (isPublic || isPendingPage)) {
