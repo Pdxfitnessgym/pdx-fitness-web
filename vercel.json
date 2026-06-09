@@ -1,10 +1,6 @@
 {
   "crons": [
-    {
-      "path": "/api/push/rest-timer-cron",
-      "schedule": "* * * * *"
-    },
-    {
+{
       "path": "/api/push/weekly-reminder",
       "schedule": "0 9 * * 1"
     },
