@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -10,6 +10,22 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    // Check if session already exists (came through /auth/callback PKCE flow)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) { setSessionReady(true); return; }
+    });
+    // Also listen for PASSWORD_RECOVERY event (hash/implicit flow fallback)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
+        setSessionReady(true);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,6 +40,12 @@ export default function ResetPasswordPage() {
     setLoading(true);
     setError("");
     const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setError("Your reset link has expired. Please request a new one.");
+      setLoading(false);
+      return;
+    }
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
       setError(error.message);
