@@ -5,25 +5,35 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
+  const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type");
 
-  if (code) {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() { return cookieStore.getAll(); },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          },
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll(); },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          );
         },
-      }
-    );
+      },
+    }
+  );
 
+  // Handle token_hash flow (password reset emails)
+  if (tokenHash && type === "recovery") {
+    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
+    if (!error) {
+      return NextResponse.redirect(new URL("/reset-password", request.url));
+    }
+    return NextResponse.redirect(new URL("/login?error=expired", request.url));
+  }
+
+  if (code) {
     const { data: { user } } = await supabase.auth.exchangeCodeForSession(code);
 
     if (type === "recovery") {
