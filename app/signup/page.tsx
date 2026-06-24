@@ -10,64 +10,32 @@ export default function SignupPage() {
   const [role, setRole] = useState<"client" | "trainer">("client");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [sent, setSent] = useState(false);
-
   async function signUp(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
     const supabase = createClient();
-    const { data, error } = await supabase.auth.signUp({
+    const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: { full_name: fullName, role },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
+      options: { data: { full_name: fullName, role } },
     });
-    if (error) { setError(error.message); setLoading(false); return; }
+    if (signUpError) { setError(signUpError.message); setLoading(false); return; }
 
-    if (data.user) {
-      const isAdmin = data.user.email === "pdxfitnessgym@gmail.com";
-      await supabase.from("profiles").upsert({
-        id: data.user.id,
-        email: data.user.email!,
-        full_name: fullName,
-        role,
-        is_approved: role !== "trainer" || isAdmin,
-      });
-    }
-
-    setSent(true);
-    setLoading(false);
-  }
-
-  if (sent) {
     if (role === "trainer") {
-      return (
-        <div style={{ minHeight: "100dvh", background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px" }}>
-          <div style={{ textAlign: "center", maxWidth: 360 }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginBottom: 8 }}>Request Submitted</div>
-            <div style={{ color: "#6B7A8D", fontSize: 15, lineHeight: 1.6 }}>
-              Your trainer account request has been submitted. An admin will review and approve your account before you can log in.
-            </div>
-            <Link href="/login" style={{ display: "inline-block", marginTop: 24, padding: "12px 28px", borderRadius: 12, background: "#F4F7FA", color: "#6B7A8D", fontWeight: 600, fontSize: 14, textDecoration: "none" }}>
-              ← Back to Sign In
-            </Link>
-          </div>
-        </div>
-      );
+      window.location.href = "/pending-approval";
+      return;
     }
-    return (
-      <div style={{ minHeight: "100dvh", background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px" }}>
-        <div style={{ textAlign: "center", maxWidth: 360 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>📧</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginBottom: 8 }}>Check your email</div>
-          <div style={{ color: "#6B7A8D", fontSize: 15 }}>We sent a confirmation link to <strong>{email}</strong>. Click it to activate your account.</div>
-        </div>
-      </div>
-    );
+
+    // Sign in immediately (works when email confirmation is disabled)
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    if (signInError) {
+      // Fallback: account created but confirmation still required
+      setError("Account created! Please check your email to confirm before signing in.");
+      setLoading(false);
+      return;
+    }
+    window.location.href = "/client";
   }
 
   return (
