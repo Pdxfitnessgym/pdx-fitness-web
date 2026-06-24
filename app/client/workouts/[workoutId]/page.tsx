@@ -531,45 +531,49 @@ export default function WorkoutSessionPage() {
             .filter(r => item.items.every(ex => !!logged[`${ex.id}-${r}`])).length;
 
           return (
-            <div key={`group-${item.gid}-${itemIdx}`} style={{ marginBottom: 12 }}>
-              {/* Superset header */}
-              <div style={{ background: color + "12", border: `1.5px solid ${color}44`, borderBottom: "none", borderRadius: "14px 14px 0 0", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <span style={{ fontSize: 13, fontWeight: 800, color }}>⚡ SUPERSET {letter}</span>
-                  <span style={{ fontSize: 12, color: "#6B7A8D", marginLeft: 8 }}>{item.items.length} exercises · {rounds} rounds</span>
+            <div key={`group-${item.gid}-${itemIdx}`} style={{ marginBottom: 16 }}>
+              {/* Superset header — solid colored banner */}
+              <div style={{ background: color, borderRadius: "14px 14px 0 0", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ background: "rgba(255,255,255,0.25)", borderRadius: 8, padding: "3px 10px" }}>
+                    <span style={{ fontSize: 13, fontWeight: 900, color: "#fff", letterSpacing: 1 }}>SUPERSET {letter}</span>
+                  </div>
+                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontWeight: 600 }}>{item.items.length} exercises · {rounds} rounds</span>
                 </div>
-                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
                   {Array.from({ length: rounds }, (_, i) => (
-                    <div key={i} style={{ width: 10, height: 10, borderRadius: "50%", background: i < completedRounds ? color : "#E2EAF0", border: `1.5px solid ${i < completedRounds ? color : "#D1D5DB"}`, transition: "background 0.2s" }} />
+                    <div key={i} style={{ width: 10, height: 10, borderRadius: "50%", background: i < completedRounds ? "#fff" : "rgba(255,255,255,0.3)", border: "1.5px solid rgba(255,255,255,0.6)", transition: "background 0.2s" }} />
                   ))}
-                  <span style={{ fontSize: 10, color: "#9CA3AF", marginLeft: 4 }}>{completedRounds}/{rounds}</span>
+                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.8)", marginLeft: 2 }}>{completedRounds}/{rounds}</span>
                 </div>
               </div>
 
-              {/* Exercises */}
-              <div style={{ border: `1.5px solid ${color}44`, borderTop: "none", borderRadius: "0 0 14px 14px", overflow: "hidden" }}>
+              {/* Exercises — left stripe + shared border */}
+              <div style={{ border: `2px solid ${color}`, borderTop: "none", borderRadius: "0 0 14px 14px", overflow: "hidden" }}>
                 {item.items.map((ex, i) => (
                   <div key={ex.id}>
-                    {renderExCard(ex, true, item.items)}
-                    {/* Connector between exercises */}
+                    <div style={{ display: "flex" }}>
+                      <div style={{ width: 5, background: color, flexShrink: 0 }} />
+                      <div style={{ flex: 1 }}>{renderExCard(ex, true, item.items)}</div>
+                    </div>
                     {i < item.items.length - 1 && (
-                      <div style={{ background: "#F8FAFB", padding: "6px 16px", borderTop: `1px solid ${color}22`, borderBottom: `1px solid ${color}22`, display: "flex", alignItems: "center", gap: 6 }}>
-                        <div style={{ width: 2, height: 14, background: color + "50", borderRadius: 1 }} />
-                        <span style={{ fontSize: 11, color: "#9CA3AF" }}>↓ {ex.rest_seconds}s rest</span>
+                      <div style={{ background: color + "12", padding: "7px 16px 7px 21px", borderTop: `1px solid ${color}33`, borderBottom: `1px solid ${color}33`, display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 14, color }}>↓</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color }}>No rest — go straight to next</span>
+                        {ex.rest_seconds > 0 && <span style={{ fontSize: 11, color: "#9CA3AF" }}>({ex.rest_seconds}s if needed)</span>}
                       </div>
                     )}
                   </div>
                 ))}
-                {/* Round rest footer */}
-                <div style={{ background: color + "08", padding: "8px 16px", borderTop: `1px solid ${color}22`, display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color, background: color + "18", borderRadius: 20, padding: "4px 12px" }}>
-                    🔄 {roundRest}s round rest
+                <div style={{ background: color + "10", padding: "10px 16px", borderTop: `1px solid ${color}33`, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color, background: color + "20", borderRadius: 20, padding: "5px 14px" }}>
+                    🔄 {roundRest}s rest between rounds
                   </span>
                   {completedRounds > 0 && completedRounds < rounds && (
-                    <span style={{ fontSize: 11, color: "#6B7A8D" }}>then repeat round {completedRounds + 1}</span>
+                    <span style={{ fontSize: 11, color: "#6B7A8D" }}>→ round {completedRounds + 1} next</span>
                   )}
                   {completedRounds === rounds && rounds > 0 && (
-                    <span style={{ fontSize: 11, color: "#059669", fontWeight: 700 }}>✓ All rounds complete!</span>
+                    <span style={{ fontSize: 11, color: "#059669", fontWeight: 700 }}>✓ All rounds done!</span>
                   )}
                 </div>
               </div>
