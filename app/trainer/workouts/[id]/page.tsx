@@ -15,6 +15,7 @@ type Exercise = {
   exercise_library_id: string | null;
   exercise_library: { video_url: string | null } | null;
   is_unilateral: boolean;
+  suggested_weight_lbs: number | null;
 };
 
 type LibExercise = {
@@ -55,7 +56,7 @@ export default function StandaloneWorkoutEditorPage() {
 
   // exercise editing
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [edits, setEdits] = useState<Record<string, { sets: string; reps: string; rest_seconds: string; notes: string; is_unilateral: boolean }>>({});
+  const [edits, setEdits] = useState<Record<string, { sets: string; reps: string; rest_seconds: string; notes: string; is_unilateral: boolean; suggested_weight_lbs: string }>>({});
   const [saving, setSaving] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
 
@@ -193,7 +194,7 @@ export default function StandaloneWorkoutEditorPage() {
     const [{ data: w }, { data: exs }] = await Promise.all([
       supabase.from("workouts").select("id, name, description, difficulty, est_duration_mins, category").eq("id", workoutId).single(),
       supabase.from("exercises")
-        .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library_id, exercise_library(video_url), is_unilateral")
+        .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library_id, exercise_library(video_url), is_unilateral, suggested_weight_lbs")
         .eq("workout_id", workoutId).order("order"),
     ]);
     setWorkout(w as Workout);
@@ -211,7 +212,7 @@ export default function StandaloneWorkoutEditorPage() {
     setExpandedId(id);
     setEdits(prev => ({
       ...prev,
-      [id]: { sets: String(ex.sets), reps: ex.reps, rest_seconds: String(ex.rest_seconds), notes: ex.notes ?? "", is_unilateral: ex.is_unilateral },
+      [id]: { sets: String(ex.sets), reps: ex.reps, rest_seconds: String(ex.rest_seconds), notes: ex.notes ?? "", is_unilateral: ex.is_unilateral, suggested_weight_lbs: ex.suggested_weight_lbs != null ? String(ex.suggested_weight_lbs) : "" },
     }));
   }
 
@@ -220,21 +221,16 @@ export default function StandaloneWorkoutEditorPage() {
     if (!e) return;
     setSaving(id);
     const supabase = createClient();
-    await supabase.from("exercises").update({
+    const patch = {
       sets: parseInt(e.sets) || 3,
       reps: e.reps,
       rest_seconds: parseInt(e.rest_seconds) || 60,
       notes: e.notes.trim() || null,
       is_unilateral: e.is_unilateral,
-    }).eq("id", id);
-    setExercises(prev => prev.map(ex => ex.id === id ? {
-      ...ex,
-      sets: parseInt(e.sets) || 3,
-      reps: e.reps,
-      rest_seconds: parseInt(e.rest_seconds) || 60,
-      notes: e.notes.trim() || null,
-      is_unilateral: e.is_unilateral,
-    } : ex));
+      suggested_weight_lbs: e.suggested_weight_lbs !== "" ? parseFloat(e.suggested_weight_lbs) || null : null,
+    };
+    await supabase.from("exercises").update(patch).eq("id", id);
+    setExercises(prev => prev.map(ex => ex.id === id ? { ...ex, ...patch } : ex));
     setSaving(null);
     setExpandedId(null);
   }
@@ -410,17 +406,18 @@ export default function StandaloneWorkoutEditorPage() {
                     </div>
                   )}
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
                     {[
                       { label: "Sets", field: "sets", placeholder: "3" },
                       { label: "Reps", field: "reps", placeholder: "8-12" },
                       { label: "Rest (s)", field: "rest_seconds", placeholder: "60" },
+                      { label: "Weight (lbs)", field: "suggested_weight_lbs", placeholder: "0" },
                     ].map(f => (
                       <div key={f.field}>
                         <label style={smallLabel}>{f.label}</label>
                         <input
                           type="text"
-                          value={edit[f.field as "sets" | "reps" | "rest_seconds" | "notes"]}
+                          value={edit[f.field as "sets" | "reps" | "rest_seconds" | "notes" | "suggested_weight_lbs"]}
                           onChange={ev => setEdits(prev => ({ ...prev, [ex.id]: { ...prev[ex.id], [f.field]: ev.target.value } }))}
                           placeholder={f.placeholder}
                           style={inlineInput}

@@ -18,6 +18,7 @@ type ExerciseRow = {
   group_id: number | null;
   group_round_rest_seconds: number | null;
   is_unilateral: boolean;
+  suggested_weight_lbs: number | null;
 };
 
 type SetKey = string;
@@ -60,7 +61,7 @@ export default function WorkoutSessionPage() {
       const [{ data: w }, { data: exs }, { data: { user } }] = await Promise.all([
         supabase.from("workouts").select("name").eq("id", workoutId).single(),
         supabase.from("exercises")
-          .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library(video_url), group_id, group_round_rest_seconds, is_unilateral")
+          .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library(video_url), group_id, group_round_rest_seconds, is_unilateral, suggested_weight_lbs")
           .eq("workout_id", workoutId)
           .order("order"),
         supabase.auth.getUser(),
@@ -349,7 +350,7 @@ export default function WorkoutSessionPage() {
               {ex.is_unilateral && <span style={{ fontSize: 10, fontWeight: 700, color: "#2DC4B8", background: "#F0FDFC", border: "1px solid #A7F3D0", borderRadius: 4, padding: "1px 5px" }}>L/R</span>}
               {allSetsLogged && <span style={{ fontSize: 12, color: "#059669", fontWeight: 700 }}>✓</span>}
             </div>
-            <div style={{ fontSize: 12, color: "#6B7A8D" }}>{ex.sets} sets × {ex.reps}</div>
+            <div style={{ fontSize: 12, color: "#6B7A8D" }}>{ex.sets} sets × {ex.reps}{ex.suggested_weight_lbs != null ? ` · ${ex.suggested_weight_lbs} lbs` : ""}</div>
             {roundDots && (
               <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
                 {roundDots.map((done, i) => (
@@ -412,7 +413,7 @@ export default function WorkoutSessionPage() {
                                 style={inputStyle(isDone)} />
                               <input
                                 type="text" inputMode="decimal"
-                                placeholder={logged[key]?.weight != null ? String(logged[key].weight) : prev?.weight != null ? String(prev.weight) : "0"}
+                                placeholder={logged[key]?.weight != null ? String(logged[key].weight) : prev?.weight != null ? String(prev.weight) : ex.suggested_weight_lbs != null ? String(ex.suggested_weight_lbs) : "0"}
                                 value={inp.weight}
                                 onChange={e => { const v = parseWeightInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
                                 style={inputStyle(isDone)} />
@@ -462,7 +463,7 @@ export default function WorkoutSessionPage() {
                           style={inputStyle(isDone)} />
                         <input
                           type="text" inputMode="decimal"
-                          placeholder={logged[key]?.weight != null ? String(logged[key].weight) : prev?.weight != null ? String(prev.weight) : "0"}
+                          placeholder={logged[key]?.weight != null ? String(logged[key].weight) : prev?.weight != null ? String(prev.weight) : ex.suggested_weight_lbs != null ? String(ex.suggested_weight_lbs) : "0"}
                           value={inp.weight}
                           onChange={e => { const v = parseWeightInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
                           style={inputStyle(isDone)} />

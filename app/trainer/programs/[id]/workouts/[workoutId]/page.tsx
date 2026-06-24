@@ -20,6 +20,7 @@ type Exercise = {
   group_id: number | null;
   group_round_rest_seconds: number | null;
   is_unilateral: boolean;
+  suggested_weight_lbs: number | null;
 };
 
 type Workout = {
@@ -29,7 +30,7 @@ type Workout = {
   programs: { name: string; trainer_id: string } | null;
 };
 
-type EditState = { sets: string; reps: string; rest_seconds: string; notes: string; group_round_rest_seconds: string; is_unilateral: boolean };
+type EditState = { sets: string; reps: string; rest_seconds: string; notes: string; group_round_rest_seconds: string; is_unilateral: boolean; suggested_weight_lbs: string };
 
 function groupLetter(id: number) { return String.fromCharCode(64 + id); }
 function groupColor(id: number) { return GROUP_COLORS[(id - 1) % GROUP_COLORS.length]; }
@@ -60,7 +61,7 @@ export default function WorkoutBuilderPage() {
       const [{ data: w }, { data: exs }] = await Promise.all([
         supabase.from("workouts").select("name, week_number, day_of_week, programs(name, trainer_id)").eq("id", workoutId).single(),
         supabase.from("exercises")
-          .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library_id, exercise_library(video_url), group_id, group_round_rest_seconds, is_unilateral")
+          .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library_id, exercise_library(video_url), group_id, group_round_rest_seconds, is_unilateral, suggested_weight_lbs")
           .eq("workout_id", workoutId)
           .order("order"),
       ]);
@@ -84,6 +85,7 @@ export default function WorkoutBuilderPage() {
         notes: ex.notes ?? "",
         group_round_rest_seconds: String(ex.group_round_rest_seconds ?? 90),
         is_unilateral: ex.is_unilateral,
+        suggested_weight_lbs: ex.suggested_weight_lbs != null ? String(ex.suggested_weight_lbs) : "",
       },
     }));
   }
@@ -114,6 +116,7 @@ export default function WorkoutBuilderPage() {
       rest_seconds: parseInt(edit.rest_seconds) || 45,
       notes: edit.notes || null,
       is_unilateral: edit.is_unilateral,
+      suggested_weight_lbs: edit.suggested_weight_lbs !== "" ? parseFloat(edit.suggested_weight_lbs) || null : null,
       ...(ex?.group_id != null ? { group_round_rest_seconds: parseInt(edit.group_round_rest_seconds) || 90 } : {}),
     };
     await supabase.from("exercises").update(patch).eq("id", exId);
@@ -283,7 +286,7 @@ export default function WorkoutBuilderPage() {
 
         {isExpanded && edit && !supersetMode && (
           <div style={{ borderTop: "1px solid #F4F7FA", padding: "14px 16px", background: "#F8FAFB" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
               <div>
                 <div style={lbl}>Sets</div>
                 <input type="number" min={1} value={edit.sets} onChange={e => setEdits(p => ({ ...p, [ex.id]: { ...p[ex.id], sets: e.target.value } }))} style={inp} />
@@ -295,6 +298,10 @@ export default function WorkoutBuilderPage() {
               <div>
                 <div style={lbl}>{ex.group_id != null ? "Rest Between" : "Rest (sec)"}</div>
                 <input type="number" value={edit.rest_seconds} onChange={e => setEdits(p => ({ ...p, [ex.id]: { ...p[ex.id], rest_seconds: e.target.value } }))} style={inp} />
+              </div>
+              <div>
+                <div style={lbl}>Weight (lbs)</div>
+                <input type="number" min={0} step={2.5} value={edit.suggested_weight_lbs} onChange={e => setEdits(p => ({ ...p, [ex.id]: { ...p[ex.id], suggested_weight_lbs: e.target.value } }))} placeholder="0" style={inp} />
               </div>
             </div>
             {ex.group_id != null && (
