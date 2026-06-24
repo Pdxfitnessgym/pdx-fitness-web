@@ -348,6 +348,20 @@ export default function TrainerLogWorkoutPage() {
               })}
             </>
           )}
+          {/* Inline rest timer for this exercise */}
+          {restTimer && restTimer.key.startsWith(ex.id + "-") && (
+            <div style={{ marginTop: 10, borderRadius: 10, background: restDone ? "#ECFDF5" : "#1B68B4", padding: "10px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: restDone ? "#059669" : "#fff", opacity: restDone ? 1 : 0.9 }}>{restDone ? "Rest complete — go!" : "Rest"}</div>
+                <div style={{ height: 4, background: restDone ? "#A7F3D0" : "rgba(255,255,255,0.25)", borderRadius: 4, marginTop: 5, overflow: "hidden" }}>
+                  <div style={{ height: "100%", background: restDone ? "#059669" : "#fff", borderRadius: 4, width: `${(1 - restPct) * 100}%`, transition: "width 0.25s linear" }} />
+                </div>
+              </div>
+              <div style={{ fontSize: 24, fontWeight: 900, color: restDone ? "#059669" : "#fff", minWidth: 44, textAlign: "right" }}>{restDone ? "Go!" : `${restSecsLeft}s`}</div>
+              <button onClick={() => { if (timerRef.current) clearInterval(timerRef.current); setRestTimer(null); setRestDone(false); }}
+                style={{ background: "rgba(255,255,255,0.2)", border: "none", color: restDone ? "#059669" : "#fff", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>✕</button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -417,21 +431,6 @@ export default function TrainerLogWorkoutPage() {
           </div>
         </div>
       </div>
-
-      {/* Rest Timer */}
-      {restTimer && (
-        <div style={{ background: restDone ? "#ECFDF5" : "#1B68B4", color: restDone ? "#059669" : "#fff", padding: "12px 20px", display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.85 }}>{restDone ? "Rest complete!" : "Rest"}</div>
-            <div style={{ height: 4, background: "rgba(255,255,255,0.25)", borderRadius: 4, marginTop: 6, overflow: "hidden" }}>
-              <div style={{ height: "100%", background: restDone ? "#059669" : "#fff", borderRadius: 4, width: `${(1 - restPct) * 100}%`, transition: "width 0.25s linear" }} />
-            </div>
-          </div>
-          <div style={{ fontSize: 28, fontWeight: 900, minWidth: 60, textAlign: "right" }}>{restDone ? "Go!" : `${restSecsLeft}s`}</div>
-          <button onClick={() => { if (timerRef.current) clearInterval(timerRef.current); setRestTimer(null); setRestDone(false); }}
-            style={{ background: "rgba(255,255,255,0.2)", border: "none", color: restDone ? "#059669" : "#fff", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontWeight: 700 }}>✕</button>
-        </div>
-      )}
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px" }}>
         {renderItems.map((item, idx) => {
