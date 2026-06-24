@@ -140,14 +140,14 @@ export default function TrainerLogWorkoutPage() {
     }, 250);
   }
 
-  function handleLogSet(exId: string, setNum: number, side: Side) {
+  function handleLogSet(exId: string, setNum: number, side: Side, skipTimer = false) {
     const key: SetKey = buildSetKey(exId, setNum, side);
     const inp = inputs[key] ?? { reps: "", weight: "" };
     const reps = repsToNumber(inp.reps);
     const weight = weightToNumber(inp.weight);
     setLogged(prev => ({ ...prev, [key]: { reps, weight } }));
     const ex = exercises.find(e => e.id === exId);
-    if (ex && ex.rest_seconds > 0) startTimer(ex.rest_seconds, key);
+    if (!skipTimer && ex && ex.rest_seconds > 0) startTimer(ex.rest_seconds, key);
   }
 
   async function openHistory(ex: ExerciseRow) {
@@ -295,9 +295,9 @@ export default function TrainerLogWorkoutPage() {
                               value={inp.weight}
                               onChange={e => { const v = parseWeightInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
                               style={inputStyle(isDone)} />
-                            <button onClick={() => handleLogSet(ex.id, setNum, side)}
+                            <button onClick={() => handleLogSet(ex.id, setNum, side, inGroup)}
                               style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : sideColor, color: isDone ? "#059669" : "#fff", fontWeight: 700, fontSize: 16, border: `1.5px solid ${isDone ? "#6EE7B7" : sideColor}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                              {isDone ? "✓" : "⏱"}
+                              ✓
                             </button>
                           </div>
                         </div>
@@ -338,9 +338,9 @@ export default function TrainerLogWorkoutPage() {
                         value={inp.weight}
                         onChange={e => { const v = parseWeightInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
                         style={inputStyle(isDone)} />
-                      <button onClick={() => handleLogSet(ex.id, setNum, "both")}
+                      <button onClick={() => handleLogSet(ex.id, setNum, "both", inGroup)}
                         style={{ padding: "10px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : "#2DC4B8", color: isDone ? "#059669" : "#fff", fontWeight: 700, fontSize: 20, border: `1.5px solid ${isDone ? "#6EE7B7" : "#2DC4B8"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        {isDone ? "✓" : "⏱"}
+                        {isDone ? "✓" : inGroup ? "✓" : "⏱"}
                       </button>
                     </div>
                   </div>
