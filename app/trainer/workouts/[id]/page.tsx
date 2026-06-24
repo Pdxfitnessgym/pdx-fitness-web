@@ -23,6 +23,8 @@ const WEIGHT_TYPES = [
   { value: "dumbbell", label: "1 DB" },
   { value: "dumbbells", label: "2 DB" },
   { value: "barbell", label: "Barbell" },
+  { value: "kettlebell", label: "Kettlebell" },
+  { value: "plate", label: "Plate" },
   { value: "bodyweight", label: "Bodyweight" },
 ];
 

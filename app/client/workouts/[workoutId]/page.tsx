@@ -354,7 +354,7 @@ export default function WorkoutSessionPage() {
             <div style={{ fontSize: 12, color: "#6B7A8D" }}>
               {ex.sets} sets × {ex.reps}
               {ex.suggested_weight && (
-                <span> · {ex.weight_type === "dumbbell" ? "1 DB " : ex.weight_type === "dumbbells" ? "2 DB " : ex.weight_type === "barbell" ? "Barbell " : ""}{ex.suggested_weight}</span>
+                <span> · {ex.weight_type === "dumbbell" ? "1 DB " : ex.weight_type === "dumbbells" ? "2 DB " : ex.weight_type === "barbell" ? "Barbell " : ex.weight_type === "kettlebell" ? "Kettlebell " : ex.weight_type === "plate" ? "Plate " : ""}{ex.suggested_weight}</span>
               )}
             </div>
             {roundDots && (
