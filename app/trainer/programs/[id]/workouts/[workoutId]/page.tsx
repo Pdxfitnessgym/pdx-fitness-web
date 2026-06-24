@@ -458,42 +458,47 @@ export default function WorkoutBuilderPage() {
           const rounds = item.items[0]?.ex.sets ?? 3;
 
           return (
-            <div key={`group-${item.gid}`} style={{ marginBottom: 12 }}>
-              {/* Superset header */}
-              <div style={{ background: color + "12", border: `1.5px solid ${color}44`, borderRadius: "12px 12px 0 0", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 14, fontWeight: 800, color }}>⚡ SUPERSET {letter}</span>
-                  <span style={{ fontSize: 12, color: "#6B7A8D" }}>
-                    {item.items.length} exercises · {rounds} sets · {roundRest}s round rest
+            <div key={`group-${item.gid}`} style={{ marginBottom: 16 }}>
+              {/* Superset header — solid colored banner */}
+              <div style={{ background: color, borderRadius: "12px 12px 0 0", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ background: "rgba(255,255,255,0.25)", borderRadius: 8, padding: "3px 10px" }}>
+                    <span style={{ fontSize: 13, fontWeight: 900, color: "#fff", letterSpacing: 1 }}>SUPERSET {letter}</span>
+                  </div>
+                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontWeight: 600 }}>
+                    {item.items.length} exercises · {rounds} sets · {roundRest}s rest
                   </span>
                 </div>
                 {!supersetMode && (
                   <button
                     onClick={() => ungroup(item.gid)}
-                    style={{ fontSize: 12, color: "#EF4444", background: "none", border: "none", cursor: "pointer", fontWeight: 600, padding: "4px 8px" }}
+                    style={{ fontSize: 12, color: "#fff", background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 8, cursor: "pointer", fontWeight: 700, padding: "4px 10px" }}
                   >
                     Ungroup
                   </button>
                 )}
               </div>
 
-              {/* Exercises */}
-              <div style={{ border: `1.5px solid ${color}44`, borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
+              {/* Exercises — left stripe + shared border */}
+              <div style={{ border: `2px solid ${color}`, borderTop: "none", borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
                 {item.items.map(({ ex, idx }, i) => (
                   <div key={ex.id}>
-                    {renderExCard(ex, idx, true)}
+                    <div style={{ display: "flex" }}>
+                      <div style={{ width: 5, background: color, flexShrink: 0 }} />
+                      <div style={{ flex: 1 }}>{renderExCard(ex, idx, true)}</div>
+                    </div>
                     {i < item.items.length - 1 && (
-                      <div style={{ background: "#F8FAFB", padding: "6px 14px 6px 20px", borderTop: `1px solid ${color}22`, borderBottom: `1px solid ${color}22`, display: "flex", alignItems: "center", gap: 6 }}>
-                        <div style={{ width: 2, height: 16, background: color + "60", borderRadius: 1 }} />
-                        <span style={{ fontSize: 11, color: "#9CA3AF" }}>↓ {ex.rest_seconds}s rest before next exercise</span>
+                      <div style={{ background: color + "12", padding: "7px 14px 7px 19px", borderTop: `1px solid ${color}33`, borderBottom: `1px solid ${color}33`, display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 14, color }}>↓</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color }}>No rest — go straight to next</span>
+                        {ex.rest_seconds > 0 && <span style={{ fontSize: 11, color: "#9CA3AF" }}>({ex.rest_seconds}s if needed)</span>}
                       </div>
                     )}
                   </div>
                 ))}
-                {/* Round rest indicator */}
-                <div style={{ background: color + "08", padding: "8px 14px", borderTop: `1px solid ${color}22`, display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color, background: color + "18", borderRadius: 20, padding: "3px 10px" }}>
-                    🔄 {roundRest}s ROUND REST — then repeat
+                <div style={{ background: color + "10", padding: "9px 14px", borderTop: `1px solid ${color}33`, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color, background: color + "20", borderRadius: 20, padding: "4px 12px" }}>
+                    🔄 {roundRest}s rest between rounds
                   </span>
                 </div>
               </div>
