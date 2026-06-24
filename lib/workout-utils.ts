@@ -26,8 +26,8 @@ export function parseWeightInput(raw: string): string {
   return raw.replace(/[^0-9.]/g, "");
 }
 
-export function repsToNumber(value: string): number | null {
-  return value ? parseInt(value, 10) : null;
+export function repsToText(value: string): string | null {
+  return value.trim() || null;
 }
 
 export function weightToNumber(value: string): number | null {

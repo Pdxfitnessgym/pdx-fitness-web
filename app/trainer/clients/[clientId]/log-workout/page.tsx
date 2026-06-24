@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { buildSetKey, parseRepsInput, parseWeightInput, repsToNumber, weightToNumber, type Side } from "@/lib/workout-utils";
+import { buildSetKey, parseRepsInput, parseWeightInput, repsToText, weightToNumber, type Side } from "@/lib/workout-utils";
 
 type ExerciseRow = {
   id: string;
@@ -21,9 +21,9 @@ type ExerciseRow = {
 };
 
 type SetKey = string;
-type LoggedSet = { reps: number | null; weight: number | null };
+type LoggedSet = { reps: string | null; weight: number | null };
 type RestTimer = { key: SetKey; endTime: number; total: number };
-type HistorySession = { date: string; sets: { set_number: number; reps_completed: number | null; weight_lbs: number | null; side: string | null }[] };
+type HistorySession = { date: string; sets: { set_number: number; reps_completed: string | null; weight_lbs: number | null; side: string | null }[] };
 type Program = { id: string; name: string };
 type Workout = { id: string; name: string; week_number: number; day_of_week: number };
 type RenderItem = { kind: "standalone"; ex: ExerciseRow } | { kind: "group"; gid: number; items: ExerciseRow[] };
@@ -143,7 +143,7 @@ export default function TrainerLogWorkoutPage() {
   function handleLogSet(exId: string, setNum: number, side: Side, skipTimer = false) {
     const key: SetKey = buildSetKey(exId, setNum, side);
     const inp = inputs[key] ?? { reps: "", weight: "" };
-    const reps = repsToNumber(inp.reps);
+    const reps = repsToText(inp.reps);
     const weight = weightToNumber(inp.weight);
     setLogged(prev => ({ ...prev, [key]: { reps, weight } }));
     const ex = exercises.find(e => e.id === exId);

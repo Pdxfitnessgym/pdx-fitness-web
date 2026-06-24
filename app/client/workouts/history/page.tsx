@@ -8,7 +8,7 @@ type SetLog = {
   id: string;
   set_number: number;
   weight_lbs: number | null;
-  reps_completed: number | null;
+  reps_completed: string | null;
   notes: string | null;
   exercise: { name: string } | null;
 };

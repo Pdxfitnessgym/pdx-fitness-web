@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
-import { buildSetKey, calcTotalSets, isExerciseDone, parseRepsInput, parseWeightInput, repsToNumber, weightToNumber, type Side } from "@/lib/workout-utils";
+import { buildSetKey, calcTotalSets, isExerciseDone, parseRepsInput, parseWeightInput, repsToText, weightToNumber, type Side } from "@/lib/workout-utils";
 
 type ExerciseRow = {
   id: string;
@@ -23,7 +23,7 @@ type ExerciseRow = {
 };
 
 type SetKey = string;
-type LoggedSet = { reps: number | null; weight: number | null };
+type LoggedSet = { reps: string | null; weight: number | null };
 type Mode = "preview" | "session" | "done" | "share";
 type RestTimer = { key: SetKey; endTime: number; total: number; kind: "exercise" | "round" };
 
@@ -241,7 +241,7 @@ export default function WorkoutSessionPage() {
       return;
     }
 
-    const reps = repsToNumber(inp.reps);
+    const reps = repsToText(inp.reps);
     const weight = weightToNumber(inp.weight);
 
     setLogged(prev => ({ ...prev, [key]: { reps, weight } }));

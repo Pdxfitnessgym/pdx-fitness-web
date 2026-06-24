@@ -4,7 +4,7 @@ import {
   isExerciseDone,
   parseRepsInput,
   parseWeightInput,
-  repsToNumber,
+  repsToText,
   weightToNumber,
   isValidSide,
 } from "@/lib/workout-utils";
@@ -173,19 +173,19 @@ describe("parseWeightInput", () => {
   });
 });
 
-// ── repsToNumber ───────────────────────────────────────────────────────────────
+// ── repsToText ───────────────────────────────────────────────────────────────
 
-describe("repsToNumber", () => {
+describe("repsToText", () => {
   it("parses a valid reps string", () => {
-    expect(repsToNumber("8")).toBe(8);
+    expect(repsToText("8")).toBe(8);
   });
 
   it("returns null for empty string", () => {
-    expect(repsToNumber("")).toBeNull();
+    expect(repsToText("")).toBeNull();
   });
 
   it("truncates decimals (parseInt behaviour)", () => {
-    expect(repsToNumber("8.9")).toBe(8);
+    expect(repsToText("8.9")).toBe(8);
   });
 });
 

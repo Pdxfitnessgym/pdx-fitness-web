@@ -16,7 +16,7 @@ type Log = {
 type PR = {
   exercise_name: string;
   best_weight: number;
-  best_reps: number | null;
+  best_reps: string | null;
   logged_at: string;
 };
 
