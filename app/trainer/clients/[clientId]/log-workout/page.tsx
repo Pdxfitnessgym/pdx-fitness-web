@@ -16,6 +16,8 @@ type ExerciseRow = {
   is_unilateral: boolean;
   suggested_weight: string | null;
   weight_type: string | null;
+  group_id: number | null;
+  group_round_rest_seconds: number | null;
 };
 
 type SetKey = string;
@@ -128,7 +130,7 @@ export default function TrainerLogWorkoutPage() {
     const supabase = createClient();
     const [{ data: exs }, { data: recentLog }] = await Promise.all([
       supabase.from("exercises")
-        .select("id, name, sets, reps, rest_seconds, notes, order, is_unilateral, suggested_weight, weight_type")
+        .select("id, name, sets, reps, rest_seconds, notes, order, is_unilateral, suggested_weight, weight_type, group_id, group_round_rest_seconds")
         .eq("workout_id", w.id).order("order"),
       supabase.from("workout_logs")
         .select("id")
@@ -335,14 +337,28 @@ export default function TrainerLogWorkoutPage() {
       )}
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px" }}>
-        {exercises.map(ex => {
-          const allDone = Array.from({ length: ex.sets }, (_, i) => i + 1).every(setNum => {
-            if (ex.is_unilateral) return !!logged[buildSetKey(ex.id, setNum, "left")] && !!logged[buildSetKey(ex.id, setNum, "right")];
-            return !!logged[buildSetKey(ex.id, setNum, "both")];
-          });
+        {(() => {
+          // Build grouped render items
+          type RenderItem =
+            | { kind: "standalone"; ex: ExerciseRow }
+            | { kind: "group"; gid: number; items: ExerciseRow[] };
+          const items: RenderItem[] = [];
+          const seen = new Set<number>();
+          for (const ex of exercises) {
+            if (ex.group_id == null) { items.push({ kind: "standalone", ex }); }
+            else if (!seen.has(ex.group_id)) {
+              seen.add(ex.group_id);
+              items.push({ kind: "group", gid: ex.group_id, items: exercises.filter(e => e.group_id === ex.group_id) });
+            }
+          }
 
-          return (
-            <div key={ex.id} style={{ background: "#fff", borderRadius: 16, border: `1.5px solid ${allDone ? "#6EE7B7" : "#E2EAF0"}`, marginBottom: 12, overflow: "hidden" }}>
+          function renderExCard(ex: ExerciseRow, inGroup = false) {
+            const allDone = Array.from({ length: ex.sets }, (_, i) => i + 1).every(setNum => {
+              if (ex.is_unilateral) return !!logged[buildSetKey(ex.id, setNum, "left")] && !!logged[buildSetKey(ex.id, setNum, "right")];
+              return !!logged[buildSetKey(ex.id, setNum, "both")];
+            });
+            return (
+              <div style={{ background: "#fff", borderRadius: inGroup ? 0 : 16, border: inGroup ? "none" : `1.5px solid ${allDone ? "#6EE7B7" : "#E2EAF0"}`, marginBottom: inGroup ? 0 : 12, overflow: "hidden" }}>
               {/* Exercise header */}
               <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid #F4F7FA" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
@@ -459,7 +475,50 @@ export default function TrainerLogWorkoutPage() {
               </div>
             </div>
           );
-        })}
+          } // end renderExCard
+
+          return items.map((item, idx) => {
+            if (item.kind === "standalone") return <div key={item.ex.id}>{renderExCard(item.ex)}</div>;
+
+            const color = groupColor(item.gid);
+            const letter = String.fromCharCode(64 + item.gid);
+            const roundRest = item.items[0]?.group_round_rest_seconds ?? 90;
+            const rounds = item.items[0]?.sets ?? 3;
+
+            return (
+              <div key={`group-${item.gid}-${idx}`} style={{ marginBottom: 16 }}>
+                <div style={{ background: color, borderRadius: "14px 14px 0 0", padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ background: "rgba(255,255,255,0.25)", borderRadius: 8, padding: "3px 10px" }}>
+                    <span style={{ fontSize: 13, fontWeight: 900, color: "#fff", letterSpacing: 1 }}>SUPERSET {letter}</span>
+                  </div>
+                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontWeight: 600 }}>{item.items.length} exercises · {rounds} rounds</span>
+                </div>
+                <div style={{ border: `2px solid ${color}`, borderTop: "none", borderRadius: "0 0 14px 14px", overflow: "hidden" }}>
+                  {item.items.map((ex, i) => (
+                    <div key={ex.id}>
+                      <div style={{ display: "flex" }}>
+                        <div style={{ width: 5, background: color, flexShrink: 0 }} />
+                        <div style={{ flex: 1 }}>{renderExCard(ex, true)}</div>
+                      </div>
+                      {i < item.items.length - 1 && (
+                        <div style={{ background: color + "12", padding: "7px 14px 7px 19px", borderTop: `1px solid ${color}33`, borderBottom: `1px solid ${color}33`, display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 14, color }}>↓</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color }}>No rest — go straight to next</span>
+                          {ex.rest_seconds > 0 && <span style={{ fontSize: 11, color: "#9CA3AF" }}>({ex.rest_seconds}s if needed)</span>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  <div style={{ background: color + "10", padding: "9px 14px", borderTop: `1px solid ${color}33`, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color, background: color + "20", borderRadius: 20, padding: "4px 12px" }}>
+                      🔄 {roundRest}s rest between rounds
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          });
+        })()}
 
         {/* Session notes */}
         <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2EAF0", padding: 16, marginBottom: 12 }}>
