@@ -19,7 +19,7 @@ export function isExerciseDone(
 }
 
 export function parseRepsInput(raw: string): string {
-  return raw.replace(/[^0-9]/g, "");
+  return raw.replace(/[^0-9/]/g, "");
 }
 
 export function parseWeightInput(raw: string): string {
