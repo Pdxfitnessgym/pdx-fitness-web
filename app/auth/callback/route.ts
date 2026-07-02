@@ -34,9 +34,12 @@ export async function GET(request: NextRequest) {
   }
 
   if (code) {
-    const { data: { user } } = await supabase.auth.exchangeCodeForSession(code);
+    const { data: { user }, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
     if (type === "recovery") {
+      if (exchangeError) {
+        return NextResponse.redirect(new URL("/login?error=expired", request.url));
+      }
       return NextResponse.redirect(new URL("/reset-password", request.url));
     }
 
