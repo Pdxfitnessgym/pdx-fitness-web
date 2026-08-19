@@ -136,13 +136,16 @@ export default async function ClientWorkoutsPage({
   const start = new Date(cp.start_date);
   const diffDays = Math.floor((new Date().getTime() - start.getTime()) / 86400000);
   const currentWeek = Math.min(Math.max(Math.floor(diffDays / 7) + 1, 1), program?.duration_weeks ?? 99);
-  const viewWeek = sp.week ? parseInt(sp.week) : currentWeek;
+  const showAll = sp.week === "all";
+  const viewWeek = !showAll && sp.week ? parseInt(sp.week) : currentWeek;
 
-  const { data: workouts } = await supabase
+  let workoutsQuery = supabase
     .from("workouts")
     .select("id, name, day_of_week, week_number, exercises(count)")
-    .eq("program_id", (program as { id: string })?.id)
-    .eq("week_number", viewWeek)
+    .eq("program_id", (program as { id: string })?.id);
+  if (!showAll) workoutsQuery = workoutsQuery.eq("week_number", viewWeek);
+  const { data: workouts } = await workoutsQuery
+    .order("week_number")
     .order("day_of_week") as { data: WorkoutRow[] | null };
 
   return (
@@ -157,9 +160,9 @@ export default async function ClientWorkoutsPage({
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginTop: 4, marginBottom: 12 }}>
             <div>
               <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4" }}>{program?.name}</div>
-              <div style={{ fontSize: 13, color: "#6B7A8D" }}>Week {viewWeek} of {program?.duration_weeks}</div>
+              <div style={{ fontSize: 13, color: "#6B7A8D" }}>{showAll ? "All workouts" : `Week ${viewWeek} of ${program?.duration_weeks}`}</div>
             </div>
-            {viewWeek === currentWeek && (
+            {!showAll && viewWeek === currentWeek && (
               <div style={{ fontSize: 12, background: "#ECFDF5", color: "#059669", fontWeight: 700, padding: "4px 10px", borderRadius: 20 }}>
                 Current week
               </div>
@@ -170,6 +173,22 @@ export default async function ClientWorkoutsPage({
         {/* Week selector */}
         <div style={{ overflowX: "auto" }}>
           <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", gap: 4, padding: "0 16px 10px", whiteSpace: "nowrap" }}>
+            <Link
+              href="/client/workouts?week=all"
+              style={{
+                padding: "6px 14px",
+                borderRadius: 20,
+                fontSize: 13,
+                fontWeight: 600,
+                textDecoration: "none",
+                background: showAll ? "#1B68B4" : "#F4F7FA",
+                color: showAll ? "#fff" : "#6B7A8D",
+                border: "1.5px solid transparent",
+                flexShrink: 0,
+              }}
+            >
+              All
+            </Link>
             {Array.from({ length: program?.duration_weeks ?? 1 }, (_, i) => i + 1).map(w => (
               <Link
                 key={w}
@@ -180,9 +199,9 @@ export default async function ClientWorkoutsPage({
                   fontSize: 13,
                   fontWeight: 600,
                   textDecoration: "none",
-                  background: w === viewWeek ? "#1B68B4" : "#F4F7FA",
-                  color: w === viewWeek ? "#fff" : w === currentWeek ? "#1B68B4" : "#6B7A8D",
-                  border: w === currentWeek && w !== viewWeek ? "1.5px solid #1B68B4" : "1.5px solid transparent",
+                  background: !showAll && w === viewWeek ? "#1B68B4" : "#F4F7FA",
+                  color: !showAll && w === viewWeek ? "#fff" : w === currentWeek ? "#1B68B4" : "#6B7A8D",
+                  border: w === currentWeek && (showAll || w !== viewWeek) ? "1.5px solid #1B68B4" : "1.5px solid transparent",
                   flexShrink: 0,
                 }}
               >
@@ -198,7 +217,7 @@ export default async function ClientWorkoutsPage({
         {/* Program workouts */}
         {workouts && workouts.length > 0 ? (
           workouts.map(w => {
-            const isToday = w.day_of_week === todayDow && viewWeek === currentWeek;
+            const isToday = w.day_of_week === todayDow && (showAll ? w.week_number : viewWeek) === currentWeek;
             const exCount = w.exercises?.[0]?.count ?? 0;
             const mins = estMins(w.exercises);
             return (
@@ -222,7 +241,7 @@ export default async function ClientWorkoutsPage({
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 16, color: "#0D1827" }}>{w.name}</div>
                   <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 2 }}>
-                    {exCount > 0 ? `${exCount} exercises · ~${mins} min` : "No exercises yet"}
+                    {showAll ? `Wk ${w.week_number} · ` : ""}{exCount > 0 ? `${exCount} exercises · ~${mins} min` : "No exercises yet"}
                   </div>
                 </div>
                 {isToday ? (
@@ -236,8 +255,8 @@ export default async function ClientWorkoutsPage({
         ) : (
           <div style={{ textAlign: "center", padding: "48px 24px", background: "#fff", borderRadius: 14, border: "1px solid #E2EAF0" }}>
             <div style={{ fontSize: 36, marginBottom: 10 }}>📋</div>
-            <div style={{ fontWeight: 600, color: "#0D1827", marginBottom: 4 }}>No workouts this week</div>
-            <div style={{ fontSize: 14, color: "#6B7A8D" }}>Your trainer hasn't added workouts for week {viewWeek} yet.</div>
+            <div style={{ fontWeight: 600, color: "#0D1827", marginBottom: 4 }}>{showAll ? "No workouts yet" : "No workouts this week"}</div>
+            <div style={{ fontSize: 14, color: "#6B7A8D" }}>{showAll ? "Your trainer hasn't added workouts to this program yet." : `Your trainer hasn't added workouts for week ${viewWeek} yet.`}</div>
           </div>
         )}
 
