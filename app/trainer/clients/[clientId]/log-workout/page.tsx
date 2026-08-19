@@ -140,14 +140,25 @@ export default function TrainerLogWorkoutPage() {
     }, 250);
   }
 
-  function handleLogSet(exId: string, setNum: number, side: Side, skipTimer = false) {
+  function handleLogSet(exId: string, setNum: number, side: Side) {
     const key: SetKey = buildSetKey(exId, setNum, side);
     const inp = inputs[key] ?? { reps: "", weight: "" };
     const reps = repsToText(inp.reps);
     const weight = weightToNumber(inp.weight);
     setLogged(prev => ({ ...prev, [key]: { reps, weight } }));
     const ex = exercises.find(e => e.id === exId);
-    if (!skipTimer && ex && ex.rest_seconds > 0) startTimer(ex.rest_seconds, key);
+    if (!ex) return;
+    if (ex.group_id != null) {
+      // Superset: no rest between exercises, round rest after the last one
+      const groupExs = exercises.filter(e => e.group_id === ex.group_id);
+      const isLastInGroup = groupExs.findIndex(e => e.id === exId) === groupExs.length - 1;
+      if (isLastInGroup) {
+        const secs = ex.group_round_rest_seconds ?? 90;
+        if (secs > 0) startTimer(secs, key);
+      }
+    } else if (ex.rest_seconds > 0) {
+      startTimer(ex.rest_seconds, key);
+    }
   }
 
   async function openHistory(ex: ExerciseRow) {
@@ -295,7 +306,7 @@ export default function TrainerLogWorkoutPage() {
                               value={inp.weight}
                               onChange={e => { const v = parseWeightInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
                               style={inputStyle(isDone)} />
-                            <button onClick={() => handleLogSet(ex.id, setNum, side, inGroup)}
+                            <button onClick={() => handleLogSet(ex.id, setNum, side)}
                               style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : sideColor, color: isDone ? "#059669" : "#fff", fontWeight: 700, fontSize: 16, border: `1.5px solid ${isDone ? "#6EE7B7" : sideColor}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                               ✓
                             </button>
@@ -338,7 +349,7 @@ export default function TrainerLogWorkoutPage() {
                         value={inp.weight}
                         onChange={e => { const v = parseWeightInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
                         style={inputStyle(isDone)} />
-                      <button onClick={() => handleLogSet(ex.id, setNum, "both", inGroup)}
+                      <button onClick={() => handleLogSet(ex.id, setNum, "both")}
                         style={{ padding: "10px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : "#2DC4B8", color: isDone ? "#059669" : "#fff", fontWeight: 700, fontSize: 20, border: `1.5px solid ${isDone ? "#6EE7B7" : "#2DC4B8"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         {isDone ? "✓" : inGroup ? "✓" : "⏱"}
                       </button>
