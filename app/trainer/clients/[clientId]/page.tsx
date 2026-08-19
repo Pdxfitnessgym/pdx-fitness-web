@@ -5,6 +5,7 @@ import Link from "next/link";
 import { SessionsPanel } from "@/app/components/SessionsPanel";
 import { ClientNotesEditor } from "@/app/components/ClientNotesEditor";
 import { WorkoutLogCards } from "@/app/components/WorkoutLogCards";
+import { ProgramSelect } from "@/app/components/ProgramSelect";
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -254,12 +255,7 @@ export default async function ClientDetailPage({
               {programs && programs.length > 0 ? (
                 <form action={assignProgram} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <input type="hidden" name="client_id" value={clientId} />
-                  <select name="program_id" required style={inputSt}>
-                    <option value="">Select a program…</option>
-                    {programs.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.duration_weeks}wk)</option>
-                    ))}
-                  </select>
+                  <ProgramSelect programs={programs} />
                   <div>
                     <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#0D1827", marginBottom: 6 }}>Start Date</label>
                     <input type="date" name="start_date" required defaultValue={today} style={inputSt} />
