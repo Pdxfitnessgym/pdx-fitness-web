@@ -136,7 +136,7 @@ export default async function ClientWorkoutsPage({
   const start = new Date(cp.start_date);
   const diffDays = Math.floor((new Date().getTime() - start.getTime()) / 86400000);
   const currentWeek = Math.min(Math.max(Math.floor(diffDays / 7) + 1, 1), program?.duration_weeks ?? 99);
-  const showAll = sp.week === "all";
+  const showAll = !sp.week || sp.week === "all";
   const viewWeek = !showAll && sp.week ? parseInt(sp.week) : currentWeek;
 
   let workoutsQuery = supabase
@@ -217,7 +217,7 @@ export default async function ClientWorkoutsPage({
         {/* Program workouts */}
         {workouts && workouts.length > 0 ? (
           workouts.map(w => {
-            const isToday = w.day_of_week === todayDow && (showAll ? w.week_number : viewWeek) === currentWeek;
+            const isToday = !showAll && w.day_of_week === todayDow && viewWeek === currentWeek;
             const exCount = w.exercises?.[0]?.count ?? 0;
             const mins = estMins(w.exercises);
             return (
@@ -236,12 +236,16 @@ export default async function ClientWorkoutsPage({
                 }}
               >
                 <div style={{ width: 44, height: 44, borderRadius: 10, background: isToday ? "#2DC4B8" : "#F4F7FA", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: isToday ? "rgba(255,255,255,0.8)" : "#9CA3AF", textTransform: "uppercase" }}>{DAY_NAMES[w.day_of_week].slice(0, 3)}</div>
+                  {showAll ? (
+                    <div style={{ fontSize: 20 }}>💪</div>
+                  ) : (
+                    <div style={{ fontSize: 10, fontWeight: 700, color: isToday ? "rgba(255,255,255,0.8)" : "#9CA3AF", textTransform: "uppercase" }}>{DAY_NAMES[w.day_of_week].slice(0, 3)}</div>
+                  )}
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 16, color: "#0D1827" }}>{w.name}</div>
                   <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 2 }}>
-                    {showAll ? `Wk ${w.week_number} · ` : ""}{exCount > 0 ? `${exCount} exercises · ~${mins} min` : "No exercises yet"}
+                    {exCount > 0 ? `${exCount} exercises · ~${mins} min` : "No exercises yet"}
                   </div>
                 </div>
                 {isToday ? (

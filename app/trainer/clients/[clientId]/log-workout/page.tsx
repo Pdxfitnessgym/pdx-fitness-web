@@ -414,7 +414,7 @@ export default function TrainerLogWorkoutPage() {
                   <button key={w.id} onClick={() => startSession(w)}
                     style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2EAF0", padding: "16px 18px", cursor: "pointer", textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: 15, fontWeight: 700, color: "#0D1827" }}>{w.name}</span>
-                    <span style={{ fontSize: 12, color: "#6B7A8D" }}>Wk {w.week_number} · {DAYS[w.day_of_week]}</span>
+                    <span style={{ color: "#9CA3AF", fontSize: 18 }}>›</span>
                   </button>
                 ))}
               </div>
