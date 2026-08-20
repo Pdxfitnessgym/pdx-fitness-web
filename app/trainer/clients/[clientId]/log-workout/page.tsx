@@ -247,6 +247,8 @@ export default function TrainerLogWorkoutPage() {
       if (ex.is_unilateral) return !!logged[buildSetKey(ex.id, setNum, "left")] && !!logged[buildSetKey(ex.id, setNum, "right")];
       return !!logged[buildSetKey(ex.id, setNum, "both")];
     });
+    const groupExs = ex.group_id != null ? exercises.filter(e => e.group_id === ex.group_id) : [];
+    const isLastInGroup = inGroup && groupExs.length > 0 && groupExs[groupExs.length - 1].id === ex.id;
     return (
       <div key={ex.id} style={{ background: "#fff", borderRadius: inGroup ? 0 : 16, border: inGroup ? "none" : `1.5px solid ${allDone ? "#6EE7B7" : "#E2EAF0"}`, marginBottom: inGroup ? 0 : 12, overflow: "hidden" }}>
         <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid #F4F7FA" }}>
@@ -351,7 +353,7 @@ export default function TrainerLogWorkoutPage() {
                         style={inputStyle(isDone)} />
                       <button onClick={() => handleLogSet(ex.id, setNum, "both")}
                         style={{ padding: "10px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : "#2DC4B8", color: isDone ? "#059669" : "#fff", fontWeight: 700, fontSize: 20, border: `1.5px solid ${isDone ? "#6EE7B7" : "#2DC4B8"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        {isDone ? "✓" : inGroup ? "✓" : "⏱"}
+                        {isDone ? "✓" : inGroup && !isLastInGroup ? "✓" : "⏱"}
                       </button>
                     </div>
                   </div>
@@ -477,7 +479,10 @@ export default function TrainerLogWorkoutPage() {
                   </div>
                 ))}
                 <div style={{ background: color + "10", padding: "9px 14px", borderTop: `1px solid ${color}33`, display: "flex", alignItems: "center" }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color, background: color + "20", borderRadius: 20, padding: "4px 12px" }}>🔄 {roundRest}s rest between rounds</span>
+                  <button
+                    onClick={() => { const last = item.items[item.items.length - 1]; startTimer(roundRest, buildSetKey(last.id, 0, "both")); }}
+                    style={{ fontSize: 12, fontWeight: 700, color, background: color + "20", border: "none", borderRadius: 20, padding: "6px 14px", cursor: "pointer" }}
+                  >⏱ Start {roundRest}s round rest</button>
                 </div>
               </div>
             </div>

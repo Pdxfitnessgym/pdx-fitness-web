@@ -26,8 +26,20 @@ export async function createWorkout(formData: FormData) {
   const supabase = await createClient();
   const program_id = formData.get("program_id") as string;
   const name = formData.get("name") as string;
-  const day_of_week = parseInt(formData.get("day_of_week") as string);
   const week_number = parseInt(formData.get("week_number") as string);
+
+  // Day is no longer picked in the UI — auto-assign the next slot (1–6, then 0=Day 7)
+  // so lists ordered by day_of_week keep workouts in creation order.
+  let day_of_week = parseInt(formData.get("day_of_week") as string);
+  if (Number.isNaN(day_of_week)) {
+    const { count } = await supabase
+      .from("workouts")
+      .select("*", { count: "exact", head: true })
+      .eq("program_id", program_id)
+      .eq("week_number", week_number);
+    // Cap at 6 rather than wrapping to 0 (Sunday) since 0 sorts before 1
+    day_of_week = Math.min((count ?? 0) + 1, 6);
+  }
 
   const { data, error } = await supabase.from("workouts").insert({
     program_id, name, day_of_week, week_number,

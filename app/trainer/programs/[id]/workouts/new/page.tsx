@@ -1,17 +1,6 @@
 import Link from "next/link";
 import { createWorkout } from "@/app/actions/programs";
 
-// Day 1–7 map to Mon–Sun (Mon=1...Sat=6, Sun=0) for calendar positioning
-const DAY_OPTIONS = [
-  { label: "Day 1", value: 1 },
-  { label: "Day 2", value: 2 },
-  { label: "Day 3", value: 3 },
-  { label: "Day 4", value: 4 },
-  { label: "Day 5", value: 5 },
-  { label: "Day 6", value: 6 },
-  { label: "Day 7", value: 0 },
-];
-
 export default async function NewWorkoutPage({ params, searchParams }: {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ week?: string }>;
@@ -40,14 +29,6 @@ export default async function NewWorkoutPage({ params, searchParams }: {
           <div>
             <label style={labelStyle}>Week *</label>
             <input name="week_number" type="number" min={1} max={52} defaultValue={week ?? "1"} required style={inputStyle} />
-          </div>
-
-          <div>
-            <label style={labelStyle}>Day in week</label>
-            <select name="day_of_week" required style={inputStyle}>
-              {DAY_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-            </select>
-            <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 6 }}>Day 1 = first workout of the week. Client can start the program any day — Day 1 lands on that day.</div>
           </div>
 
           <button type="submit" style={btnStyle}>Add Workout →</button>

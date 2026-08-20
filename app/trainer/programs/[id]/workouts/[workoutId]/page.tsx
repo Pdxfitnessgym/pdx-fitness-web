@@ -4,7 +4,6 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const GROUP_COLORS = ["#1B68B4", "#8B5CF6", "#F59E0B", "#10B981", "#EF4444", "#EC4899"];
 
 type Exercise = {
@@ -380,7 +379,7 @@ export default function WorkoutBuilderPage() {
             <div>
               <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4" }}>{workout?.name}</div>
               <div style={{ fontSize: 13, color: "#6B7A8D" }}>
-                Week {workout?.week_number} · {workout ? DAYS[workout.day_of_week] : ""} · {exercises.length} exercise{exercises.length !== 1 ? "s" : ""}
+                Week {workout?.week_number} · {exercises.length} exercise{exercises.length !== 1 ? "s" : ""}
               </div>
             </div>
             {exercises.length >= 2 && !supersetMode && (

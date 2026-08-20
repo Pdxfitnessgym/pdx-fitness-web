@@ -2,7 +2,6 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default async function ProgramDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -46,7 +45,7 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 600, color: "#0D1827" }}>{wo.name}</div>
                     <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>
-                      {DAYS[wo.day_of_week]} · {(wo.exercises as any)?.[0]?.count ?? 0} exercises
+                      {(wo.exercises as any)?.[0]?.count ?? 0} exercises
                     </div>
                   </div>
                   <div style={{ color: "#2DC4B8", fontSize: 18 }}>→</div>
