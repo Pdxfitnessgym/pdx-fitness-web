@@ -18,7 +18,7 @@ type ExerciseRow = {
   weight_type: string | null;
   group_id: number | null;
   group_round_rest_seconds: number | null;
-  exercise_library: { video_url: string | null } | null;
+  exercise_library: { video_url: string | null; instructions: string | null } | null;
 };
 
 type SetKey = string;
@@ -95,7 +95,7 @@ export default function TrainerLogWorkoutPage() {
     const supabase = createClient();
     const [{ data: exs }, { data: recentLog }] = await Promise.all([
       supabase.from("exercises")
-        .select("id, name, sets, reps, rest_seconds, notes, order, is_unilateral, suggested_weight, weight_type, group_id, group_round_rest_seconds, exercise_library(video_url)")
+        .select("id, name, sets, reps, rest_seconds, notes, order, is_unilateral, suggested_weight, weight_type, group_id, group_round_rest_seconds, exercise_library(video_url, instructions)")
         .eq("workout_id", w.id).order("order"),
       supabase.from("workout_logs")
         .select("id")
@@ -590,8 +590,10 @@ function HistoryModal({ ex, sessions, loading, onClose }: { ex: ExerciseRow; ses
           {ex.exercise_library?.video_url && (
             <video src={ex.exercise_library.video_url} controls playsInline preload="metadata" style={{ width: "100%", maxHeight: 260, borderRadius: 12, background: "#000" }} />
           )}
-          {ex.notes && (
-            <div style={{ background: "#F8FAFB", borderRadius: 12, padding: "12px 14px", fontSize: 14, color: "#6B7A8D", whiteSpace: "pre-wrap" }}>{ex.notes}</div>
+          {(ex.exercise_library?.instructions || ex.notes) && (
+            <div style={{ background: "#F8FAFB", borderRadius: 12, padding: "12px 14px", fontSize: 14, color: "#6B7A8D", whiteSpace: "pre-wrap" }}>
+              {[ex.exercise_library?.instructions, ex.notes].filter(Boolean).join("\n\n")}
+            </div>
           )}
           {loading ? (
             <div style={{ textAlign: "center", padding: 32, color: "#6B7A8D" }}>Loading…</div>

@@ -14,7 +14,7 @@ type ExerciseRow = {
   rest_seconds: number;
   notes: string | null;
   order: number;
-  exercise_library: { video_url: string | null } | null;
+  exercise_library: { video_url: string | null; instructions: string | null } | null;
   group_id: number | null;
   group_round_rest_seconds: number | null;
   is_unilateral: boolean;
@@ -64,7 +64,7 @@ export default function WorkoutSessionPage() {
       const [{ data: w }, { data: exs }, { data: { user } }] = await Promise.all([
         supabase.from("workouts").select("name").eq("id", workoutId).single(),
         supabase.from("exercises")
-          .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library(video_url), group_id, group_round_rest_seconds, is_unilateral, suggested_weight, weight_type")
+          .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library(video_url, instructions), group_id, group_round_rest_seconds, is_unilateral, suggested_weight, weight_type")
           .eq("workout_id", workoutId)
           .order("order"),
         supabase.auth.getUser(),
@@ -348,6 +348,7 @@ export default function WorkoutSessionPage() {
   function renderExCard(ex: ExerciseRow, inGroup?: boolean, groupExs?: ExerciseRow[]) {
     const allSetsLogged = isExerciseDone(logged, ex.id, ex.sets, ex.is_unilateral);
     const videoUrl = ex.exercise_library?.video_url ?? null;
+    const exInfo = [ex.exercise_library?.instructions, ex.notes].filter(Boolean).join("\n\n") || null;
     const color = ex.group_id != null ? groupColor(ex.group_id) : "#2DC4B8";
 
     const roundDots = inGroup && ex.group_id != null
@@ -362,7 +363,7 @@ export default function WorkoutSessionPage() {
         {/* Header */}
         <div style={{ padding: "12px 16px", display: "flex", gap: 12, alignItems: "center", borderBottom: mode === "session" ? `1px solid #F4F7FA` : "none" }}>
           {videoUrl ? (
-            <div onClick={() => setVideoModal({ url: videoUrl, name: ex.name, notes: ex.notes })} style={{ width: 56, height: 56, borderRadius: 10, overflow: "hidden", flexShrink: 0, background: "#000", cursor: "pointer", position: "relative" }}>
+            <div onClick={() => setVideoModal({ url: videoUrl, name: ex.name, notes: exInfo })} style={{ width: 56, height: 56, borderRadius: 10, overflow: "hidden", flexShrink: 0, background: "#000", cursor: "pointer", position: "relative" }}>
               <video src={videoUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} muted playsInline preload="metadata" />
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}>
                 <div style={{ width: 20, height: 20, borderRadius: "50%", background: "rgba(255,255,255,0.9)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, paddingLeft: 2 }}>▶</div>
@@ -374,8 +375,8 @@ export default function WorkoutSessionPage() {
           <div style={{ flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2, flexWrap: "wrap" }}>
               <div
-                onClick={() => { if (videoUrl || ex.notes) setVideoModal({ url: videoUrl, name: ex.name, notes: ex.notes }); }}
-                style={{ fontWeight: 800, fontSize: 15, color: "#0D1827", cursor: videoUrl || ex.notes ? "pointer" : "default", textDecoration: videoUrl || ex.notes ? "underline" : "none", textDecorationStyle: "dotted", textUnderlineOffset: 3 }}
+                onClick={() => { if (videoUrl || exInfo) setVideoModal({ url: videoUrl, name: ex.name, notes: exInfo }); }}
+                style={{ fontWeight: 800, fontSize: 15, color: "#0D1827", cursor: videoUrl || exInfo ? "pointer" : "default", textDecoration: videoUrl || exInfo ? "underline" : "none", textDecorationStyle: "dotted", textUnderlineOffset: 3 }}
               >{ex.name}</div>
               {ex.is_unilateral && <span style={{ fontSize: 10, fontWeight: 700, color: "#2DC4B8", background: "#F0FDFC", border: "1px solid #A7F3D0", borderRadius: 4, padding: "1px 5px" }}>L/R</span>}
               {allSetsLogged && <span style={{ fontSize: 12, color: "#059669", fontWeight: 700 }}>✓</span>}
