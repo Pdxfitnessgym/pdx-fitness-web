@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
-import { buildSetKey, calcTotalSets, isExerciseDone, parseRepsInput, parseWeightInput, repsToText, weightToNumber, type Side } from "@/lib/workout-utils";
+import { buildSetKey, calcTotalSets, isExerciseDone, parseRepsInput, parseWeightInput, repsInputMode, repsToText, weightToNumber, type Side } from "@/lib/workout-utils";
 
 type ExerciseRow = {
   id: string;
@@ -27,7 +27,7 @@ type LoggedSet = { reps: string | null; weight: number | null };
 type Mode = "preview" | "session" | "done" | "share";
 type RestTimer = { key: SetKey; endTime: number; total: number; kind: "exercise" | "round" };
 
-const GROUP_COLORS = ["#1B68B4", "#8B5CF6", "#F59E0B", "#10B981", "#EF4444", "#EC4899"];
+const GROUP_COLORS = ["#1B68B4", "#2DC4B8"];
 function groupColor(id: number) { return GROUP_COLORS[(id - 1) % GROUP_COLORS.length]; }
 function groupLetter(id: number) { return String.fromCharCode(64 + id); }
 
@@ -51,8 +51,10 @@ export default function WorkoutSessionPage() {
   const [restTimer, setRestTimer] = useState<RestTimer | null>(null);
   const [restDone, setRestDone] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [confirmFinish, setConfirmFinish] = useState(false);
+  const [autoFill, setAutoFill] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [videoModal, setVideoModal] = useState<{ url: string; name: string } | null>(null);
+  const [videoModal, setVideoModal] = useState<{ url: string | null; name: string; notes: string | null } | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -279,7 +281,23 @@ export default function WorkoutSessionPage() {
     }
   }, [inputs, workoutLogId, userId, exercises]);
 
+  function toggleAutoFill() {
+    const next = !autoFill;
+    setAutoFill(next);
+    setInputs(prev => {
+      const merged = { ...prev };
+      Object.entries(prevLogged).forEach(([key, v]) => {
+        if (v.weight == null) return;
+        const cur = merged[key] ?? { reps: "", weight: "" };
+        if (next && !cur.weight) merged[key] = { ...cur, weight: String(v.weight) };
+        if (!next && cur.weight === String(v.weight)) merged[key] = { ...cur, weight: "" };
+      });
+      return merged;
+    });
+  }
+
   const handleComplete = useCallback(async () => {
+    setConfirmFinish(false);
     setCompleting(true);
     const supabase = createClient();
     if (workoutLogId) await supabase.from("workout_logs").update({ completed_at: new Date().toISOString() }).eq("id", workoutLogId);
@@ -290,6 +308,14 @@ export default function WorkoutSessionPage() {
 
   const doneSetCount = Object.keys(logged).length;
   const totalSets = calcTotalSets(exercises);
+  // Sets never logged, plus sets checked off with no reps or weight entered
+  const missingSetCount = (totalSets - doneSetCount)
+    + Object.values(logged).filter(v => v.reps == null && v.weight == null).length;
+
+  function requestComplete() {
+    if (missingSetCount > 0) setConfirmFinish(true);
+    else handleComplete();
+  }
 
   // Group exercises for rendering
   const renderItems = useMemo(() => {
@@ -336,7 +362,7 @@ export default function WorkoutSessionPage() {
         {/* Header */}
         <div style={{ padding: "12px 16px", display: "flex", gap: 12, alignItems: "center", borderBottom: mode === "session" ? `1px solid #F4F7FA` : "none" }}>
           {videoUrl ? (
-            <div onClick={() => setVideoModal({ url: videoUrl, name: ex.name })} style={{ width: 56, height: 56, borderRadius: 10, overflow: "hidden", flexShrink: 0, background: "#000", cursor: "pointer", position: "relative" }}>
+            <div onClick={() => setVideoModal({ url: videoUrl, name: ex.name, notes: ex.notes })} style={{ width: 56, height: 56, borderRadius: 10, overflow: "hidden", flexShrink: 0, background: "#000", cursor: "pointer", position: "relative" }}>
               <video src={videoUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} muted playsInline preload="metadata" />
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}>
                 <div style={{ width: 20, height: 20, borderRadius: "50%", background: "rgba(255,255,255,0.9)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, paddingLeft: 2 }}>▶</div>
@@ -347,7 +373,10 @@ export default function WorkoutSessionPage() {
           )}
           <div style={{ flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2, flexWrap: "wrap" }}>
-              <div style={{ fontWeight: 800, fontSize: 15, color: "#0D1827" }}>{ex.name}</div>
+              <div
+                onClick={() => { if (videoUrl || ex.notes) setVideoModal({ url: videoUrl, name: ex.name, notes: ex.notes }); }}
+                style={{ fontWeight: 800, fontSize: 15, color: "#0D1827", cursor: videoUrl || ex.notes ? "pointer" : "default", textDecoration: videoUrl || ex.notes ? "underline" : "none", textDecorationStyle: "dotted", textUnderlineOffset: 3 }}
+              >{ex.name}</div>
               {ex.is_unilateral && <span style={{ fontSize: 10, fontWeight: 700, color: "#2DC4B8", background: "#F0FDFC", border: "1px solid #A7F3D0", borderRadius: 4, padding: "1px 5px" }}>L/R</span>}
               {allSetsLogged && <span style={{ fontSize: 12, color: "#059669", fontWeight: 700 }}>✓</span>}
             </div>
@@ -412,7 +441,7 @@ export default function WorkoutSessionPage() {
                                 {sideLabel}
                               </div>
                               <input
-                                type="text" inputMode="numeric" pattern="[0-9]*"
+                                type="text" inputMode={repsInputMode(ex.reps)} pattern={repsInputMode(ex.reps) === "numeric" ? "[0-9]*" : undefined}
                                 placeholder={logged[key]?.reps != null ? String(logged[key].reps) : ex.reps.split(/[-x]/)[0].trim()}
                                 value={inp.reps}
                                 onChange={e => { const v = parseRepsInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
@@ -462,7 +491,7 @@ export default function WorkoutSessionPage() {
                             : <span style={{ color: "#6B7A8D", fontSize: 12, fontWeight: 700 }}>{setNum}</span>}
                         </div>
                         <input
-                          type="text" inputMode="numeric" pattern="[0-9]*"
+                          type="text" inputMode={repsInputMode(ex.reps)} pattern={repsInputMode(ex.reps) === "numeric" ? "[0-9]*" : undefined}
                           placeholder={logged[key]?.reps != null ? String(logged[key].reps) : ex.reps.split(/[-x]/)[0].trim()}
                           value={inp.reps}
                           onChange={e => { const v = parseRepsInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
@@ -500,7 +529,7 @@ export default function WorkoutSessionPage() {
             {mode === "session" && <div style={{ fontSize: 12, color: "#2DC4B8", fontWeight: 600 }}>{doneSetCount} / {totalSets} sets done</div>}
           </div>
           {mode === "session" ? (
-            <button onClick={handleComplete} disabled={completing} style={{ fontSize: 13, fontWeight: 700, color: "#1B68B4", background: "none", border: "none", cursor: "pointer", padding: "4px 8px" }}>Finish</button>
+            <button onClick={requestComplete} disabled={completing} style={{ fontSize: 13, fontWeight: 700, color: "#1B68B4", background: "none", border: "none", cursor: "pointer", padding: "4px 8px" }}>Finish</button>
           ) : <div style={{ width: 48 }} />}
         </div>
       </div>
@@ -513,6 +542,19 @@ export default function WorkoutSessionPage() {
               <div style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginTop: 2 }}>{exercises.length} exercises</div>
             </div>
             <div style={{ color: "rgba(255,255,255,0.75)", fontSize: 14 }}>~{estMinutes(exercises)} min</div>
+          </div>
+        )}
+
+        {mode === "session" && Object.values(prevLogged).some(v => v.weight != null) && (
+          <div style={{ marginBottom: 14, background: "#fff", borderRadius: 12, border: "1px solid #E2EAF0", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827" }}>Auto-fill last weights</div>
+              <div style={{ fontSize: 12, color: "#6B7A8D" }}>Pre-enter the weights from your last session</div>
+            </div>
+            <button onClick={toggleAutoFill} aria-pressed={autoFill}
+              style={{ width: 50, height: 30, borderRadius: 15, border: "none", cursor: "pointer", flexShrink: 0, background: autoFill ? "#2DC4B8" : "#E2EAF0", position: "relative", transition: "background 0.15s" }}>
+              <span style={{ position: "absolute", top: 3, left: autoFill ? 23 : 3, width: 24, height: 24, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.2)", transition: "left 0.15s" }} />
+            </button>
           </div>
         )}
 
@@ -621,13 +663,30 @@ export default function WorkoutSessionPage() {
         </div>
       )}
 
+      {/* Missing-numbers confirm */}
+      {confirmFinish && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, padding: 20 }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 24, maxWidth: 340, width: "100%" }}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: "#0D1827", marginBottom: 8 }}>Missing numbers</div>
+            <div style={{ fontSize: 14, color: "#6B7A8D", marginBottom: 20 }}>
+              {missingSetCount} {missingSetCount === 1 ? "set doesn't" : "sets don't"} have reps or weight entered. The grey numbers are just suggestions — they aren't saved unless you type them in.
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setConfirmFinish(false)} style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#2DC4B8", border: "none", fontWeight: 700, fontSize: 14, cursor: "pointer", color: "#fff" }}>Go Back & Fill In</button>
+              <button onClick={handleComplete} disabled={completing} style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#F4F7FA", border: "1px solid #E2EAF0", fontWeight: 600, fontSize: 14, cursor: "pointer", color: "#6B7A8D" }}>Finish Anyway</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Video modal */}
       {videoModal && (
         <div onClick={() => setVideoModal(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 18, overflow: "hidden", width: "100%", maxWidth: 420 }}>
-            <video src={videoModal.url} controls autoPlay playsInline style={{ width: "100%", maxHeight: 320, display: "block", background: "#000" }} />
+            {videoModal.url && <video src={videoModal.url} controls autoPlay playsInline style={{ width: "100%", maxHeight: 320, display: "block", background: "#000" }} />}
             <div style={{ padding: "16px 20px 20px" }}>
-              <div style={{ fontSize: 17, fontWeight: 700, color: "#0D1827", marginBottom: 12 }}>{videoModal.name}</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: "#0D1827", marginBottom: videoModal.notes ? 8 : 12 }}>{videoModal.name}</div>
+              {videoModal.notes && <div style={{ fontSize: 14, color: "#6B7A8D", marginBottom: 14, whiteSpace: "pre-wrap" }}>{videoModal.notes}</div>}
               <button onClick={() => setVideoModal(null)} style={{ width: "100%", padding: "13px", borderRadius: 12, background: "#F4F7FA", border: "none", cursor: "pointer", fontWeight: 700, color: "#0D1827", fontSize: 15 }}>Close</button>
             </div>
           </div>
@@ -642,7 +701,7 @@ export default function WorkoutSessionPage() {
               Start Workout →
             </button>
           ) : (
-            <button onClick={handleComplete} disabled={completing}
+            <button onClick={requestComplete} disabled={completing}
               style={{ width: "100%", padding: "16px", borderRadius: 14, background: "#1B68B4", color: "#fff", fontWeight: 800, fontSize: 17, border: "none", cursor: "pointer", boxShadow: "0 4px 20px rgba(27,104,180,0.35)" }}>
               {completing ? "Saving…" : doneSetCount > 0 ? `Complete Workout (${doneSetCount}/${totalSets} sets)` : "Complete Workout"}
             </button>
@@ -662,11 +721,18 @@ const inputStyle = (done: boolean): React.CSSProperties => ({
 function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId }: { workoutName: string; setsLogged: number; workoutLogId: string | null }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [caption, setCaption] = useState("");
+  const [trainerNotes, setTrainerNotes] = useState("");
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [shared, setShared] = useState(false);
   const [error, setError] = useState("");
+
+  async function saveTrainerNotes() {
+    if (!workoutLogId || !trainerNotes.trim()) return;
+    const supabase = createClient();
+    await supabase.from("workout_logs").update({ notes: trainerNotes.trim() }).eq("id", workoutLogId);
+  }
 
   function onMediaChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -678,6 +744,7 @@ function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId }: { workoutN
 
   async function handleShare() {
     setSharing(true); setError("");
+    await saveTrainerNotes();
     try {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -717,6 +784,13 @@ function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId }: { workoutN
         <div style={{ fontSize: 15, color: "#6B7A8D" }}>{workoutName} · {setsLogged} sets logged</div>
       </div>
       <div style={{ background: "#fff", borderRadius: 16, padding: 18, border: "1px solid #E2EAF0", marginBottom: 16 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827", marginBottom: 12 }}>How do you feel? 💬</div>
+        <textarea value={trainerNotes} onChange={e => setTrainerNotes(e.target.value)} onBlur={saveTrainerNotes}
+          placeholder="How do you feel? Anything to add for your trainer?" rows={3}
+          style={{ width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 14, color: "#0D1827", outline: "none", resize: "none", fontFamily: "inherit" }} />
+        <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 6 }}>Only your trainer sees this.</div>
+      </div>
+      <div style={{ background: "#fff", borderRadius: 16, padding: 18, border: "1px solid #E2EAF0", marginBottom: 16 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827", marginBottom: 12 }}>Share with the community 🔥</div>
         <textarea value={caption} onChange={e => setCaption(e.target.value)} placeholder="How did it go? Any PRs? Hype it up..." rows={3}
           style={{ width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 14, color: "#0D1827", outline: "none", resize: "none", fontFamily: "inherit" }} />
@@ -736,9 +810,10 @@ function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId }: { workoutN
         <button onClick={handleShare} disabled={sharing} style={{ padding: "14px", borderRadius: 12, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 16, border: "none", cursor: "pointer", opacity: sharing ? 0.6 : 1 }}>
           {sharing ? "Sharing..." : "🔥 Share to Feed"}
         </button>
-        <a href="/client/workouts" style={{ padding: "14px", borderRadius: 12, background: "#F4F7FA", border: "1px solid #E2EAF0", color: "#6B7A8D", fontWeight: 600, fontSize: 15, textDecoration: "none", textAlign: "center" }}>
+        <button onClick={async () => { await saveTrainerNotes(); window.location.href = "/client/workouts"; }}
+          style={{ padding: "14px", borderRadius: 12, background: "#F4F7FA", border: "1px solid #E2EAF0", color: "#6B7A8D", fontWeight: 600, fontSize: 15, cursor: "pointer", textAlign: "center" }}>
           Skip, back to workouts
-        </a>
+        </button>
       </div>
       <ClientBottomNav />
     </div>

@@ -19,7 +19,13 @@ export function isExerciseDone(
 }
 
 export function parseRepsInput(raw: string): string {
-  return raw.replace(/[^0-9/]/g, "");
+  return raw.replace(/[^0-9/:]/g, "");
+}
+
+// Time-based reps specs ("0:30", "30 sec") need the full keyboard so ":" can be typed;
+// plain rep counts keep the numeric keypad.
+export function repsInputMode(spec: string): "numeric" | "text" {
+  return /[^0-9\sx×/-]/.test(spec) ? "text" : "numeric";
 }
 
 export function parseWeightInput(raw: string): string {

@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { buildSetKey, parseRepsInput, parseWeightInput, repsToText, weightToNumber, type Side } from "@/lib/workout-utils";
+import { buildSetKey, parseRepsInput, parseWeightInput, repsInputMode, repsToText, weightToNumber, type Side } from "@/lib/workout-utils";
 
 type ExerciseRow = {
   id: string;
@@ -18,6 +18,7 @@ type ExerciseRow = {
   weight_type: string | null;
   group_id: number | null;
   group_round_rest_seconds: number | null;
+  exercise_library: { video_url: string | null } | null;
 };
 
 type SetKey = string;
@@ -29,7 +30,7 @@ type Workout = { id: string; name: string; week_number: number; day_of_week: num
 type RenderItem = { kind: "standalone"; ex: ExerciseRow } | { kind: "group"; gid: number; items: ExerciseRow[] };
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const GROUP_COLORS = ["#1B68B4", "#8B5CF6", "#F59E0B", "#10B981", "#EF4444", "#EC4899"];
+const GROUP_COLORS = ["#1B68B4", "#2DC4B8"];
 function groupColor(id: number) { return GROUP_COLORS[(id - 1) % GROUP_COLORS.length]; }
 
 export default function TrainerLogWorkoutPage() {
@@ -56,6 +57,8 @@ export default function TrainerLogWorkoutPage() {
   const [saving, setSaving] = useState(false);
   const [sessionNotes, setSessionNotes] = useState("");
   const [error, setError] = useState("");
+  const [confirmFinish, setConfirmFinish] = useState(false);
+  const [autoFill, setAutoFill] = useState(false);
 
   const [historyEx, setHistoryEx] = useState<ExerciseRow | null>(null);
   const [historySessions, setHistorySessions] = useState<HistorySession[]>([]);
@@ -92,7 +95,7 @@ export default function TrainerLogWorkoutPage() {
     const supabase = createClient();
     const [{ data: exs }, { data: recentLog }] = await Promise.all([
       supabase.from("exercises")
-        .select("id, name, sets, reps, rest_seconds, notes, order, is_unilateral, suggested_weight, weight_type, group_id, group_round_rest_seconds")
+        .select("id, name, sets, reps, rest_seconds, notes, order, is_unilateral, suggested_weight, weight_type, group_id, group_round_rest_seconds, exercise_library(video_url)")
         .eq("workout_id", w.id).order("order"),
       supabase.from("workout_logs")
         .select("id")
@@ -102,7 +105,10 @@ export default function TrainerLogWorkoutPage() {
         .order("completed_at", { ascending: false })
         .limit(1).single(),
     ]);
-    setExercises((exs ?? []) as ExerciseRow[]);
+    setExercises((exs ?? []).map((e: unknown) => {
+      const ex = e as ExerciseRow & { exercise_library: unknown };
+      return { ...ex, exercise_library: Array.isArray(ex.exercise_library) ? (ex.exercise_library[0] ?? null) : ex.exercise_library };
+    }) as ExerciseRow[]);
 
     if (recentLog) {
       const { data: sl } = await supabase
@@ -190,8 +196,24 @@ export default function TrainerLogWorkoutPage() {
     setHistoryLoading(false);
   }
 
+  function toggleAutoFill() {
+    const next = !autoFill;
+    setAutoFill(next);
+    setInputs(prev => {
+      const merged = { ...prev };
+      Object.entries(prevLogged).forEach(([key, v]) => {
+        if (v.weight == null) return;
+        const cur = merged[key] ?? { reps: "", weight: "" };
+        if (next && !cur.weight) merged[key] = { ...cur, weight: String(v.weight) };
+        if (!next && cur.weight === String(v.weight)) merged[key] = { ...cur, weight: "" };
+      });
+      return merged;
+    });
+  }
+
   async function finishSession() {
     if (!selectedWorkout) return;
+    setConfirmFinish(false);
     setSaving(true);
     setError("");
     try {
@@ -227,6 +249,14 @@ export default function TrainerLogWorkoutPage() {
 
   const doneSetCount = Object.keys(logged).length;
   const totalSets = exercises.reduce((acc, ex) => acc + ex.sets * (ex.is_unilateral ? 2 : 1), 0);
+  // Sets never logged, plus sets checked off with no reps or weight entered
+  const missingSetCount = (totalSets - doneSetCount)
+    + Object.values(logged).filter(v => v.reps == null && v.weight == null).length;
+
+  function requestFinish() {
+    if (missingSetCount > 0) setConfirmFinish(true);
+    else finishSession();
+  }
   const restSecsLeft = restTimer ? Math.max(0, Math.ceil((restTimer.endTime - Date.now()) / 1000)) : 0;
   const restPct = restTimer ? restSecsLeft / restTimer.total : 0;
 
@@ -298,7 +328,7 @@ export default function TrainerLogWorkoutPage() {
                             <div style={{ width: 28, height: 28, borderRadius: 6, background: isDone ? sideColor + "22" : "#F4F7FA", border: `1.5px solid ${isDone ? sideColor : "#E2EAF0"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: isDone ? sideColor : "#9CA3AF" }}>
                               {sideLabel}
                             </div>
-                            <input type="text" inputMode="numeric"
+                            <input type="text" inputMode={repsInputMode(ex.reps)}
                               placeholder={logged[key]?.reps != null ? String(logged[key].reps) : ex.reps.split(/[-x]/)[0].trim()}
                               value={inp.reps}
                               onChange={e => { const v = parseRepsInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
@@ -341,7 +371,7 @@ export default function TrainerLogWorkoutPage() {
                       <div style={{ width: 30, height: 30, borderRadius: "50%", background: isDone ? "#10B981" : "#F4F7FA", border: `2px solid ${isDone ? "#10B981" : "#E2EAF0"}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}>
                         {isDone ? <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>✓</span> : <span style={{ color: "#6B7A8D", fontSize: 12, fontWeight: 700 }}>{setNum}</span>}
                       </div>
-                      <input type="text" inputMode="numeric"
+                      <input type="text" inputMode={repsInputMode(ex.reps)}
                         placeholder={logged[key]?.reps != null ? String(logged[key].reps) : ex.reps.split(/[-x]/)[0].trim()}
                         value={inp.reps}
                         onChange={e => { const v = parseRepsInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
@@ -446,6 +476,19 @@ export default function TrainerLogWorkoutPage() {
       </div>
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px" }}>
+        {Object.values(prevLogged).some(v => v.weight != null) && (
+          <div style={{ marginBottom: 14, background: "#fff", borderRadius: 12, border: "1px solid #E2EAF0", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827" }}>Auto-fill last weights</div>
+              <div style={{ fontSize: 12, color: "#6B7A8D" }}>Pre-enter the weights from the last session</div>
+            </div>
+            <button onClick={toggleAutoFill} aria-pressed={autoFill}
+              style={{ width: 50, height: 30, borderRadius: 15, border: "none", cursor: "pointer", flexShrink: 0, background: autoFill ? "#2DC4B8" : "#E2EAF0", position: "relative", transition: "background 0.15s" }}>
+              <span style={{ position: "absolute", top: 3, left: autoFill ? 23 : 3, width: 24, height: 24, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.2)", transition: "left 0.15s" }} />
+            </button>
+          </div>
+        )}
+
         {renderItems.map((item, idx) => {
           if (item.kind === "standalone") return renderExCard(item.ex);
 
@@ -501,7 +544,7 @@ export default function TrainerLogWorkoutPage() {
 
       <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, padding: "14px 16px 32px", background: "linear-gradient(transparent, #F4F7FA 30%)" }}>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
-          <button onClick={finishSession} disabled={saving || doneSetCount === 0}
+          <button onClick={requestFinish} disabled={saving || doneSetCount === 0}
             style={{ ...btnTeal, width: "100%", fontSize: 16, opacity: saving || doneSetCount === 0 ? 0.5 : 1 }}>
             {saving ? "Saving…" : `Finish & Save (${doneSetCount} sets logged)`}
           </button>
@@ -510,6 +553,22 @@ export default function TrainerLogWorkoutPage() {
 
       {historyEx && (
         <HistoryModal ex={historyEx} sessions={historySessions} loading={historyLoading} onClose={() => setHistoryEx(null)} />
+      )}
+
+      {/* Missing-numbers confirm */}
+      {confirmFinish && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 110, padding: 20 }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 24, maxWidth: 340, width: "100%" }}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: "#0D1827", marginBottom: 8 }}>Missing numbers</div>
+            <div style={{ fontSize: 14, color: "#6B7A8D", marginBottom: 20 }}>
+              {missingSetCount} {missingSetCount === 1 ? "set doesn't" : "sets don't"} have reps or weight entered. The grey numbers are just suggestions — they aren't saved unless you type them in.
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setConfirmFinish(false)} style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#2DC4B8", border: "none", fontWeight: 700, fontSize: 14, cursor: "pointer", color: "#fff" }}>Go Back & Fill In</button>
+              <button onClick={finishSession} disabled={saving} style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#F4F7FA", border: "1px solid #E2EAF0", fontWeight: 600, fontSize: 14, cursor: "pointer", color: "#6B7A8D" }}>Finish Anyway</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -528,6 +587,12 @@ function HistoryModal({ ex, sessions, loading, onClose }: { ex: ExerciseRow; ses
           <button onClick={onClose} style={{ background: "#F4F7FA", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 16, color: "#6B7A8D" }}>✕</button>
         </div>
         <div style={{ overflowY: "auto", padding: "14px 20px 32px", display: "flex", flexDirection: "column", gap: 14 }}>
+          {ex.exercise_library?.video_url && (
+            <video src={ex.exercise_library.video_url} controls playsInline preload="metadata" style={{ width: "100%", maxHeight: 260, borderRadius: 12, background: "#000" }} />
+          )}
+          {ex.notes && (
+            <div style={{ background: "#F8FAFB", borderRadius: 12, padding: "12px 14px", fontSize: 14, color: "#6B7A8D", whiteSpace: "pre-wrap" }}>{ex.notes}</div>
+          )}
           {loading ? (
             <div style={{ textAlign: "center", padding: 32, color: "#6B7A8D" }}>Loading…</div>
           ) : sessions.length === 0 ? (
