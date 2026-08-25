@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { addClientByEmail, assignClientToMe } from "@/app/actions/clients";
+import { addClientByEmail, assignClientToMe, createPlaceholderClient } from "@/app/actions/clients";
 import Link from "next/link";
 
 export default async function ClientsPage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
@@ -14,7 +14,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
   const [{ data: clients }, { data: unassigned }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, full_name, email, created_at")
+      .select("id, full_name, email, created_at, is_placeholder")
       .eq("trainer_id", user.id)
       .eq("role", "client")
       .order("full_name"),
@@ -34,6 +34,8 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
     not_found: "No account found with that email.",
     not_client: "That user is not registered as a client.",
     has_trainer: "That client already has a trainer.",
+    no_name: "Enter a name for the client.",
+    create_failed: "Couldn't create that client. Try again.",
   };
 
   return (
@@ -91,14 +93,33 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
           </div>
         )}
 
-        {/* Add Client by email */}
+        {/* Add Client without an email — they can't log in until invited */}
         <div style={cardStyle}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 14 }}>Add Client by Email</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 4 }}>Add Client (No Email Yet)</div>
+          <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 14 }}>
+            Set up their programs now. They get no email and can&apos;t log in until you invite them.
+          </div>
           {error && (
             <div style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 8, padding: "10px 14px", marginBottom: 12, fontSize: 14 }}>
               {errorMsg[error] ?? "Something went wrong."}
             </div>
           )}
+          <form action={createPlaceholderClient} style={{ display: "flex", gap: 10 }}>
+            <input
+              name="full_name"
+              required
+              placeholder="Client name"
+              style={{ flex: 1, padding: "12px 14px", borderRadius: 10, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 15, color: "#0D1827", outline: "none" }}
+            />
+            <button type="submit" style={{ padding: "12px 18px", borderRadius: 10, background: "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
+              Create
+            </button>
+          </form>
+        </div>
+
+        {/* Add Client by email */}
+        <div style={cardStyle}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 14 }}>Add Client by Email</div>
           <form action={addClientByEmail} style={{ display: "flex", gap: 10 }}>
             <input
               name="email"
@@ -129,7 +150,13 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
               </div>
               <div>
                 <div style={{ fontWeight: 700, color: "#0D1827", fontSize: 15 }}>{client.full_name}</div>
-                <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 1 }}>{client.email}</div>
+                {client.is_placeholder ? (
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#B45309", background: "#FFFBEB", border: "1px solid #FCD34D", borderRadius: 5, padding: "1px 7px", marginTop: 3, display: "inline-block" }}>
+                    Not invited yet
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 1 }}>{client.email}</div>
+                )}
               </div>
             </div>
             <div style={{ color: "#2DC4B8", fontSize: 20 }}>›</div>

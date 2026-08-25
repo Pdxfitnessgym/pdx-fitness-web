@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { assignProgram } from "@/app/actions/clients";
+import { assignProgram, inviteClient } from "@/app/actions/clients";
 import Link from "next/link";
 import { SessionsPanel } from "@/app/components/SessionsPanel";
 import { ClientNotesEditor } from "@/app/components/ClientNotesEditor";
@@ -43,7 +43,7 @@ export default async function ClientDetailPage({
 
   const { data: client } = await supabase
     .from("profiles")
-    .select("id, full_name, email, trainer_id, sessions_purchased, client_notes")
+    .select("id, full_name, email, trainer_id, sessions_purchased, client_notes, is_placeholder")
     .eq("id", clientId)
     .single();
 
@@ -140,6 +140,7 @@ export default async function ClientDetailPage({
   }
 
   const today = new Date().toISOString().split("T")[0];
+  const isPlaceholder = (client as unknown as { is_placeholder: boolean }).is_placeholder;
   const prog = activeProgram?.programs as unknown as { name: string; duration_weeks: number } | null;
   const currentWeek = activeProgram
     ? Math.min(Math.max(Math.floor((Date.now() - new Date(activeProgram.start_date).getTime()) / 604800000) + 1, 1), prog?.duration_weeks ?? 99)
@@ -183,7 +184,9 @@ export default async function ClientDetailPage({
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: 4, marginBottom: 12 }}>
             <div>
               <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4" }}>{client.full_name}</div>
-              <div style={{ fontSize: 13, color: "#6B7A8D" }}>{client.email}</div>
+              {isPlaceholder
+                ? <div style={{ fontSize: 13, color: "#B45309", fontWeight: 600 }}>Not invited yet</div>
+                : <div style={{ fontSize: 13, color: "#6B7A8D" }}>{client.email}</div>}
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontSize: 22, fontWeight: 800, color: "#0D1827" }}>{logCount ?? 0}</div>
@@ -226,6 +229,50 @@ export default async function ClientDetailPage({
         {sp.assigned && (
           <div style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
             ✓ Program assigned successfully
+          </div>
+        )}
+
+        {sp.invited === "1" && (
+          <div style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
+            ✓ Invite sent — they can now set a password and log in.
+          </div>
+        )}
+        {sp.invited === "nomail" && (
+          <div style={{ background: "#FEF3C7", color: "#92400E", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
+            Email saved, but the invite email failed to send. Ask them to use “Forgot password?” on the login page.
+          </div>
+        )}
+        {sp.error === "email_taken" && (
+          <div style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
+            That email is already used by another account.
+          </div>
+        )}
+        {(sp.error === "invite_failed" || sp.error === "not_invitable") && (
+          <div style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
+            Couldn&apos;t send that invite. Try again.
+          </div>
+        )}
+
+        {/* Not-yet-invited client: build their plan now, invite when ready */}
+        {isPlaceholder && (
+          <div style={{ background: "#FFFBEB", border: "1.5px solid #FCD34D", borderRadius: 14, padding: 18 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#92400E", marginBottom: 4 }}>🔒 Not invited yet</div>
+            <div style={{ fontSize: 13, color: "#B45309", marginBottom: 14 }}>
+              You can build programs and workouts for {client.full_name} now. They receive nothing and can&apos;t log in until you send an invite below.
+            </div>
+            <form action={inviteClient} style={{ display: "flex", gap: 10 }}>
+              <input type="hidden" name="client_id" value={clientId} />
+              <input
+                name="email"
+                type="email"
+                required
+                placeholder="client@email.com"
+                style={{ flex: 1, padding: "12px 14px", borderRadius: 10, border: "1px solid #FCD34D", background: "#fff", fontSize: 15, color: "#0D1827", outline: "none" }}
+              />
+              <button type="submit" style={{ padding: "12px 18px", borderRadius: 10, background: "#F59E0B", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
+                Send Invite
+              </button>
+            </form>
           </div>
         )}
 

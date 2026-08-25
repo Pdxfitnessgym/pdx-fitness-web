@@ -45,6 +45,94 @@ export async function addClientByEmail(formData: FormData) {
   redirect("/trainer/clients?success=1");
 }
 
+// Creates a client the trainer can build programs for before the client has access.
+// admin.createUser() never sends email (unlike inviteUserByEmail), and the address
+// uses the reserved .invalid TLD so nothing can be delivered to it by accident.
+export async function createPlaceholderClient(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const fullName = (formData.get("full_name") as string).trim();
+  if (!fullName) redirect("/trainer/clients?error=no_name");
+
+  const svc = createServiceClient();
+  const placeholderEmail = `placeholder-${crypto.randomUUID()}@placeholder.invalid`;
+
+  const { data: created, error: createErr } = await svc.auth.admin.createUser({
+    email: placeholderEmail,
+    email_confirm: true,
+    password: crypto.randomUUID() + crypto.randomUUID(),
+    user_metadata: { full_name: fullName, role: "client" },
+  });
+  if (createErr || !created?.user) redirect("/trainer/clients?error=create_failed");
+
+  // The on_auth_user_created trigger already inserted the profile row, so upsert
+  // to fill in the trainer link and placeholder flag it doesn't know about.
+  const { error: profileErr } = await svc.from("profiles").upsert({
+    id: created.user.id,
+    email: placeholderEmail,
+    full_name: fullName,
+    role: "client",
+    trainer_id: user.id,
+    is_placeholder: true,
+    is_approved: true,
+  }, { onConflict: "id" });
+  if (profileErr) {
+    // Don't leave an orphaned auth user behind if the profile insert fails
+    await svc.auth.admin.deleteUser(created.user.id);
+    redirect("/trainer/clients?error=create_failed");
+  }
+
+  revalidatePath("/trainer/clients");
+  redirect(`/trainer/clients/${created.user.id}`);
+}
+
+// Swaps the placeholder address for the client's real one and emails them an
+// invite link. This is the first moment the client hears from the app.
+export async function inviteClient(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const clientId = formData.get("client_id") as string;
+  const email = (formData.get("email") as string).trim().toLowerCase();
+
+  const svc = createServiceClient();
+  const { data: client } = await svc
+    .from("profiles")
+    .select("id, trainer_id, is_placeholder")
+    .eq("id", clientId)
+    .single();
+
+  if (!client || client.trainer_id !== user.id || !client.is_placeholder) {
+    redirect(`/trainer/clients/${clientId}?error=not_invitable`);
+  }
+
+  // Refuse if that address is already attached to another account
+  const { data: taken } = await svc.from("profiles").select("id").eq("email", email).maybeSingle();
+  if (taken && taken.id !== clientId) {
+    redirect(`/trainer/clients/${clientId}?error=email_taken`);
+  }
+
+  const { error: updateErr } = await svc.auth.admin.updateUserById(clientId, {
+    email,
+    email_confirm: true,
+  });
+  if (updateErr) redirect(`/trainer/clients/${clientId}?error=invite_failed`);
+
+  await svc.from("profiles").update({ email, is_placeholder: false }).eq("id", clientId);
+
+  // Password-recovery link doubles as "set your password" for a first-time login
+  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "https://pdx-fitness-web.vercel.app";
+  const { error: linkErr } = await svc.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/callback?type=recovery`,
+  });
+
+  revalidatePath(`/trainer/clients/${clientId}`);
+  redirect(`/trainer/clients/${clientId}?invited=${linkErr ? "nomail" : "1"}`);
+}
+
 export async function assignProgram(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
