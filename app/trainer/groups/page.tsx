@@ -21,6 +21,7 @@ export default function GroupsPage() {
   const [activeGroup, setActiveGroup] = useState<Group | null>(null);
   const [groupMembers, setGroupMembers] = useState<Record<string, string[]>>({});
   const [addingMember, setAddingMember] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -64,22 +65,26 @@ export default function GroupsPage() {
   const createGroup = async () => {
     if (!newName.trim()) return;
     setSaving(true);
+    setError("");
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setSaving(false); return; }
 
-    const { data, error } = await supabase
+    const { data, error: insertErr } = await supabase
       .from("groups")
       .insert({ trainer_id: user.id, name: newName.trim(), emoji: newEmoji, description: newDesc.trim() || null })
       .select("id, name, emoji, description")
       .single();
 
-    if (!error && data) {
-      const newGroup: Group = { ...data, member_count: 0 };
-      setGroups((prev) => [...prev, newGroup]);
-      setGroupMembers((prev) => ({ ...prev, [data.id]: [] }));
+    // Surface failures instead of clearing the form as if it saved
+    if (insertErr || !data) {
+      setError(insertErr?.message ?? "Couldn't create that group.");
+      setSaving(false);
+      return;
     }
 
+    setGroups((prev) => [...prev, { ...data, member_count: 0 }]);
+    setGroupMembers((prev) => ({ ...prev, [data.id]: [] }));
     setNewName("");
     setNewEmoji("💪");
     setNewDesc("");
@@ -96,10 +101,12 @@ export default function GroupsPage() {
 
   const toggleMember = async (groupId: string, userId: string, isMember: boolean) => {
     setAddingMember(true);
+    setError("");
     const supabase = createClient();
 
     if (isMember) {
-      await supabase.from("group_members").delete().eq("group_id", groupId).eq("user_id", userId);
+      const { error: delErr } = await supabase.from("group_members").delete().eq("group_id", groupId).eq("user_id", userId);
+      if (delErr) { setError(delErr.message); setAddingMember(false); return; }
       setGroupMembers((prev) => ({
         ...prev,
         [groupId]: (prev[groupId] ?? []).filter((id) => id !== userId),
@@ -108,7 +115,8 @@ export default function GroupsPage() {
         prev.map((g) => g.id === groupId ? { ...g, member_count: Math.max(0, g.member_count - 1) } : g)
       );
     } else {
-      await supabase.from("group_members").insert({ group_id: groupId, user_id: userId });
+      const { error: insErr } = await supabase.from("group_members").insert({ group_id: groupId, user_id: userId });
+      if (insErr) { setError(insErr.message); setAddingMember(false); return; }
       setGroupMembers((prev) => ({
         ...prev,
         [groupId]: [...(prev[groupId] ?? []), userId],
@@ -162,6 +170,12 @@ export default function GroupsPage() {
             </button>
           </div>
         </div>
+
+        {error && (
+          <div style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600, marginBottom: 16 }}>
+            {error}
+          </div>
+        )}
 
         {/* Create Form */}
         {creating && (
