@@ -5,7 +5,7 @@ import { updateSessionsPurchased, scheduleSession, updateSessionStatus } from "@
 type Session = {
   id: string;
   scheduled_at: string;
-  status: "scheduled" | "completed" | "no_show" | "rescheduled";
+  status: "scheduled" | "completed" | "no_show" | "rescheduled" | "cancelled" | "pending";
   notes: string | null;
 };
 
@@ -14,6 +14,8 @@ const STATUS_LABEL: Record<string, string> = {
   completed: "Completed",
   no_show: "No Show",
   rescheduled: "Rescheduled",
+  cancelled: "Cancelled",
+  pending: "Pending",
 };
 
 const STATUS_COLOR: Record<string, string> = {
@@ -21,6 +23,8 @@ const STATUS_COLOR: Record<string, string> = {
   completed: "#10B981",
   no_show: "#EF4444",
   rescheduled: "#F59E0B",
+  cancelled: "#9CA3AF",
+  pending: "#8B5CF6",
 };
 
 export function SessionsPanel({
