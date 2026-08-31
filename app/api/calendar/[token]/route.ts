@@ -47,6 +47,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     "X-WR-CALNAME:PDX Fitness Workouts",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
+    // Tell subscribers how often to re-poll, so the feed updates on its own
+    "X-PUBLISHED-TTL:PT1H",
+    "REFRESH-INTERVAL;VALUE=DURATION:PT1H",
   ];
 
   if (cp) {
@@ -77,10 +80,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   const body = lines.join("\r\n") + "\r\n";
   return new NextResponse(body, {
     headers: {
-      "Content-Type": "text/calendar",
-      "Content-Disposition": "attachment; filename=\"pdx-fitness.ics\"",
-      "Cache-Control": "no-store, no-cache",
-      "Pragma": "no-cache",
+      "Content-Type": "text/calendar; charset=utf-8",
+      // Must be inline: "attachment" makes Apple Calendar import a brand-new
+      // calendar on every tap instead of refreshing the existing subscription.
+      "Content-Disposition": "inline; filename=pdx-fitness.ics",
+      "Cache-Control": "no-cache",
     },
   });
 }

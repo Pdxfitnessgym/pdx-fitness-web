@@ -32,6 +32,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
     `X-WR-CALNAME:PDX Fitness - ${profile.full_name ?? "Trainer"} Sessions`,
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
+    // Tell subscribers how often to re-poll, so the feed updates on its own
+    "X-PUBLISHED-TTL:PT1H",
+    "REFRESH-INTERVAL;VALUE=DURATION:PT1H",
   ];
 
   for (const s of sessions ?? []) {

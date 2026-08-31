@@ -217,7 +217,7 @@ export default function CalendarPage() {
         {/* Calendar sync */}
         <div style={{ background: "#fff", borderRadius: 14, padding: 18, border: "1px solid #E2EAF0" }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 4 }}>Sync to your calendar</div>
-          <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 16 }}>Your workouts will appear in your calendar and stay updated automatically.</div>
+          <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 16 }}>Add this once — your workouts stay updated automatically. Tapping again just adds a duplicate calendar.</div>
 
           {calToken && (
             <div style={{ marginBottom: 16 }}>
@@ -246,7 +246,7 @@ export default function CalendarPage() {
                 <span style={{ fontSize: 22 }}>📅</span>
                 <div>
                   <div>Add to Apple Calendar</div>
-                  <div style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.7)", marginTop: 1 }}>Tap to open Calendar app instantly</div>
+                  <div style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.7)", marginTop: 1 }}>Subscribe once — it updates on its own</div>
                 </div>
               </a>
             ) : null}
