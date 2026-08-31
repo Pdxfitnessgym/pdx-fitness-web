@@ -42,6 +42,7 @@ export function SessionsPanel({
   const [showSchedule, setShowSchedule] = useState(false);
   const [showPurchased, setShowPurchased] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const pct = sessionsPurchased > 0 ? Math.max(0, (remaining / sessionsPurchased) * 100) : 0;
   const low = remaining <= 2 && sessionsPurchased > 0;
@@ -134,48 +135,60 @@ export function SessionsPanel({
       {sessions.length > 0 && (
         <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Sessions</div>
-          {sessions.map(s => (
-            <div key={s.id} style={{ background: "#F8FAFB", borderRadius: 12, padding: "12px 14px", border: "1px solid #E2EAF0" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827" }}>
-                    {new Date(s.scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-                    <span style={{ fontWeight: 400, color: "#6B7A8D", marginLeft: 6 }}>
-                      {new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                    </span>
+          {sessions.map(s => {
+            const expandable = s.status === "scheduled";
+            const isOpen = expandedId === s.id;
+            return (
+              <div key={s.id} style={{ background: "#F8FAFB", borderRadius: 12, border: `1px solid ${isOpen ? "#1B68B4" : "#E2EAF0"}`, overflow: "hidden" }}>
+                <div
+                  onClick={() => expandable && setExpandedId(isOpen ? null : s.id)}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "12px 14px", cursor: expandable ? "pointer" : "default" }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827" }}>
+                      {new Date(s.scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                      <span style={{ fontWeight: 400, color: "#6B7A8D", marginLeft: 6 }}>
+                        {new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                      </span>
+                    </div>
+                    {s.notes && <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>{s.notes}</div>}
                   </div>
-                  {s.notes && <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>{s.notes}</div>}
+                  <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLOR[s.status], background: STATUS_COLOR[s.status] + "18", padding: "3px 8px", borderRadius: 6, whiteSpace: "nowrap" }}>
+                    {STATUS_LABEL[s.status]}
+                  </span>
+                  {expandable && (
+                    <span style={{ fontSize: 13, color: "#9CA3AF", flexShrink: 0, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▾</span>
+                  )}
                 </div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLOR[s.status], background: STATUS_COLOR[s.status] + "18", padding: "3px 8px", borderRadius: 6, whiteSpace: "nowrap" }}>
-                  {STATUS_LABEL[s.status]}
-                </span>
-              </div>
 
-              {/* Status actions — only for non-completed */}
-              {s.status === "scheduled" && (
-                <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-                  {(["completed", "no_show", "rescheduled"] as const).map(st => (
-                    <form key={st} action={async (fd) => { setUpdatingId(s.id); await updateSessionStatus(fd); setUpdatingId(null); }}>
-                      <input type="hidden" name="session_id" value={s.id} />
-                      <input type="hidden" name="client_id" value={clientId} />
-                      <input type="hidden" name="status" value={st} />
-                      <button
-                        type="submit"
-                        disabled={updatingId === s.id}
-                        style={{
-                          padding: "6px 10px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700,
-                          background: st === "completed" ? "#D1FAE5" : st === "no_show" ? "#FEE2E2" : "#FEF3C7",
-                          color: st === "completed" ? "#065F46" : st === "no_show" ? "#991B1B" : "#92400E",
-                        }}
-                      >
-                        {st === "completed" ? "✓ Done" : st === "no_show" ? "No Show" : "Reschedule"}
-                      </button>
-                    </form>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+                {/* Tap the row to reveal full-size actions */}
+                {expandable && isOpen && (
+                  <div style={{ padding: "0 14px 14px", display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid #E2EAF0", marginTop: 2, paddingTop: 12 }}>
+                    {(["completed", "no_show", "rescheduled"] as const).map(st => (
+                      <form key={st} action={async (fd) => { setUpdatingId(s.id); await updateSessionStatus(fd); setUpdatingId(null); setExpandedId(null); }}>
+                        <input type="hidden" name="session_id" value={s.id} />
+                        <input type="hidden" name="client_id" value={clientId} />
+                        <input type="hidden" name="status" value={st} />
+                        <button
+                          type="submit"
+                          disabled={updatingId === s.id}
+                          style={{
+                            width: "100%", padding: "14px", borderRadius: 10, border: "none",
+                            cursor: "pointer", fontSize: 15, fontWeight: 700,
+                            opacity: updatingId === s.id ? 0.5 : 1,
+                            background: st === "completed" ? "#D1FAE5" : st === "no_show" ? "#FEE2E2" : "#FEF3C7",
+                            color: st === "completed" ? "#065F46" : st === "no_show" ? "#991B1B" : "#92400E",
+                          }}
+                        >
+                          {st === "completed" ? "✓ Done" : st === "no_show" ? "No Show" : "Reschedule"}
+                        </button>
+                      </form>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
