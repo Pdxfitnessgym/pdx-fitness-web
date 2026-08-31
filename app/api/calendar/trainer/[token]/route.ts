@@ -22,7 +22,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
     .from("training_sessions")
     .select("id, scheduled_at, status, notes, profiles!client_id(full_name)")
     .eq("trainer_id", profile.id)
-    .neq("status", "no_show")
+    // Cancelled and no-show sessions shouldn't sit on the calendar as if they're on
+    .not("status", "in", '("no_show","cancelled")')
     .order("scheduled_at");
 
   const lines: string[] = [
@@ -52,7 +53,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
       `DTEND:${toICSDate(end)}`,
       `SUMMARY:${summary}`,
       ...(desc ? [`DESCRIPTION:${desc}`] : []),
-      `STATUS:${s.status === "completed" ? "CONFIRMED" : "TENTATIVE"}`,
+      // A booked session is a real commitment — TENTATIVE renders it as unconfirmed
+      "STATUS:CONFIRMED",
       "END:VEVENT",
     );
   }
