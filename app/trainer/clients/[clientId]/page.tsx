@@ -427,6 +427,26 @@ export default async function ClientDetailPage({
                 + Log Workout
               </Link>
             </div>
+
+            {/* Build a one-off workout live during the session */}
+            <div style={card}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 4 }}>Start a Live Workout</div>
+              <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 14 }}>
+                Build it as you go — add each exercise and log it on the spot.
+              </div>
+              <form action={createAdHocWorkout} style={{ display: "flex", gap: 8 }}>
+                <input type="hidden" name="client_id" value={clientId} />
+                <input
+                  name="name"
+                  placeholder={`Today's session with ${client.full_name?.split(" ")[0] ?? "client"}`}
+                  style={{ ...inputSt, flex: 1 }}
+                />
+                <button type="submit" style={{ padding: "13px 18px", borderRadius: 10, background: "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
+                  ▶ Start
+                </button>
+              </form>
+            </div>
+
             <WorkoutLogCards logs={(workoutLogs ?? []) as any} />
           </>
         )}
