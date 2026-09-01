@@ -163,6 +163,58 @@ export async function assignProgram(formData: FormData) {
   redirect(`/trainer/clients/${client_id}?assigned=1`);
 }
 
+// Give a client a single on-demand workout without assigning a whole program.
+export async function assignWorkoutToClient(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const client_id = formData.get("client_id") as string;
+  const workout_id = formData.get("workout_id") as string;
+  if (!workout_id) redirect(`/trainer/clients/${client_id}`);
+
+  const { data: existing } = await supabase
+    .from("client_workout_assignments")
+    .select("id")
+    .eq("client_id", client_id)
+    .eq("workout_id", workout_id)
+    .maybeSingle();
+
+  if (!existing) {
+    const { error } = await supabase
+      .from("client_workout_assignments")
+      .insert({ client_id, workout_id, assigned_by: user.id });
+    if (error) redirect(`/trainer/clients/${client_id}?error=assign_failed`);
+
+    sendPushToUser(client_id, {
+      title: "New Workout 💪",
+      body: "Your trainer added a workout for you.",
+      url: "/client/workouts",
+    }).catch(() => {});
+  }
+
+  revalidatePath(`/trainer/clients/${client_id}`);
+  redirect(`/trainer/clients/${client_id}?workout_assigned=1`);
+}
+
+export async function unassignWorkoutFromClient(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const client_id = formData.get("client_id") as string;
+  const workout_id = formData.get("workout_id") as string;
+
+  await supabase
+    .from("client_workout_assignments")
+    .delete()
+    .eq("client_id", client_id)
+    .eq("workout_id", workout_id);
+
+  revalidatePath(`/trainer/clients/${client_id}`);
+  redirect(`/trainer/clients/${client_id}`);
+}
+
 export async function logSet(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

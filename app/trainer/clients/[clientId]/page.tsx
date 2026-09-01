@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { assignProgram, inviteClient } from "@/app/actions/clients";
+import { assignProgram, inviteClient, assignWorkoutToClient, unassignWorkoutFromClient } from "@/app/actions/clients";
 import Link from "next/link";
 import { SessionsPanel } from "@/app/components/SessionsPanel";
 import { ClientNotesEditor } from "@/app/components/ClientNotesEditor";
@@ -15,6 +15,8 @@ const TABS = [
   { key: "habits", label: "Habits" },
   { key: "notes", label: "Notes" },
 ];
+
+type StandaloneWorkout = { id: string; name: string; category: string | null; est_duration_mins: number | null };
 
 const DIFF_COLORS: Record<string, string> = {
   weight: "#1B68B4",
@@ -57,6 +59,8 @@ export default async function ClientDetailPage({
 
   // Tab-specific data
   let programs = null, trainingSessions = null, completedCount = 0;
+  let standaloneWorkouts: StandaloneWorkout[] = [];
+  let assignedWorkouts: StandaloneWorkout[] = [];
   let workoutLogs = null;
   let progressLogs: { id: string; logged_at: string; weight_lbs: number | null; body_fat_pct: number | null; notes: string | null; photo_url: string | null }[] | null = null;
   let prs: { exercise_name: string; best_weight: number; best_reps: string | null }[] = [];
@@ -65,13 +69,19 @@ export default async function ClientDetailPage({
   let habitLogs: { habit_id: string; logged_date: string }[] | null = null;
 
   if (tab === "overview") {
-    const [p, ts] = await Promise.all([
+    const [p, ts, sw, aw] = await Promise.all([
       supabase.from("programs").select("id, name, duration_weeks").eq("trainer_id", user.id).order("name"),
       supabase.from("training_sessions").select("id, scheduled_at, status, notes").eq("client_id", clientId).order("scheduled_at", { ascending: false }).limit(20),
+      supabase.from("workouts").select("id, name, category, est_duration_mins").eq("trainer_id", user.id).eq("is_standalone", true).order("name"),
+      supabase.from("client_workout_assignments").select("workout_id, workouts(id, name, category, est_duration_mins)").eq("client_id", clientId).order("assigned_at", { ascending: false }),
     ]);
     programs = p.data;
     trainingSessions = ts.data ?? [];
     completedCount = (trainingSessions ?? []).filter((s: { status: string }) => s.status === "completed").length;
+    standaloneWorkouts = sw.data ?? [];
+    assignedWorkouts = ((aw.data ?? []) as unknown as { workout_id: string; workouts: StandaloneWorkout | StandaloneWorkout[] }[])
+      .map(r => (Array.isArray(r.workouts) ? r.workouts[0] : r.workouts))
+      .filter((w): w is StandaloneWorkout => Boolean(w));
   }
 
   if (tab === "workouts") {
@@ -232,6 +242,17 @@ export default async function ClientDetailPage({
           </div>
         )}
 
+        {sp.workout_assigned && (
+          <div style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
+            ✓ Workout added for this client
+          </div>
+        )}
+        {sp.error === "assign_failed" && (
+          <div style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
+            Couldn&apos;t add that workout. Try again.
+          </div>
+        )}
+
         {sp.invited === "1" && (
           <div style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
             ✓ Invite sent — they can now set a password and log in.
@@ -312,6 +333,58 @@ export default async function ClientDetailPage({
               ) : (
                 <div style={{ color: "#9CA3AF", fontSize: 14 }}>
                   No programs yet. <Link href="/trainer/programs/new" style={{ color: "#2DC4B8" }}>Create one →</Link>
+                </div>
+              )}
+            </div>
+
+            {/* Individual workouts — no program required */}
+            <div style={card}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 4 }}>Individual Workouts</div>
+              <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 14 }}>
+                Give {client.full_name} a single workout without assigning a whole program.
+              </div>
+
+              {assignedWorkouts.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+                  {assignedWorkouts.map(w => (
+                    <div key={w.id} style={{ display: "flex", alignItems: "center", gap: 10, background: "#F8FAFB", border: "1px solid #E2EAF0", borderRadius: 10, padding: "10px 12px" }}>
+                      <span style={{ fontSize: 18 }}>⚡</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827" }}>{w.name}</div>
+                        {(w.category || w.est_duration_mins) && (
+                          <div style={{ fontSize: 12, color: "#6B7A8D" }}>
+                            {[w.category, w.est_duration_mins ? `~${w.est_duration_mins} min` : null].filter(Boolean).join(" · ")}
+                          </div>
+                        )}
+                      </div>
+                      <form action={unassignWorkoutFromClient}>
+                        <input type="hidden" name="client_id" value={clientId} />
+                        <input type="hidden" name="workout_id" value={w.id} />
+                        <button type="submit" title="Remove" style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", fontSize: 15, padding: 4 }}>✕</button>
+                      </form>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {standaloneWorkouts.filter(w => !assignedWorkouts.some(a => a.id === w.id)).length > 0 ? (
+                <form action={assignWorkoutToClient} style={{ display: "flex", gap: 8 }}>
+                  <input type="hidden" name="client_id" value={clientId} />
+                  <select name="workout_id" required style={{ ...inputSt, flex: 1 }}>
+                    <option value="">Add a workout…</option>
+                    {standaloneWorkouts
+                      .filter(w => !assignedWorkouts.some(a => a.id === w.id))
+                      .map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  </select>
+                  <button type="submit" style={{ padding: "13px 18px", borderRadius: 10, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
+                    Add
+                  </button>
+                </form>
+              ) : (
+                <div style={{ color: "#9CA3AF", fontSize: 14 }}>
+                  {standaloneWorkouts.length === 0
+                    ? <>No on-demand workouts yet. <Link href="/trainer/workouts/new" style={{ color: "#2DC4B8" }}>Create one →</Link></>
+                    : "All your on-demand workouts are already assigned."}
                 </div>
               )}
             </div>
