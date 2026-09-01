@@ -71,6 +71,7 @@ export default async function ClientWorkoutsPage({
           .select("id, name, description, difficulty, est_duration_mins, category, exercises(count)")
           .eq("trainer_id", profile.trainer_id)
           .eq("is_standalone", true)
+          .eq("is_private", false)
           .order("created_at", { ascending: false })
       : Promise.resolve({ data: [] }),
     supabase

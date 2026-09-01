@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { saveWorkoutToLibrary } from "@/app/actions/clients";
 import { buildSetKey, parseRepsInput, parseWeightInput, repsInputMode, repsToText, weightToNumber, type Side } from "@/lib/workout-utils";
 
 type ExerciseRow = {
@@ -63,26 +64,63 @@ export default function TrainerLogWorkoutPage() {
   const [historyEx, setHistoryEx] = useState<ExerciseRow | null>(null);
   const [historySessions, setHistorySessions] = useState<HistorySession[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const startSessionRef = useRef<((w: Workout) => void) | null>(null);
+
+  // Live exercise picker (build the workout as you go)
+  const [showPicker, setShowPicker] = useState(false);
+  const [libExercises, setLibExercises] = useState<{ id: string; name: string; muscle_group: string | null }[]>([]);
+  const [libLoading, setLibLoading] = useState(false);
+  const [libSearch, setLibSearch] = useState("");
+  const [addingEx, setAddingEx] = useState(false);
+  const [savedToLibrary, setSavedToLibrary] = useState(false);
 
   useEffect(() => {
     (async () => {
       const supabase = createClient();
-      const [{ data: profile }, { data: assignments }] = await Promise.all([
+      const [{ data: profile }, { data: assignments }, { data: assignedWorkouts }] = await Promise.all([
         supabase.from("profiles").select("full_name").eq("id", clientId).single(),
         supabase.from("client_programs").select("program_id, programs(id, name)").eq("client_id", clientId).eq("is_active", true),
+        supabase.from("client_workout_assignments")
+          .select("workouts(id, name, week_number, day_of_week)")
+          .eq("client_id", clientId)
+          .order("assigned_at", { ascending: false }),
       ]);
       setClientName(profile?.full_name ?? "Client");
-      if (!assignments?.length) return;
-      const programIds = assignments.map((a: any) => a.program_id);
-      const { data: workouts } = await supabase
-        .from("workouts")
-        .select("id, name, week_number, day_of_week, program_id")
-        .in("program_id", programIds)
-        .order("week_number").order("day_of_week");
-      setPrograms(assignments.map((a: any) => ({
-        program: a.programs as Program,
-        workouts: (workouts ?? []).filter((w: any) => w.program_id === a.program_id),
-      })));
+
+      const groups: { program: Program; workouts: Workout[] }[] = [];
+
+      // Individually-assigned and one-off workouts, listed first
+      const individual = (assignedWorkouts ?? [])
+        .map((r: any) => (Array.isArray(r.workouts) ? r.workouts[0] : r.workouts))
+        .filter(Boolean) as Workout[];
+      if (individual.length) {
+        groups.push({ program: { id: "individual", name: "Individual Workouts" }, workouts: individual });
+      }
+
+      if (assignments?.length) {
+        const programIds = assignments.map((a: any) => a.program_id);
+        const { data: workouts } = await supabase
+          .from("workouts")
+          .select("id, name, week_number, day_of_week, program_id")
+          .in("program_id", programIds)
+          .order("week_number").order("day_of_week");
+        for (const a of assignments as any[]) {
+          groups.push({
+            program: a.programs as Program,
+            workouts: (workouts ?? []).filter((w: any) => w.program_id === a.program_id),
+          });
+        }
+      }
+
+      setPrograms(groups);
+
+      // Deep link from "Start Live Workout" — jump straight into the session
+      const direct = new URLSearchParams(window.location.search).get("workout");
+      if (direct) {
+        const { data: w } = await supabase
+          .from("workouts").select("id, name, week_number, day_of_week").eq("id", direct).single();
+        if (w) startSessionRef.current?.(w as Workout);
+      }
     })();
   }, [clientId]);
 
@@ -122,6 +160,46 @@ export default function TrainerLogWorkoutPage() {
     setLoadingEx(false);
     setPhase("session");
   }, [clientId]);
+
+  useEffect(() => { startSessionRef.current = startSession; }, [startSession]);
+
+  async function openPicker() {
+    setShowPicker(true);
+    if (libExercises.length) return;
+    setLibLoading(true);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setLibLoading(false); return; }
+    const { data } = await supabase
+      .from("exercise_library")
+      .select("id, name, muscle_group")
+      .or(`trainer_id.eq.${user.id},trainer_id.is.null`)
+      .order("name");
+    setLibExercises(data ?? []);
+    setLibLoading(false);
+  }
+
+  // Append an exercise to the workout mid-session so it's immediately loggable
+  async function addExerciseLive(lib: { id: string; name: string }) {
+    if (!selectedWorkout) return;
+    setAddingEx(true);
+    const supabase = createClient();
+    const { data, error: insErr } = await supabase.from("exercises").insert({
+      workout_id: selectedWorkout.id,
+      name: lib.name,
+      sets: 3,
+      reps: "8-12",
+      rest_seconds: 60,
+      order: exercises.length,
+      exercise_library_id: lib.id,
+    }).select("id, name, sets, reps, rest_seconds, notes, order, is_unilateral, suggested_weight, weight_type, group_id, group_round_rest_seconds, exercise_library(video_url, instructions)").single();
+    setAddingEx(false);
+    if (insErr || !data) { setError(insErr?.message ?? "Couldn't add that exercise."); return; }
+    const row = data as unknown as ExerciseRow & { exercise_library: unknown };
+    setExercises(prev => [...prev, { ...row, exercise_library: Array.isArray(row.exercise_library) ? (row.exercise_library[0] ?? null) : row.exercise_library } as ExerciseRow]);
+    setShowPicker(false);
+    setLibSearch("");
+  }
 
   function startTimer(secs: number, key: SetKey) {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -417,7 +495,22 @@ export default function TrainerLogWorkoutPage() {
         <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4" }}>Workout Logged!</div>
         <div style={{ fontSize: 14, color: "#6B7A8D" }}>{doneSetCount} sets saved for {clientName}</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8, width: "100%", maxWidth: 300 }}>
-          <button onClick={() => { setPhase("pick"); setSelectedWorkout(null); setExercises([]); setLogged({}); setSessionNotes(""); }} style={btnTeal}>Log Another Workout</button>
+          {/* Keep a one-off workout for reuse */}
+          {selectedWorkout && (
+            savedToLibrary ? (
+              <div style={{ padding: "12px", borderRadius: 12, background: "#D1FAE5", color: "#065F46", fontWeight: 700, fontSize: 14, textAlign: "center" }}>
+                ✓ Saved to your workout library
+              </div>
+            ) : (
+              <form action={async (fd) => { await saveWorkoutToLibrary(fd); setSavedToLibrary(true); }}>
+                <input type="hidden" name="workout_id" value={selectedWorkout.id} />
+                <button type="submit" style={{ ...btnGray, width: "100%", cursor: "pointer" }}>
+                  💾 Save this workout to my library
+                </button>
+              </form>
+            )
+          )}
+          <button onClick={() => { setPhase("pick"); setSelectedWorkout(null); setExercises([]); setLogged({}); setSessionNotes(""); setSavedToLibrary(false); }} style={btnTeal}>Log Another Workout</button>
           <Link href={`/trainer/clients/${clientId}`} style={{ ...btnGray, textAlign: "center", textDecoration: "none" }}>Back to {clientName}</Link>
         </div>
       </div>
@@ -532,6 +625,14 @@ export default function TrainerLogWorkoutPage() {
           );
         })}
 
+        {/* Build the workout as you go */}
+        <button
+          onClick={openPicker}
+          style={{ width: "100%", padding: "14px", borderRadius: 12, background: "#fff", border: "2px dashed #2DC4B8", color: "#2DC4B8", fontWeight: 700, fontSize: 15, cursor: "pointer", marginBottom: 12 }}
+        >
+          + Add Exercise
+        </button>
+
         {/* Session notes */}
         <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2EAF0", padding: 16, marginBottom: 12 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "#6B7A8D", textTransform: "uppercase", marginBottom: 8 }}>Session Notes</div>
@@ -550,6 +651,50 @@ export default function TrainerLogWorkoutPage() {
           </button>
         </div>
       </div>
+
+      {/* Live exercise picker */}
+      {showPicker && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 120, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+          <div onClick={() => setShowPicker(false)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)" }} />
+          <div style={{ position: "relative", background: "#fff", borderRadius: "20px 20px 0 0", maxHeight: "80dvh", display: "flex", flexDirection: "column" }}>
+            <div style={{ padding: "18px 20px 12px", borderBottom: "1px solid #F4F7FA", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <div style={{ fontWeight: 800, fontSize: 16, color: "#0D1827" }}>Add Exercise</div>
+                <button onClick={() => setShowPicker(false)} style={{ background: "#F4F7FA", border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 16, color: "#6B7A8D" }}>✕</button>
+              </div>
+              <input
+                value={libSearch}
+                onChange={e => setLibSearch(e.target.value)}
+                placeholder="Search exercises…"
+                autoFocus
+                style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 15, color: "#0D1827", outline: "none" }}
+              />
+            </div>
+            <div style={{ overflowY: "auto", padding: "8px 20px 32px" }}>
+              {libLoading ? (
+                <div style={{ textAlign: "center", padding: 32, color: "#6B7A8D" }}>Loading…</div>
+              ) : (
+                libExercises
+                  .filter(ex =>
+                    ex.name.toLowerCase().includes(libSearch.toLowerCase()) ||
+                    (ex.muscle_group ?? "").toLowerCase().includes(libSearch.toLowerCase()))
+                  .slice(0, 60)
+                  .map(ex => (
+                    <button
+                      key={ex.id}
+                      onClick={() => addExerciseLive(ex)}
+                      disabled={addingEx}
+                      style={{ width: "100%", textAlign: "left", padding: "13px 12px", borderRadius: 10, border: "none", borderBottom: "1px solid #F4F7FA", background: "none", cursor: "pointer", opacity: addingEx ? 0.5 : 1 }}
+                    >
+                      <div style={{ fontSize: 15, fontWeight: 600, color: "#0D1827" }}>{ex.name}</div>
+                      {ex.muscle_group && <div style={{ fontSize: 12, color: "#9CA3AF" }}>{ex.muscle_group}</div>}
+                    </button>
+                  ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {historyEx && (
         <HistoryModal ex={historyEx} sessions={historySessions} loading={historyLoading} onClose={() => setHistoryEx(null)} />

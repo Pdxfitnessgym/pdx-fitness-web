@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { assignProgram, inviteClient, assignWorkoutToClient, unassignWorkoutFromClient } from "@/app/actions/clients";
+import { assignProgram, inviteClient, assignWorkoutToClient, unassignWorkoutFromClient, createAdHocWorkout } from "@/app/actions/clients";
 import Link from "next/link";
 import { SessionsPanel } from "@/app/components/SessionsPanel";
 import { ClientNotesEditor } from "@/app/components/ClientNotesEditor";
@@ -72,7 +72,7 @@ export default async function ClientDetailPage({
     const [p, ts, sw, aw] = await Promise.all([
       supabase.from("programs").select("id, name, duration_weeks").eq("trainer_id", user.id).order("name"),
       supabase.from("training_sessions").select("id, scheduled_at, status, notes").eq("client_id", clientId).order("scheduled_at", { ascending: false }).limit(20),
-      supabase.from("workouts").select("id, name, category, est_duration_mins").eq("trainer_id", user.id).eq("is_standalone", true).order("name"),
+      supabase.from("workouts").select("id, name, category, est_duration_mins").eq("trainer_id", user.id).eq("is_standalone", true).eq("is_private", false).order("name"),
       supabase.from("client_workout_assignments").select("workout_id, workouts(id, name, category, est_duration_mins)").eq("client_id", clientId).order("assigned_at", { ascending: false }),
     ]);
     programs = p.data;
@@ -342,6 +342,22 @@ export default async function ClientDetailPage({
               <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 4 }}>Individual Workouts</div>
               <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 14 }}>
                 Give {client.full_name} a single workout without assigning a whole program.
+              </div>
+
+              {/* Build a one-off workout live during the session */}
+              <form action={createAdHocWorkout} style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                <input type="hidden" name="client_id" value={clientId} />
+                <input
+                  name="name"
+                  placeholder={`Today's session with ${client.full_name?.split(" ")[0] ?? "client"}`}
+                  style={{ ...inputSt, flex: 1 }}
+                />
+                <button type="submit" style={{ padding: "13px 18px", borderRadius: 10, background: "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
+                  ▶ Start
+                </button>
+              </form>
+              <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: -8, marginBottom: 14 }}>
+                Starts an empty workout you build as you go — add each exercise and log it on the spot.
               </div>
 
               {assignedWorkouts.length > 0 && (

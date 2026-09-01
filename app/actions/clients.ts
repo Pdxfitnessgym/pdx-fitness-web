@@ -163,6 +163,58 @@ export async function assignProgram(formData: FormData) {
   redirect(`/trainer/clients/${client_id}?assigned=1`);
 }
 
+// A one-off workout built live during a session. is_standalone must be true for RLS
+// to let the client read it, so is_private is what keeps it out of the shared
+// on-demand library — only the assignment below surfaces it, to this client alone.
+// "Save to my library" later just clears is_private.
+export async function createAdHocWorkout(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const client_id = formData.get("client_id") as string;
+  const typedName = (formData.get("name") as string)?.trim();
+  const name = typedName || `Session — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+
+  const { data: workout, error } = await supabase
+    .from("workouts")
+    .insert({
+      trainer_id: user.id,
+      name,
+      program_id: null,
+      is_standalone: true,
+      is_private: true,
+      day_of_week: 0,
+      week_number: 0,
+    })
+    .select("id")
+    .single();
+
+  if (error || !workout) redirect(`/trainer/clients/${client_id}?error=adhoc_failed`);
+
+  await supabase
+    .from("client_workout_assignments")
+    .insert({ client_id, workout_id: workout.id, assigned_by: user.id });
+
+  redirect(`/trainer/clients/${client_id}/log-workout?workout=${workout.id}`);
+}
+
+// Promote a one-off workout into the reusable on-demand library.
+export async function saveWorkoutToLibrary(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const workout_id = formData.get("workout_id") as string;
+  await supabase
+    .from("workouts")
+    .update({ is_private: false })
+    .eq("id", workout_id)
+    .eq("trainer_id", user.id);
+
+  revalidatePath("/trainer/workouts");
+}
+
 // Give a client a single on-demand workout without assigning a whole program.
 export async function assignWorkoutToClient(formData: FormData) {
   const supabase = await createClient();
