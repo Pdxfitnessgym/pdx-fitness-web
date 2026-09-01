@@ -46,6 +46,35 @@ export async function scheduleSession(formData: FormData) {
   revalidatePath(`/trainer/clients/${client_id}`);
 }
 
+export async function updateSessionTime(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const session_id = formData.get("session_id") as string;
+  const client_id = formData.get("client_id") as string;
+  const scheduled_at = formData.get("scheduled_at") as string;
+  if (!scheduled_at) return;
+
+  const update: { scheduled_at: string; notes?: string | null } = { scheduled_at };
+  if (formData.has("notes")) {
+    update.notes = (formData.get("notes") as string)?.trim() || null;
+  }
+
+  await supabase.from("training_sessions")
+    .update(update)
+    .eq("id", session_id)
+    .eq("trainer_id", user.id);
+
+  sendPushToUser(client_id, {
+    title: "Session Moved 📅",
+    body: `Your session is now ${new Date(scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`,
+    url: "/client",
+  }).catch(() => {});
+
+  revalidatePath(`/trainer/clients/${client_id}`);
+}
+
 export async function updateSessionStatus(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

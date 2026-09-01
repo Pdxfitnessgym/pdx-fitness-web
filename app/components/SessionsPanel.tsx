@@ -1,6 +1,13 @@
 "use client";
 import { useState } from "react";
-import { updateSessionsPurchased, scheduleSession, updateSessionStatus } from "@/app/actions/sessions";
+import { updateSessionsPurchased, scheduleSession, updateSessionStatus, updateSessionTime } from "@/app/actions/sessions";
+
+// datetime-local wants "YYYY-MM-DDTHH:mm" in the viewer's own timezone
+function toLocalInputValue(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 type Session = {
   id: string;
@@ -52,6 +59,7 @@ export function SessionsPanel({
   const [showPurchased, setShowPurchased] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const pct = sessionsPurchased > 0 ? Math.max(0, (remaining / sessionsPurchased) * 100) : 0;
   const low = remaining <= 2 && sessionsPurchased > 0;
@@ -150,7 +158,7 @@ export function SessionsPanel({
             return (
               <div key={s.id} style={{ background: "#F8FAFB", borderRadius: 12, border: `1px solid ${isOpen ? "#1B68B4" : "#E2EAF0"}`, overflow: "hidden" }}>
                 <div
-                  onClick={() => setExpandedId(isOpen ? null : s.id)}
+                  onClick={() => { setExpandedId(isOpen ? null : s.id); setEditingId(null); }}
                   style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer" }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -171,6 +179,57 @@ export function SessionsPanel({
                 {/* Tap the row to reveal full-size actions */}
                 {isOpen && (
                   <div style={{ padding: "0 14px 14px", display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid #E2EAF0", marginTop: 2, paddingTop: 12 }}>
+                    {/* Edit date & time */}
+                    {editingId === s.id ? (
+                      <form
+                        action={async (fd) => {
+                          // Convert the local-time input to an explicit UTC instant
+                          const local = fd.get("scheduled_at") as string;
+                          if (local) fd.set("scheduled_at", new Date(local).toISOString());
+                          setUpdatingId(s.id);
+                          await updateSessionTime(fd);
+                          setUpdatingId(null);
+                          setEditingId(null);
+                          setExpandedId(null);
+                        }}
+                        style={{ display: "flex", flexDirection: "column", gap: 8, background: "#EBF4FF", borderRadius: 10, padding: 12, marginBottom: 4 }}
+                      >
+                        <input type="hidden" name="session_id" value={s.id} />
+                        <input type="hidden" name="client_id" value={clientId} />
+                        <label style={{ fontSize: 12, fontWeight: 700, color: "#1B68B4" }}>New date &amp; time</label>
+                        <input
+                          type="datetime-local"
+                          name="scheduled_at"
+                          required
+                          defaultValue={toLocalInputValue(s.scheduled_at)}
+                          style={{ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid #C7DDF5", background: "#fff", fontSize: 15, color: "#0D1827", outline: "none" }}
+                        />
+                        <label style={{ fontSize: 12, fontWeight: 700, color: "#1B68B4" }}>Notes</label>
+                        <input
+                          type="text"
+                          name="notes"
+                          defaultValue={s.notes ?? ""}
+                          placeholder="e.g. Focus on upper body"
+                          style={{ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid #C7DDF5", background: "#fff", fontSize: 15, color: "#0D1827", outline: "none" }}
+                        />
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button type="button" onClick={() => setEditingId(null)} style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#fff", border: "1px solid #C7DDF5", cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#6B7A8D" }}>
+                            Cancel
+                          </button>
+                          <button type="submit" disabled={updatingId === s.id} style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#1B68B4", border: "none", cursor: "pointer", fontSize: 14, fontWeight: 700, color: "#fff", opacity: updatingId === s.id ? 0.5 : 1 }}>
+                            Save
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <button
+                        onClick={() => setEditingId(s.id)}
+                        style={{ width: "100%", padding: "14px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 15, fontWeight: 700, background: "#EBF4FF", color: "#1B68B4", marginBottom: 4 }}
+                      >
+                        ✏️ Edit Date &amp; Time
+                      </button>
+                    )}
+
                     <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 600 }}>Mark this session as…</div>
                     {actions.map(a => (
                       <form key={a.status} action={async (fd) => { setUpdatingId(s.id); await updateSessionStatus(fd); setUpdatingId(null); setExpandedId(null); }}>
