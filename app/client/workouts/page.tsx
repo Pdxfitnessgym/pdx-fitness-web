@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
+import { CalendarSyncCard } from "@/app/components/CalendarSyncCard";
 
 
 const DIFF_COLOR: Record<string, string> = {
@@ -386,6 +387,8 @@ async function CalendarView({ clientId, month }: { clientId: string; month?: str
             ))}
           </div>
         )}
+
+        <CalendarSyncCard />
       </div>
       <ClientBottomNav />
     </div>

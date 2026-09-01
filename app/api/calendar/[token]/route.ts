@@ -1,27 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
-function workoutDate(startDate: string, weekNumber: number, dayOfWeek: number): Date {
-  const start = new Date(startDate + "T12:00:00Z");
-  const weekOffset = (weekNumber - 1) * 7;
-  const startDow = start.getUTCDay();
-  const dayOffset = (dayOfWeek - startDow + 7) % 7;
-  const d = new Date(start);
-  d.setUTCDate(d.getUTCDate() + weekOffset + dayOffset);
-  return d;
-}
-
 function toICSDate(d: Date): string {
   return d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
 }
 
-function toICSDateOnly(d: Date): string {
-  // Format UTC date as YYYYMMDD for all-day events
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}`;
+function esc(s: string): string {
+  return s.replace(/[,;\\]/g, "\\$&").replace(/\n/g, "\\n");
 }
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const supabase = createServiceClient();
 
@@ -33,52 +21,47 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
 
   if (!profile) return new NextResponse("Not found", { status: 404 });
 
-  const { data: cp } = await supabase
-    .from("client_programs")
-    .select("start_date, programs(name, duration_weeks, workouts(id, name, day_of_week, week_number, exercises(count)))")
+  // Training sessions are the client's only real appointments. Program workouts
+  // deliberately have no schedule — clients pick whichever one they want each day —
+  // so there is nothing dated to publish for them.
+  const { data: sessions } = await supabase
+    .from("training_sessions")
+    .select("id, scheduled_at, status, notes, profiles!trainer_id(full_name)")
     .eq("client_id", profile.id)
-    .eq("is_active", true)
-    .maybeSingle();
+    .not("status", "in", '("no_show","cancelled")')
+    .order("scheduled_at");
 
   const lines: string[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//PDX Fitness//EN",
-    "X-WR-CALNAME:PDX Fitness Workouts",
+    "X-WR-CALNAME:PDX Fitness Sessions",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
-    // Tell subscribers how often to re-poll, so the feed updates on its own
     "X-PUBLISHED-TTL:PT1H",
     "REFRESH-INTERVAL;VALUE=DURATION:PT1H",
   ];
 
-  if (cp) {
-    const program = cp.programs as unknown as { name: string; duration_weeks: number; workouts: { id: string; name: string; day_of_week: number; week_number: number; exercises: { count: number }[] }[] } | null;
-    if (program) {
-      for (const w of program.workouts) {
-        const d = workoutDate(cp.start_date, w.week_number, w.day_of_week);
-        // Next day for exclusive DTEND on all-day events
-        const dNext = new Date(d);
-        dNext.setUTCDate(dNext.getUTCDate() + 1);
-        const exCount = Array.isArray(w.exercises) ? w.exercises.length : 0;
-        lines.push(
-          "BEGIN:VEVENT",
-          `UID:pdxfit-${w.id}@pdx-fitness`,
-          `DTSTAMP:${toICSDate(new Date())}`,
-          `DTSTART;VALUE=DATE:${toICSDateOnly(d)}`,
-          `DTEND;VALUE=DATE:${toICSDateOnly(dNext)}`,
-          `SUMMARY:${w.name.replace(/[,;\\]/g, "\\$&")}`,
-          `DESCRIPTION:${program.name.replace(/[,;\\]/g, "\\$&")} - ${exCount} exercise${exCount !== 1 ? "s" : ""}`,
-          "END:VEVENT",
-        );
-      }
-    }
+  for (const s of sessions ?? []) {
+    const start = new Date(s.scheduled_at as string);
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    const trainerName = (s.profiles as unknown as { full_name: string } | null)?.full_name ?? "Trainer";
+    lines.push(
+      "BEGIN:VEVENT",
+      `UID:pdxfit-session-${s.id}@pdx-fitness`,
+      `DTSTAMP:${toICSDate(new Date())}`,
+      `DTSTART:${toICSDate(start)}`,
+      `DTEND:${toICSDate(end)}`,
+      `SUMMARY:${esc(`Training - ${trainerName}`)}`,
+      ...(s.notes ? [`DESCRIPTION:${esc(s.notes as string)}`] : []),
+      "STATUS:CONFIRMED",
+      "END:VEVENT",
+    );
   }
 
   lines.push("END:VCALENDAR");
 
-  const body = lines.join("\r\n") + "\r\n";
-  return new NextResponse(body, {
+  return new NextResponse(lines.join("\r\n") + "\r\n", {
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
       // Must be inline: "attachment" makes Apple Calendar import a brand-new
