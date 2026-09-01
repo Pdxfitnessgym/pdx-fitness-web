@@ -54,10 +54,16 @@ export async function updateSessionStatus(formData: FormData) {
   const session_id = formData.get("session_id") as string;
   const client_id = formData.get("client_id") as string;
   const status = formData.get("status") as string;
-  const notes = (formData.get("notes") as string)?.trim() || null;
+
+  // Only touch notes when the form actually carried the field — otherwise a plain
+  // status change would blank out the note that's already on the session.
+  const update: { status: string; notes?: string | null } = { status };
+  if (formData.has("notes")) {
+    update.notes = (formData.get("notes") as string)?.trim() || null;
+  }
 
   await supabase.from("training_sessions")
-    .update({ status, notes })
+    .update(update)
     .eq("id", session_id)
     .eq("trainer_id", user.id);
 

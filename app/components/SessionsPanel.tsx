@@ -27,6 +27,15 @@ const STATUS_COLOR: Record<string, string> = {
   pending: "#8B5CF6",
 };
 
+// Every session can be moved to any other state, so no status is ever a dead end.
+const ACTIONS: { status: string; label: string; bg: string; fg: string }[] = [
+  { status: "completed",   label: "✓ Done",             bg: "#D1FAE5", fg: "#065F46" },
+  { status: "no_show",     label: "No Show",            bg: "#FEE2E2", fg: "#991B1B" },
+  { status: "rescheduled", label: "Reschedule",         bg: "#FEF3C7", fg: "#92400E" },
+  { status: "cancelled",   label: "Cancel Session",     bg: "#F3F4F6", fg: "#4B5563" },
+  { status: "scheduled",   label: "↩ Back to Scheduled", bg: "#EBF4FF", fg: "#1B68B4" },
+];
+
 export function SessionsPanel({
   clientId,
   sessionsPurchased,
@@ -136,13 +145,13 @@ export function SessionsPanel({
         <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Sessions</div>
           {sessions.map(s => {
-            const expandable = s.status === "scheduled";
             const isOpen = expandedId === s.id;
+            const actions = ACTIONS.filter(a => a.status !== s.status);
             return (
               <div key={s.id} style={{ background: "#F8FAFB", borderRadius: 12, border: `1px solid ${isOpen ? "#1B68B4" : "#E2EAF0"}`, overflow: "hidden" }}>
                 <div
-                  onClick={() => expandable && setExpandedId(isOpen ? null : s.id)}
-                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "12px 14px", cursor: expandable ? "pointer" : "default" }}
+                  onClick={() => setExpandedId(isOpen ? null : s.id)}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer" }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827" }}>
@@ -156,19 +165,18 @@ export function SessionsPanel({
                   <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLOR[s.status], background: STATUS_COLOR[s.status] + "18", padding: "3px 8px", borderRadius: 6, whiteSpace: "nowrap" }}>
                     {STATUS_LABEL[s.status]}
                   </span>
-                  {expandable && (
-                    <span style={{ fontSize: 13, color: "#9CA3AF", flexShrink: 0, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▾</span>
-                  )}
+                  <span style={{ fontSize: 13, color: "#9CA3AF", flexShrink: 0, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▾</span>
                 </div>
 
                 {/* Tap the row to reveal full-size actions */}
-                {expandable && isOpen && (
+                {isOpen && (
                   <div style={{ padding: "0 14px 14px", display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid #E2EAF0", marginTop: 2, paddingTop: 12 }}>
-                    {(["completed", "no_show", "rescheduled"] as const).map(st => (
-                      <form key={st} action={async (fd) => { setUpdatingId(s.id); await updateSessionStatus(fd); setUpdatingId(null); setExpandedId(null); }}>
+                    <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 600 }}>Mark this session as…</div>
+                    {actions.map(a => (
+                      <form key={a.status} action={async (fd) => { setUpdatingId(s.id); await updateSessionStatus(fd); setUpdatingId(null); setExpandedId(null); }}>
                         <input type="hidden" name="session_id" value={s.id} />
                         <input type="hidden" name="client_id" value={clientId} />
-                        <input type="hidden" name="status" value={st} />
+                        <input type="hidden" name="status" value={a.status} />
                         <button
                           type="submit"
                           disabled={updatingId === s.id}
@@ -176,11 +184,10 @@ export function SessionsPanel({
                             width: "100%", padding: "14px", borderRadius: 10, border: "none",
                             cursor: "pointer", fontSize: 15, fontWeight: 700,
                             opacity: updatingId === s.id ? 0.5 : 1,
-                            background: st === "completed" ? "#D1FAE5" : st === "no_show" ? "#FEE2E2" : "#FEF3C7",
-                            color: st === "completed" ? "#065F46" : st === "no_show" ? "#991B1B" : "#92400E",
+                            background: a.bg, color: a.fg,
                           }}
                         >
-                          {st === "completed" ? "✓ Done" : st === "no_show" ? "No Show" : "Reschedule"}
+                          {a.label}
                         </button>
                       </form>
                     ))}
