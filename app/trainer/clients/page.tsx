@@ -11,18 +11,26 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
   const { data: profile } = await supabase.from("profiles").select("role, full_name").eq("id", user.id).single();
   if (profile && profile.role !== "trainer") redirect("/client");
 
-  const [{ data: clients }, { data: unassigned }] = await Promise.all([
+  const [{ data: clients }, { data: unassigned }, { data: selfGuided }] = await Promise.all([
     supabase
       .from("profiles")
       .select("id, full_name, email, created_at, is_placeholder")
       .eq("trainer_id", user.id)
       .eq("role", "client")
+      .eq("membership", "coached")
       .order("full_name"),
     supabase
       .from("profiles")
       .select("id, full_name, email, created_at")
       .eq("role", "client")
+      .eq("membership", "coached")
       .is("trainer_id", null)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("profiles")
+      .select("id, full_name, email, created_at")
+      .eq("role", "client")
+      .eq("membership", "self_guided")
       .order("created_at", { ascending: false }),
   ]);
 
@@ -141,6 +149,31 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
         <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827" }}>
           {clients && clients.length > 0 ? `${clients.length} Client${clients.length !== 1 ? "s" : ""}` : "No clients yet"}
         </div>
+
+        {selfGuided && selfGuided.length > 0 && (
+          <div style={{ ...cardStyle, background: "#F8FAFB" }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827" }}>
+              Self-Guided Members <span style={{ color: "#6B7A8D", fontWeight: 600 }}>({selfGuided.length})</span>
+            </div>
+            <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 2, marginBottom: 12 }}>
+              On a gym program, not 1:1 coaching. Shared across trainers.
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {selfGuided.map(m => (
+                <Link key={m.id} href={`/trainer/clients/${m.id}`} style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", background: "#fff", border: "1px solid #E2EAF0", borderRadius: 10, padding: "10px 12px" }}>
+                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#EBF9F8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: "#0F766E", flexShrink: 0 }}>
+                    {(m.full_name ?? "?")[0].toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827" }}>{m.full_name}</div>
+                    <div style={{ fontSize: 12, color: "#6B7A8D", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.email}</div>
+                  </div>
+                  <div style={{ color: "#2DC4B8", fontSize: 18 }}>›</div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         {clients && clients.map(client => (
           <Link key={client.id} href={`/trainer/clients/${client.id}`} style={{ ...cardStyle, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "space-between" }}>

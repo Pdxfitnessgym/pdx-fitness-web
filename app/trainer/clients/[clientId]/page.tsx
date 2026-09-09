@@ -47,11 +47,13 @@ export default async function ClientDetailPage({
 
   const { data: client } = await supabase
     .from("profiles")
-    .select("id, full_name, email, trainer_id, sessions_purchased, client_notes, is_placeholder")
+    .select("id, full_name, email, trainer_id, sessions_purchased, client_notes, is_placeholder, membership")
     .eq("id", clientId)
     .single();
 
-  if (!client || client.trainer_id !== user.id) redirect("/trainer/clients");
+  // Self-guided members belong to the gym rather than one trainer, so any trainer may view them
+  const isSelfGuided = (client as unknown as { membership?: string } | null)?.membership === "self_guided";
+  if (!client || (!isSelfGuided && client.trainer_id !== user.id)) redirect("/trainer/clients");
 
   // Always fetch for header stats
   const [{ count: logCount }, { data: activeProgram }] = await Promise.all([
@@ -249,6 +251,12 @@ export default async function ClientDetailPage({
           </div>
         )}
 
+        {isSelfGuided && (
+          <div style={{ background: "#EBF9F8", border: "1px solid #A7F3D0", borderRadius: 10, padding: "12px 16px", fontSize: 13, color: "#0F766E" }}>
+            🏋️ Self-guided member — on a gym program, not 1:1 coaching. Progress is view-only here.
+          </div>
+        )}
+
         {sp.workout_assigned && (
           <div style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
             ✓ Workout added for this client
@@ -345,7 +353,7 @@ export default async function ClientDetailPage({
             </div>
 
             {/* Individual workouts — no program required */}
-            <div style={card}>
+            {!isSelfGuided && <div style={card}>
               <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 4 }}>Individual Workouts</div>
               <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 14 }}>
                 Give {client.full_name} a single workout without assigning a whole program.
@@ -410,15 +418,15 @@ export default async function ClientDetailPage({
                     : "All your on-demand workouts are already assigned."}
                 </div>
               )}
-            </div>
+            </div>}
 
             {/* Sessions */}
-            <SessionsPanel
+            {!isSelfGuided && <SessionsPanel
               clientId={clientId}
               sessionsPurchased={(client as unknown as { sessions_purchased: number }).sessions_purchased ?? 0}
               completedCount={completedCount}
               sessions={(trainingSessions ?? []) as { id: string; scheduled_at: string; status: "scheduled" | "completed" | "no_show" | "rescheduled"; notes: string | null }[]}
-            />
+            />}
           </>
         )}
 
@@ -618,7 +626,7 @@ export default async function ClientDetailPage({
         {/* ── GOALS TAB ── */}
         {tab === "goals" && (
           <>
-            <div style={card}>
+            {!isSelfGuided && <div style={card}>
               <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 14 }}>Set a Goal</div>
               {sp.error === "no_title" && (
                 <div style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 8, padding: "10px 14px", marginBottom: 12, fontSize: 14 }}>Give the goal a title.</div>
@@ -642,7 +650,7 @@ export default async function ClientDetailPage({
                 </div>
                 <button type="submit" style={btnSt}>Add Goal →</button>
               </form>
-            </div>
+            </div>}
 
             {goals && goals.length > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -716,7 +724,7 @@ export default async function ClientDetailPage({
         {/* ── HABITS TAB ── */}
         {tab === "habits" && (
           <>
-            <div style={card}>
+            {!isSelfGuided && <div style={card}>
               <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 14 }}>Add a Habit</div>
               {sp.error === "no_name" && (
                 <div style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 8, padding: "10px 14px", marginBottom: 12, fontSize: 14 }}>Give the habit a name.</div>
@@ -727,7 +735,7 @@ export default async function ClientDetailPage({
                 <input name="name" required placeholder="e.g. Drink 3L water" style={{ ...inputSt, flex: 1 }} />
                 <button type="submit" style={{ padding: "13px 18px", borderRadius: 10, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>Add</button>
               </form>
-            </div>
+            </div>}
 
             {habits && habits.length > 0 ? (
               <>

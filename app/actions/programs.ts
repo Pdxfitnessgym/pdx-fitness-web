@@ -1,6 +1,7 @@
 "use server";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 
 export async function createProgram(formData: FormData) {
   const supabase = await createClient();
@@ -10,12 +11,14 @@ export async function createProgram(formData: FormData) {
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const duration_weeks = parseInt(formData.get("duration_weeks") as string);
+  const is_shared = formData.get("is_shared") === "on";
 
   const { data, error } = await supabase.from("programs").insert({
     trainer_id: user.id,
     name,
     description: description || null,
     duration_weeks,
+    is_shared,
   }).select().single();
 
   if (error) throw new Error(error.message);
@@ -119,4 +122,25 @@ export async function deleteExercise(formData: FormData) {
 
   await supabase.from("exercises").delete().eq("id", id);
   redirect(`/trainer/programs/${program_id}/workouts/${workout_id}`);
+}
+
+// A shared program is assignable by every trainer and self-enrollable by members.
+// Only its owner can flip this.
+export async function toggleProgramShared(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const program_id = formData.get("program_id") as string;
+  const is_shared = formData.get("is_shared") === "true";
+
+  const { error } = await supabase
+    .from("programs")
+    .update({ is_shared })
+    .eq("id", program_id)
+    .eq("trainer_id", user.id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/trainer/programs/${program_id}`);
+  redirect(`/trainer/programs/${program_id}`);
 }

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { duplicateProgram } from "@/app/actions/programs";
 
-type Program = { id: string; name: string; description: string | null; duration_weeks: number; workout_count: number };
+type Program = { id: string; name: string; description: string | null; duration_weeks: number; workout_count: number; is_shared: boolean; trainer_id: string };
 
 export default function ProgramsPage() {
   const router = useRouter();
@@ -16,6 +16,7 @@ export default function ProgramsPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [duplicating, setDuplicating] = useState<string | null>(null);
+  const [myId, setMyId] = useState<string | null>(null);
 
   useEffect(() => { load(); }, []);
 
@@ -23,10 +24,11 @@ export default function ProgramsPage() {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
+    setMyId(user.id);
+    // RLS also returns other trainers' shared programs — they're listed separately below
     const { data } = await supabase
       .from("programs")
-      .select("id, name, description, duration_weeks, workouts(count)")
-      .eq("trainer_id", user.id)
+      .select("id, name, description, duration_weeks, is_shared, trainer_id, workouts(count)")
       .order("created_at", { ascending: false });
     setPrograms((data ?? []).map((p: any) => ({ ...p, workout_count: p.workouts?.[0]?.count ?? 0 })));
     setLoading(false);
@@ -89,7 +91,10 @@ export default function ProgramsPage() {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {programs.map(p => (
+            {programs.filter(p => p.trainer_id !== myId).length > 0 && (
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 0.5 }}>My Programs</div>
+            )}
+            {programs.filter(p => p.trainer_id === myId).map(p => (
               <div key={p.id} style={{ ...cardStyle, position: "relative" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -133,6 +138,26 @@ export default function ProgramsPage() {
                 </div>
               </div>
             ))}
+            {programs.filter(p => p.trainer_id !== myId).length > 0 && (
+              <>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 10 }}>
+                  Gym Programs
+                </div>
+                <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: -6 }}>
+                  Shared by another trainer — you can assign these, but only the owner can edit them.
+                </div>
+                {programs.filter(p => p.trainer_id !== myId).map(p => (
+                  <Link key={p.id} href={`/trainer/programs/${p.id}`} style={{ ...cardStyle, textDecoration: "none", display: "block" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 17, fontWeight: 700, color: "#0D1827" }}>{p.name}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#0F766E", background: "#EBF9F8", border: "1px solid #A7F3D0", borderRadius: 5, padding: "1px 6px" }}>SHARED</span>
+                    </div>
+                    {p.description && <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 6 }}>{p.description}</div>}
+                    <div style={{ fontSize: 12, color: "#6B7A8D" }}>{p.duration_weeks} weeks · {p.workout_count} workouts</div>
+                  </Link>
+                ))}
+              </>
+            )}
           </div>
         )}
       </div>

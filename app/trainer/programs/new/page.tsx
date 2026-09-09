@@ -32,6 +32,15 @@ export default function NewProgramPage() {
               ))}
             </select>
           </div>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+            <input type="checkbox" name="is_shared" style={{ width: 20, height: 20, marginTop: 2, flexShrink: 0 }} />
+            <span>
+              <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: "#0D1827" }}>Share with the gym</span>
+              <span style={{ display: "block", fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>
+                Any trainer can assign it and members can enrol themselves. Use this for plans you sell, like a trek prep program. You stay the only one who can edit it.
+              </span>
+            </span>
+          </label>
           <button type="submit" style={btnStyle}>Create Program →</button>
         </form>
       </div>
