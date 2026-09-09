@@ -29,7 +29,9 @@ export default async function ExerciseDetailPage({ params }: { params: Promise<{
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
-              <Link href="/trainer/exercises" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Exercise Library</Link><HomeLink role="trainer" />
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <Link href="/trainer/exercises" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Exercise Library</Link><HomeLink role="trainer" />
+              </div>
               <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginTop: 4 }}>{ex.name}</div>
               <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 2 }}>
                 {[ex.muscle_group, ex.equipment].filter(Boolean).join(" · ")}

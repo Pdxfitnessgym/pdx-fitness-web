@@ -525,14 +525,17 @@ export default function WorkoutSessionPage() {
       {/* Header */}
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "16px 20px", position: "sticky", top: 0, zIndex: 10 }}>
         <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Link href="/client/workouts" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Back</Link><HomeLink role="client" />
+          <Link href="/client/workouts" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Back</Link>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 16, fontWeight: 800, color: "#0D1827" }}>{workout?.name}</div>
             {mode === "session" && <div style={{ fontSize: 12, color: "#2DC4B8", fontWeight: 600 }}>{doneSetCount} / {totalSets} sets done</div>}
           </div>
-          {mode === "session" ? (
-            <button onClick={requestComplete} disabled={completing} style={{ fontSize: 13, fontWeight: 700, color: "#1B68B4", background: "none", border: "none", cursor: "pointer", padding: "4px 8px" }}>Finish</button>
-          ) : <div style={{ width: 48 }} />}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <HomeLink role="client" />
+            {mode === "session" && (
+              <button onClick={requestComplete} disabled={completing} style={{ fontSize: 13, fontWeight: 700, color: "#1B68B4", background: "none", border: "none", cursor: "pointer", padding: "4px 8px" }}>Finish</button>
+            )}
+          </div>
         </div>
       </div>
 

@@ -375,7 +375,9 @@ export default function WorkoutBuilderPage() {
       {/* Header */}
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "16px 20px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
-          <Link href={`/trainer/programs/${programId}`} style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← {programName}</Link><HomeLink role="trainer" />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Link href={`/trainer/programs/${programId}`} style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← {programName}</Link><HomeLink role="trainer" />
+          </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: 4 }}>
             <div>
               <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4" }}>{workout?.name}</div>

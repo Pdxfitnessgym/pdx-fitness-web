@@ -69,7 +69,9 @@ export default async function TrainerChallengeDetailPage({ params }: { params: P
     <div style={{ minHeight: "100dvh", background: "#F4F7FA" }}>
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "20px 20px 16px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
-          <Link href="/trainer/challenges" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Challenges</Link><HomeLink role="trainer" />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Link href="/trainer/challenges" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Challenges</Link><HomeLink role="trainer" />
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 6 }}>
             <div style={{ fontSize: 36 }}>{challenge.cover_emoji}</div>
             <div>

@@ -13,7 +13,9 @@ export default async function NewWorkoutPage({ params, searchParams }: {
     <div style={{ minHeight: "100dvh", background: "#F4F7FA" }}>
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "20px 20px 16px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
-          <Link href={`/trainer/programs/${id}`} style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Program</Link><HomeLink role="trainer" />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Link href={`/trainer/programs/${id}`} style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Program</Link><HomeLink role="trainer" />
+          </div>
           <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginTop: 4 }}>Add Workout</div>
         </div>
       </div>
