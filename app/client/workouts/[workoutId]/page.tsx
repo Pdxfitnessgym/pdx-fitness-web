@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 import { buildSetKey, calcTotalSets, isExerciseDone, parseRepsInput, parseWeightInput, repsInputMode, repsToText, weightToNumber, type Side } from "@/lib/workout-utils";
+import { HomeLink } from "@/app/components/HomeLink";
 
 type ExerciseRow = {
   id: string;
@@ -524,7 +525,7 @@ export default function WorkoutSessionPage() {
       {/* Header */}
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "16px 20px", position: "sticky", top: 0, zIndex: 10 }}>
         <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Link href="/client/workouts" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Back</Link>
+          <Link href="/client/workouts" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Back</Link><HomeLink role="client" />
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 16, fontWeight: 800, color: "#0D1827" }}>{workout?.name}</div>
             {mode === "session" && <div style={{ fontSize: 12, color: "#2DC4B8", fontWeight: 600 }}>{doneSetCount} / {totalSets} sets done</div>}

@@ -2,6 +2,7 @@
 import { useState, useEffect, use, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { HomeLink } from "@/app/components/HomeLink";
 
 type Meal = {
   id: string;
@@ -407,7 +408,7 @@ export default function MealPlanEditorPage({
             style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}
           >
             ← Meal Plans
-          </Link>
+          </Link><HomeLink role="trainer" />
           <div
             style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginTop: 4 }}
           >

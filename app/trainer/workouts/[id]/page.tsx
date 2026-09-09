@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { HomeLink } from "@/app/components/HomeLink";
 
 type Exercise = {
   id: string;
@@ -332,7 +333,7 @@ export default function StandaloneWorkoutEditorPage() {
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "20px 20px 16px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <Link href="/trainer/workouts" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← On-Demand Workouts</Link>
+            <Link href="/trainer/workouts" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← On-Demand Workouts</Link><HomeLink role="trainer" />
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={openAssignClient} style={{ fontSize: 13, fontWeight: 700, color: "#fff", background: "#2DC4B8", border: "none", borderRadius: 10, padding: "8px 14px", cursor: "pointer" }}>👤 Assign</button>
               <button onClick={openAddToProgram} style={{ fontSize: 13, fontWeight: 700, color: "#fff", background: "#1B68B4", border: "none", borderRadius: 10, padding: "8px 14px", cursor: "pointer" }}>+ Program</button>

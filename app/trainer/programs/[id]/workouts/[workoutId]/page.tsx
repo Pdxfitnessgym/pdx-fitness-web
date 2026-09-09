@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { HomeLink } from "@/app/components/HomeLink";
 
 const GROUP_COLORS = ["#1B68B4", "#2DC4B8"];
 
@@ -374,7 +375,7 @@ export default function WorkoutBuilderPage() {
       {/* Header */}
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "16px 20px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
-          <Link href={`/trainer/programs/${programId}`} style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← {programName}</Link>
+          <Link href={`/trainer/programs/${programId}`} style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← {programName}</Link><HomeLink role="trainer" />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: 4 }}>
             <div>
               <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4" }}>{workout?.name}</div>

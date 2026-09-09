@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { HomeLink } from "@/app/components/HomeLink";
 
 function calcStreak(dates: string[]): number {
   if (!dates.length) return 0;
@@ -68,7 +69,7 @@ export default async function TrainerChallengeDetailPage({ params }: { params: P
     <div style={{ minHeight: "100dvh", background: "#F4F7FA" }}>
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "20px 20px 16px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
-          <Link href="/trainer/challenges" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Challenges</Link>
+          <Link href="/trainer/challenges" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Challenges</Link><HomeLink role="trainer" />
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 6 }}>
             <div style={{ fontSize: 36 }}>{challenge.cover_emoji}</div>
             <div>

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
+import { HomeLink } from "@/app/components/HomeLink";
 
 function calcStreak(dates: string[]): number {
   if (!dates.length) return 0;
@@ -62,7 +63,7 @@ export default async function ClientChallengeDetailPage({ params }: { params: Pr
     <div style={{ minHeight: "100dvh", background: "#F4F7FA", paddingBottom: 80 }}>
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "16px 20px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
-          <Link href="/client/challenges" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Challenges</Link>
+          <Link href="/client/challenges" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Challenges</Link><HomeLink role="client" />
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
             <div style={{ fontSize: 36 }}>{challenge.cover_emoji}</div>
             <div>
