@@ -81,6 +81,51 @@ export default function ProgressPage() {
   const [error, setError] = useState("");
   const [lightbox, setLightbox] = useState<string | null>(null);
 
+  // steps (manual today; wearable sync writes the same rows later)
+  const [stepsToday, setStepsToday] = useState("");
+  const [stepsHistory, setStepsHistory] = useState<{ logged_date: string; steps: number }[]>([]);
+  const [stepsSaving, setStepsSaving] = useState(false);
+  const [stepsSaved, setStepsSaved] = useState(false);
+
+  async function fetchSteps() {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from("daily_metrics")
+      .select("logged_date, steps")
+      .eq("client_id", user.id)
+      .not("steps", "is", null)
+      .order("logged_date", { ascending: false })
+      .limit(30);
+    const rows = (data ?? []) as { logged_date: string; steps: number }[];
+    setStepsHistory(rows);
+    const today = new Date().toLocaleDateString("en-CA");
+    const todayRow = rows.find(r => r.logged_date === today);
+    if (todayRow) setStepsToday(String(todayRow.steps));
+  }
+
+  async function saveSteps() {
+    const n = parseInt(stepsToday);
+    if (!Number.isFinite(n) || n < 0) return;
+    setStepsSaving(true);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setStepsSaving(false); return; }
+    const { error: upErr } = await supabase.from("daily_metrics").upsert({
+      client_id: user.id,
+      logged_date: new Date().toLocaleDateString("en-CA"),
+      steps: n,
+      source: "manual",
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "client_id,logged_date" });
+    setStepsSaving(false);
+    if (upErr) { setError(upErr.message); return; }
+    setStepsSaved(true);
+    setTimeout(() => setStepsSaved(false), 2000);
+    await fetchSteps();
+  }
+
   // goals state
   const [goals, setGoals] = useState<Goal[]>([]);
   const [showGoalForm, setShowGoalForm] = useState(false);
@@ -134,7 +179,7 @@ export default function ProgressPage() {
   }
 
   useEffect(() => {
-    Promise.all([fetchLogs(), fetchPRs(), fetchGoals()]).then(() => setLoading(false));
+    Promise.all([fetchLogs(), fetchPRs(), fetchGoals(), fetchSteps()]).then(() => setLoading(false));
   }, []);
 
   function onPhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -313,6 +358,40 @@ export default function ProgressPage() {
         {/* ── BODY TAB ── */}
         {tab === "body" && (
           <>
+            {/* Daily steps */}
+            <div style={{ background: "#fff", borderRadius: 14, padding: 18, border: "1px solid #E2EAF0", marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 600 }}>👟 Steps Today</div>
+                {stepsSaved && <span style={{ fontSize: 12, color: "#10B981", fontWeight: 700 }}>✓ Saved</span>}
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={stepsToday}
+                  onChange={e => setStepsToday(e.target.value)}
+                  placeholder="8000"
+                  style={{ ...inputStyle, flex: 1 }}
+                />
+                <button
+                  onClick={saveSteps}
+                  disabled={stepsSaving || !stepsToday}
+                  style={{ padding: "12px 20px", borderRadius: 10, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer", opacity: stepsSaving || !stepsToday ? 0.5 : 1 }}
+                >
+                  {stepsSaving ? "…" : "Save"}
+                </button>
+              </div>
+              {stepsHistory.length >= 2 && (
+                <div style={{ marginTop: 10 }}>
+                  <Sparkline data={[...stepsHistory].reverse().map(r => r.steps)} />
+                  <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 4 }}>
+                    Last {stepsHistory.length} days · avg {Math.round(stepsHistory.reduce((a, r) => a + r.steps, 0) / stepsHistory.length).toLocaleString()}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <div style={{ background: "#fff", borderRadius: 14, padding: 18, border: "1px solid #E2EAF0" }}>
                 <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 600, marginBottom: 6 }}>Body Weight</div>

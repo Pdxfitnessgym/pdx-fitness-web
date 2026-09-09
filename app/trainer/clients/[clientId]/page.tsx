@@ -67,6 +67,7 @@ export default async function ClientDetailPage({
   let goals = null;
   let habits = null;
   let habitLogs: { habit_id: string; logged_date: string }[] | null = null;
+  let dailySteps: { logged_date: string; steps: number; source: string }[] = [];
 
   if (tab === "overview") {
     const [p, ts, sw, aw] = await Promise.all([
@@ -99,11 +100,13 @@ export default async function ClientDetailPage({
   }
 
   if (tab === "progress") {
-    const [plRes, setRes] = await Promise.all([
+    const [plRes, setRes, dmRes] = await Promise.all([
       supabase.from("progress_logs").select("id, logged_at, weight_lbs, body_fat_pct, notes, photo_url").eq("client_id", clientId).order("logged_at", { ascending: false }).limit(50),
       supabase.from("set_logs").select("weight_lbs, reps_completed, created_at, exercises(name)").eq("client_id", clientId).not("weight_lbs", "is", null).order("weight_lbs", { ascending: false }),
+      supabase.from("daily_metrics").select("logged_date, steps, source").eq("client_id", clientId).not("steps", "is", null).order("logged_date", { ascending: false }).limit(30),
     ]);
     progressLogs = plRes.data;
+    dailySteps = (dmRes.data ?? []) as { logged_date: string; steps: number; source: string }[];
 
     const best: Record<string, typeof prs[0]> = {};
     for (const row of setRes.data ?? []) {
@@ -454,6 +457,37 @@ export default async function ClientDetailPage({
         {/* ── PROGRESS TAB ── */}
         {tab === "progress" && (
           <>
+            {/* Daily steps */}
+            {dailySteps.length > 0 && (
+              <div style={card}>
+                <div style={{ fontSize: 12, color: "#6B7A8D", marginBottom: 6 }}>👟 Steps</div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: "#0D1827" }}>{dailySteps[0].steps.toLocaleString()}</div>
+                  <div style={{ fontSize: 12, color: "#6B7A8D" }}>
+                    on {new Date(dailySteps[0].logged_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 4 }}>
+                  {dailySteps.length}-day average{" "}
+                  <strong style={{ color: "#0D1827" }}>
+                    {Math.round(dailySteps.reduce((a, r) => a + r.steps, 0) / dailySteps.length).toLocaleString()}
+                  </strong>
+                </div>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 44, marginTop: 10 }}>
+                  {[...dailySteps].reverse().map(r => {
+                    const max = Math.max(...dailySteps.map(x => x.steps), 1);
+                    return (
+                      <div
+                        key={r.logged_date}
+                        title={`${r.logged_date}: ${r.steps.toLocaleString()}`}
+                        style={{ flex: 1, height: `${Math.max((r.steps / max) * 100, 4)}%`, background: "#2DC4B8", borderRadius: 2, minWidth: 3 }}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Latest snapshot */}
             {progressLogs && progressLogs.length > 0 && (() => {
               const latest = progressLogs[0] as any;
