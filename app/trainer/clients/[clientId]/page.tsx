@@ -38,7 +38,7 @@ export default async function ClientDetailPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: trainerProfile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const { data: trainerProfile } = await supabase.from("profiles").select("role, is_admin").eq("id", user.id).single();
   if (trainerProfile && trainerProfile.role !== "trainer") redirect("/client");
 
   const { clientId } = await params;
@@ -53,7 +53,8 @@ export default async function ClientDetailPage({
 
   // Self-guided members belong to the gym rather than one trainer, so any trainer may view them
   const isSelfGuided = (client as unknown as { membership?: string } | null)?.membership === "self_guided";
-  if (!client || (!isSelfGuided && client.trainer_id !== user.id)) redirect("/trainer/clients");
+  const isAdmin = (trainerProfile as unknown as { is_admin?: boolean } | null)?.is_admin === true;
+  if (!client || (!isSelfGuided && !isAdmin && client.trainer_id !== user.id)) redirect("/trainer/clients");
 
   // Always fetch for header stats
   const [{ count: logCount }, { data: activeProgram }] = await Promise.all([

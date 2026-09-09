@@ -37,20 +37,37 @@ export default async function ClientDashboard() {
 
   const trainerId = (profile as unknown as { trainer_id: string | null } | null)?.trainer_id;
 
-  // Announcements are either for everyone (group_id null) or for a group this client is in
-  const { data: myGroups } = trainerId
-    ? await supabase.from("group_members").select("group_id").eq("user_id", user.id)
-    : { data: [] };
+  // A client sees: gym-wide announcements from any trainer, plus their own trainer's
+  // posts that are either for all their clients or for a group this client is in.
+  // Self-guided members have no trainer, so they get the gym-wide ones only.
+  const { data: myGroups } = await supabase
+    .from("group_members").select("group_id").eq("user_id", user.id);
   const myGroupIds = (myGroups ?? []).map(g => g.group_id);
 
-  const { data: announcements } = trainerId ? await supabase
-    .from("posts")
-    .select("id, content, created_at")
-    .eq("post_type", "announcement")
-    .eq("author_id", trainerId)
-    .or(myGroupIds.length > 0 ? `group_id.is.null,group_id.in.(${myGroupIds.join(",")})` : "group_id.is.null")
-    .order("created_at", { ascending: false })
-    .limit(3) : { data: [] };
+  const [{ data: gymPosts }, { data: trainerPosts }] = await Promise.all([
+    supabase
+      .from("posts")
+      .select("id, content, created_at")
+      .eq("post_type", "announcement")
+      .eq("gym_wide", true)
+      .order("created_at", { ascending: false })
+      .limit(3),
+    trainerId
+      ? supabase
+          .from("posts")
+          .select("id, content, created_at")
+          .eq("post_type", "announcement")
+          .eq("author_id", trainerId)
+          .eq("gym_wide", false)
+          .or(myGroupIds.length > 0 ? `group_id.is.null,group_id.in.(${myGroupIds.join(",")})` : "group_id.is.null")
+          .order("created_at", { ascending: false })
+          .limit(3)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const announcements = [...(gymPosts ?? []), ...(trainerPosts ?? [])]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 3);
 
   const { count: completedSessionsCount } = await supabase
     .from("training_sessions")

@@ -9,6 +9,7 @@ type Announcement = {
   photo_url: string | null;
   created_at: string;
   group_id: string | null;
+  gym_wide: boolean;
 };
 
 type Group = { id: string; name: string; emoji: string | null };
@@ -16,7 +17,7 @@ type Group = { id: string; name: string; emoji: string | null };
 export default function AnnouncementsPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [groupId, setGroupId] = useState<string>("");
+  const [audience, setAudience] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
@@ -31,7 +32,7 @@ export default function AnnouncementsPage() {
     const [{ data }, { data: g }] = await Promise.all([
       supabase
         .from("posts")
-        .select("id, content, photo_url, created_at, group_id")
+        .select("id, content, photo_url, created_at, group_id, gym_wide")
         .eq("post_type", "announcement")
         .eq("author_id", user.id)
         .order("created_at", { ascending: false }),
@@ -56,17 +57,21 @@ export default function AnnouncementsPage() {
       author_id: user.id,
       content: content.trim(),
       post_type: "announcement",
-      group_id: groupId || null,
+      group_id: audience && audience !== "gym" ? audience : null,
+      gym_wide: audience === "gym",
     });
     setContent("");
     await load();
     setSaving(false);
   }
 
-  const targetGroup = groups.find(g => g.id === groupId);
-  function groupLabel(id: string | null) {
-    if (!id) return null;
-    const g = groups.find(x => x.id === id);
+  const targetGroup = groups.find(g => g.id === audience);
+  const targetLabel = audience === "gym" ? "All Gym Members" : targetGroup?.name;
+
+  function audienceLabel(a: Announcement) {
+    if (a.gym_wide) return "🏋️ All Gym Members";
+    if (!a.group_id) return "👥 My Clients";
+    const g = groups.find(x => x.id === a.group_id);
     return g ? `${g.emoji ?? "👥"} ${g.name}` : "👥 Group";
   }
 
@@ -102,15 +107,23 @@ export default function AnnouncementsPage() {
 
           <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#6B7A8D", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Send to</label>
           <select
-            value={groupId}
-            onChange={e => setGroupId(e.target.value)}
+            value={audience}
+            onChange={e => setAudience(e.target.value)}
             style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 15, color: "#0D1827", outline: "none", marginBottom: 12 }}
           >
-            <option value="">Everyone</option>
+            <option value="">👥 My Clients</option>
+            <option value="gym">🏋️ All Gym Members</option>
             {groups.map(g => (
               <option key={g.id} value={g.id}>{g.emoji ?? "👥"} {g.name}</option>
             ))}
           </select>
+          <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: -6, marginBottom: 12 }}>
+            {audience === "gym"
+              ? "Goes to every client in the gym, including other trainers' clients and self-guided members."
+              : audience
+                ? "Goes only to members of that group."
+                : "Goes to the clients you coach."}
+          </div>
           {groups.length === 0 && (
             <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: -6, marginBottom: 12 }}>
               <Link href="/trainer/groups" style={{ color: "#2DC4B8" }}>Create a group →</Link> to send announcements to only some clients.
@@ -122,7 +135,7 @@ export default function AnnouncementsPage() {
             disabled={!content.trim() || saving}
             style={{ width: "100%", padding: "13px", borderRadius: 12, background: "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: content.trim() ? "pointer" : "default", opacity: !content.trim() || saving ? 0.5 : 1 }}
           >
-            {saving ? "Posting..." : targetGroup ? `📢 Post to ${targetGroup.name}` : "📢 Post to All Clients"}
+            {saving ? "Posting..." : targetLabel ? `📢 Post to ${targetLabel}` : "📢 Post to My Clients"}
           </button>
         </div>
 
@@ -144,8 +157,8 @@ export default function AnnouncementsPage() {
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 14, color: "#0D1827", lineHeight: 1.6, marginBottom: 8 }}>{a.content}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 5, padding: "2px 8px", background: a.group_id ? "#EBF9F8" : "#EBF4FF", color: a.group_id ? "#0F766E" : "#1B68B4" }}>
-                        {groupLabel(a.group_id) ?? "🌐 Everyone"}
+                      <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 5, padding: "2px 8px", background: a.gym_wide ? "#FFFBEB" : a.group_id ? "#EBF9F8" : "#EBF4FF", color: a.gym_wide ? "#92400E" : a.group_id ? "#0F766E" : "#1B68B4" }}>
+                        {audienceLabel(a)}
                       </span>
                       <span style={{ fontSize: 12, color: "#9CA3AF" }}>
                         {new Date(a.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}

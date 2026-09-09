@@ -10,7 +10,7 @@ export default async function TrainerDashboard() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase.from("profiles").select("full_name, role").eq("id", user.id).single();
+  const { data: profile } = await supabase.from("profiles").select("full_name, role, is_admin").eq("id", user.id).single();
   if (profile && profile.role !== "trainer") redirect("/client");
 
   const [{ count: clientCount }, { count: programCount }, { count: unassignedCount }, { count: pendingSessionsCount }, { count: unreviewedCheckinsCount }] = await Promise.all([
@@ -160,6 +160,10 @@ export default async function TrainerDashboard() {
           {[
             { label: "Home", href: "/trainer", icon: "🏠" },
             { label: "Clients", href: "/trainer/clients", icon: "👥" },
+            // Gym owner only — every client across all trainers
+            ...((profile as unknown as { is_admin?: boolean } | null)?.is_admin
+              ? [{ label: "Everyone", href: "/admin/clients", icon: "🏛️" }]
+              : []),
             { label: "Programs", href: "/trainer/programs", icon: "📋" },
             { label: "Exercises", href: "/trainer/exercises", icon: "🏋️" },
             { label: "On-Demand", href: "/trainer/workouts", icon: "⚡" },
