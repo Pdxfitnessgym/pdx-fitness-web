@@ -8,6 +8,7 @@ import { WorkoutLogCards } from "@/app/components/WorkoutLogCards";
 import { ProgramSelect } from "@/app/components/ProgramSelect";
 import { addGoalForClient, deleteGoalForClient, toggleGoalComplete, addHabitForClient, removeHabitForClient } from "@/app/actions/goals-habits";
 import { HomeLink } from "@/app/components/HomeLink";
+import { LineChart, ComplianceGrid } from "@/app/components/InsightsCharts";
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -73,6 +74,8 @@ export default async function ClientDetailPage({
   let habits = null;
   let habitLogs: { habit_id: string; logged_date: string }[] | null = null;
   let dailySteps: { logged_date: string; steps: number; source: string }[] = [];
+  let compliance: { label: string; days: boolean[] }[] = [];
+  let weekLabel = "";
   let myGroups: { id: string; name: string; emoji: string | null }[] = [];
   let clientGroupIds: string[] = [];
 
@@ -118,6 +121,42 @@ export default async function ClientDetailPage({
     ]);
     progressLogs = plRes.data;
     dailySteps = (dmRes.data ?? []) as { logged_date: string; steps: number; source: string }[];
+
+    // Compliance for the current Mon–Sun week
+    const now = new Date();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+    monday.setHours(0, 0, 0, 0);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 7);
+    const dayIndex = (d: Date) => Math.floor((d.getTime() - monday.getTime()) / 86400000);
+
+    const [wl, hl, fl] = await Promise.all([
+      supabase.from("workout_logs").select("completed_at").eq("client_id", clientId)
+        .not("completed_at", "is", null).gte("completed_at", monday.toISOString()).lt("completed_at", sunday.toISOString()),
+      supabase.from("habit_logs").select("logged_date").eq("client_id", clientId)
+        .gte("logged_date", monday.toLocaleDateString("en-CA")).lt("logged_date", sunday.toLocaleDateString("en-CA")),
+      supabase.from("food_logs").select("logged_at").eq("client_id", clientId)
+        .gte("logged_at", monday.toISOString()).lt("logged_at", sunday.toISOString()),
+    ]);
+
+    const mark = (dates: Date[]) => {
+      const days = [false, false, false, false, false, false, false];
+      for (const d of dates) {
+        const i = dayIndex(d);
+        if (i >= 0 && i < 7) days[i] = true;
+      }
+      return days;
+    };
+
+    compliance = [
+      { label: "Workouts", days: mark((wl.data ?? []).map(r => new Date(r.completed_at as string))) },
+      { label: "Nutrition", days: mark((fl.data ?? []).map(r => new Date(r.logged_at as string))) },
+      { label: "Habits", days: mark((hl.data ?? []).map(r => new Date((r.logged_date as string) + "T12:00:00"))) },
+    ];
+    const endLabel = new Date(sunday.getTime() - 86400000);
+    const f = (d: Date) => d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+    weekLabel = `${f(monday)} – ${f(endLabel)}`;
 
     const best: Record<string, typeof prs[0]> = {};
     for (const row of setRes.data ?? []) {
@@ -515,8 +554,51 @@ export default async function ClientDetailPage({
         {/* ── PROGRESS TAB ── */}
         {tab === "progress" && (
           <>
-            {/* Daily steps */}
-            {dailySteps.length > 0 && (
+            {/* Weekly compliance */}
+            <ComplianceGrid title="Weekly Compliance" rangeLabel={weekLabel} rows={compliance} />
+
+            {/* Body weight trend, with a 7-point rolling average */}
+            {(() => {
+              const wl = (progressLogs ?? [])
+                .filter(l => l.weight_lbs != null)
+                .slice()
+                .reverse()
+                .map(l => ({
+                  label: new Date(l.logged_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+                  value: l.weight_lbs as number,
+                }));
+              if (wl.length < 2) return null;
+              const rolling = wl.map((p, i) => {
+                const win = wl.slice(Math.max(0, i - 6), i + 1);
+                return { label: p.label, value: Math.round((win.reduce((a, q) => a + q.value, 0) / win.length) * 10) / 10 };
+              });
+              return (
+                <LineChart
+                  title="Body Weight"
+                  series={wl}
+                  seriesLabel="Body weight"
+                  overlay={rolling}
+                  overlayLabel="Rolling avg"
+                  unit=" lbs"
+                />
+              );
+            })()}
+
+            {/* Steps */}
+            {dailySteps.length >= 2 && (
+              <LineChart
+                title="Steps"
+                series={[...dailySteps].reverse().map(r => ({
+                  label: new Date(r.logged_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+                  value: r.steps,
+                }))}
+                seriesLabel="Steps"
+                averageLine
+              />
+            )}
+
+            {/* Steps summary while there's too little for a chart */}
+            {dailySteps.length === 1 && (
               <div style={card}>
                 <div style={{ fontSize: 12, color: "#6B7A8D", marginBottom: 6 }}>👟 Steps</div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
@@ -524,24 +606,6 @@ export default async function ClientDetailPage({
                   <div style={{ fontSize: 12, color: "#6B7A8D" }}>
                     on {new Date(dailySteps[0].logged_date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                   </div>
-                </div>
-                <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 4 }}>
-                  {dailySteps.length}-day average{" "}
-                  <strong style={{ color: "#0D1827" }}>
-                    {Math.round(dailySteps.reduce((a, r) => a + r.steps, 0) / dailySteps.length).toLocaleString()}
-                  </strong>
-                </div>
-                <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 44, marginTop: 10 }}>
-                  {[...dailySteps].reverse().map(r => {
-                    const max = Math.max(...dailySteps.map(x => x.steps), 1);
-                    return (
-                      <div
-                        key={r.logged_date}
-                        title={`${r.logged_date}: ${r.steps.toLocaleString()}`}
-                        style={{ flex: 1, height: `${Math.max((r.steps / max) * 100, 4)}%`, background: "#2DC4B8", borderRadius: 2, minWidth: 3 }}
-                      />
-                    );
-                  })}
                 </div>
               </div>
             )}
