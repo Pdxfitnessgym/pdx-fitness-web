@@ -6,6 +6,7 @@ import { SessionsPanel } from "@/app/components/SessionsPanel";
 import { ClientNotesEditor } from "@/app/components/ClientNotesEditor";
 import { WorkoutLogCards } from "@/app/components/WorkoutLogCards";
 import { ProgramSelect } from "@/app/components/ProgramSelect";
+import { addGoalForClient, deleteGoalForClient, toggleGoalComplete, addHabitForClient, removeHabitForClient } from "@/app/actions/goals-habits";
 import { HomeLink } from "@/app/components/HomeLink";
 
 const TABS = [
@@ -617,6 +618,32 @@ export default async function ClientDetailPage({
         {/* ── GOALS TAB ── */}
         {tab === "goals" && (
           <>
+            <div style={card}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 14 }}>Set a Goal</div>
+              {sp.error === "no_title" && (
+                <div style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 8, padding: "10px 14px", marginBottom: 12, fontSize: 14 }}>Give the goal a title.</div>
+              )}
+              <form action={addGoalForClient} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <input type="hidden" name="client_id" value={clientId} />
+                <input name="title" required placeholder="e.g. Squat 225 lbs" style={inputSt} />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <select name="type" style={inputSt} defaultValue="custom">
+                    <option value="custom">Custom</option>
+                    <option value="weight">Body Weight</option>
+                    <option value="body_fat">Body Fat</option>
+                    <option value="strength">Strength</option>
+                  </select>
+                  <input name="target_value" type="number" step="0.1" placeholder="Target (optional)" style={inputSt} />
+                </div>
+                <input name="exercise_name" placeholder="Exercise name (strength goals)" style={inputSt} />
+                <div>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#0D1827", marginBottom: 6 }}>Target date (optional)</label>
+                  <input name="target_date" type="date" style={inputSt} />
+                </div>
+                <button type="submit" style={btnSt}>Add Goal →</button>
+              </form>
+            </div>
+
             {goals && goals.length > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {(goals as any[]).map(goal => {
@@ -656,6 +683,21 @@ export default async function ClientDetailPage({
                           </div>
                         </div>
                       )}
+                      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                        <form action={toggleGoalComplete} style={{ flex: 1 }}>
+                          <input type="hidden" name="client_id" value={clientId} />
+                          <input type="hidden" name="goal_id" value={goal.id} />
+                          <input type="hidden" name="completed" value={goal.completed ? "false" : "true"} />
+                          <button type="submit" style={{ width: "100%", padding: "9px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, background: goal.completed ? "#F4F7FA" : "#D1FAE5", color: goal.completed ? "#6B7A8D" : "#065F46" }}>
+                            {goal.completed ? "Reopen" : "✓ Mark Complete"}
+                          </button>
+                        </form>
+                        <form action={deleteGoalForClient}>
+                          <input type="hidden" name="client_id" value={clientId} />
+                          <input type="hidden" name="goal_id" value={goal.id} />
+                          <button type="submit" style={{ padding: "9px 14px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, background: "#FEE2E2", color: "#991B1B" }}>Delete</button>
+                        </form>
+                      </div>
                     </div>
                   );
                 })}
@@ -674,6 +716,19 @@ export default async function ClientDetailPage({
         {/* ── HABITS TAB ── */}
         {tab === "habits" && (
           <>
+            <div style={card}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 14 }}>Add a Habit</div>
+              {sp.error === "no_name" && (
+                <div style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 8, padding: "10px 14px", marginBottom: 12, fontSize: 14 }}>Give the habit a name.</div>
+              )}
+              <form action={addHabitForClient} style={{ display: "flex", gap: 8 }}>
+                <input type="hidden" name="client_id" value={clientId} />
+                <input name="emoji" defaultValue="✅" maxLength={2} style={{ ...inputSt, width: 64, textAlign: "center", flexShrink: 0 }} />
+                <input name="name" required placeholder="e.g. Drink 3L water" style={{ ...inputSt, flex: 1 }} />
+                <button type="submit" style={{ padding: "13px 18px", borderRadius: 10, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>Add</button>
+              </form>
+            </div>
+
             {habits && habits.length > 0 ? (
               <>
                 {(() => {
@@ -706,6 +761,11 @@ export default async function ClientDetailPage({
                         <div style={{ fontSize: 12, color: doneToday ? "#059669" : "#9CA3AF", fontWeight: 700 }}>
                           {doneToday ? "Done" : "Not yet"}
                         </div>
+                        <form action={removeHabitForClient}>
+                          <input type="hidden" name="client_id" value={clientId} />
+                          <input type="hidden" name="habit_id" value={h.id} />
+                          <button type="submit" title="Remove habit" style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", fontSize: 15, padding: 4 }}>✕</button>
+                        </form>
                       </div>
                     );
                   })}
