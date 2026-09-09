@@ -5,7 +5,6 @@ import { NotificationBanner } from "@/app/components/NotificationBanner";
 import { LogoutButton } from "@/app/components/LogoutButton";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 
-const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export default async function ClientDashboard() {
   const supabase = await createClient();
@@ -15,8 +14,6 @@ export default async function ClientDashboard() {
   const { data: profile } = await supabase.from("profiles").select("full_name, role, sessions_purchased, trainer_id").eq("id", user.id).single();
   if (profile && profile.role !== "client") redirect("/trainer");
 
-  // Server runs UTC; use America/Chicago (Central) so US clients get the right day.
-  const todayDow = localDayOfWeek("America/Chicago");
 
   const { data: recentProgress } = await supabase
     .from("progress_logs")
@@ -78,15 +75,35 @@ export default async function ClientDashboard() {
   const sessionsPurchased = (profile as unknown as { sessions_purchased: number } | null)?.sessions_purchased ?? 0;
   const sessionsRemaining = sessionsPurchased - (completedSessionsCount ?? 0);
 
-  let todayWorkout: { id: string; name: string } | null = null;
-  if (cp) {
-    const start = new Date(cp.start_date);
-    const diffDays = Math.floor((new Date().getTime() - start.getTime()) / 86400000);
-    const prog = cp.programs as unknown as { duration_weeks: number; workouts: { id: string; name: string; day_of_week: number; week_number: number }[] } | null;
-    const currentWeek = Math.min(Math.max(Math.floor(diffDays / 7) + 1, 1), prog?.duration_weeks ?? 99);
-    const workouts = prog?.workouts ?? [];
-    todayWorkout = workouts.find(w => w.day_of_week === todayDow && w.week_number === currentWeek) ?? null;
-  }
+  const prog = cp?.programs as unknown as { name: string; workouts: { id: string; name: string }[] } | null;
+  const programWorkouts = prog?.workouts ?? [];
+
+  // Workouts individually assigned to this client (one-offs and on-demand)
+  const { data: assignedRows } = await supabase
+    .from("client_workout_assignments")
+    .select("workouts(id, name)")
+    .eq("client_id", user.id)
+    .order("assigned_at", { ascending: false });
+  const assignedWorkouts = ((assignedRows ?? []) as unknown as { workouts: { id: string; name: string } | { id: string; name: string }[] }[])
+    .map(r => (Array.isArray(r.workouts) ? r.workouts[0] : r.workouts))
+    .filter(Boolean) as { id: string; name: string }[];
+
+  const seen = new Set<string>();
+  const pickable = [...assignedWorkouts, ...programWorkouts].filter(w => {
+    if (!w || seen.has(w.id)) return false;
+    seen.add(w.id);
+    return true;
+  });
+
+  // What they already finished today, so the list can show it
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const { data: doneToday } = await supabase
+    .from("workout_logs")
+    .select("workout_id")
+    .eq("client_id", user.id)
+    .not("completed_at", "is", null)
+    .gte("completed_at", todayStart.toISOString());
+  const doneIds = new Set((doneToday ?? []).map(r => r.workout_id as string));
 
   return (
     <div style={{ minHeight: "100dvh", background: "#F4F7FA", paddingBottom: 80 }}>
@@ -127,27 +144,49 @@ export default async function ClientDashboard() {
           </div>
         )}
 
-        {/* Today's Workout */}
+        {/* Pick today's workout — nothing is tied to a day of the week */}
         <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
-            Today — {DAY_NAMES[todayDow]}
+          <div style={{ fontSize: 18, fontWeight: 800, color: "#0D1827", marginBottom: 2 }}>
+            What do you want to do today?
           </div>
-          {todayWorkout ? (
-            <a href={`/client/workouts/${todayWorkout.id}`} style={{ ...cardStyle, display: "flex", alignItems: "center", justifyContent: "space-between", textDecoration: "none", border: "2px solid #2DC4B8" }}>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 18, color: "#0D1827" }}>{todayWorkout.name}</div>
-                <div style={{ fontSize: 13, color: "#2DC4B8", fontWeight: 600, marginTop: 4 }}>Tap to start →</div>
-              </div>
-              <div style={{ fontSize: 36 }}>🏋️</div>
-            </a>
+          <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 12 }}>
+            {pickable.length > 0 ? "Pick a workout to get started." : ""}
+          </div>
+
+          {pickable.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {pickable.slice(0, 5).map(w => {
+                const done = doneIds.has(w.id);
+                return (
+                  <a
+                    key={w.id}
+                    href={`/client/workouts/${w.id}`}
+                    style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 14, textDecoration: "none", border: done ? "1px solid #A7F3D0" : "1px solid #E2EAF0", padding: "14px 16px" }}
+                  >
+                    <div style={{ width: 42, height: 42, borderRadius: 10, background: done ? "#D1FAE5" : "#EBF9F8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>
+                      {done ? "✓" : "🏋️"}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 16, color: "#0D1827" }}>{w.name}</div>
+                      <div style={{ fontSize: 13, color: done ? "#059669" : "#2DC4B8", fontWeight: 600, marginTop: 2 }}>
+                        {done ? "Done today — go again?" : "Tap to start →"}
+                      </div>
+                    </div>
+                  </a>
+                );
+              })}
+              {pickable.length > 5 && (
+                <a href="/client/workouts" style={{ fontSize: 13, color: "#2DC4B8", fontWeight: 700, textDecoration: "none", padding: "4px 2px" }}>
+                  See all {pickable.length} workouts →
+                </a>
+              )}
+            </div>
           ) : (
             <div style={{ ...cardStyle, display: "flex", flexDirection: "column", alignItems: "center", padding: "24px 0" }}>
               <div style={{ fontSize: 40, marginBottom: 10 }}>⚡</div>
-              <div style={{ fontWeight: 600, color: "#0D1827", marginBottom: 4 }}>
-                {cp ? "Rest day" : "No workout scheduled"}
-              </div>
+              <div style={{ fontWeight: 600, color: "#0D1827", marginBottom: 4 }}>No workouts yet</div>
               <div style={{ fontSize: 13, color: "#6B7A8D", textAlign: "center" }}>
-                {cp ? "No workout scheduled for today" : "Your trainer hasn't assigned a program yet"}
+                Your trainer hasn&apos;t assigned anything yet
               </div>
             </div>
           )}
@@ -249,16 +288,9 @@ export default async function ClientDashboard() {
   );
 }
 
-function localDayOfWeek(tz: string): number {
-  return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].indexOf(
-    new Date().toLocaleDateString("en-US", { weekday: "short", timeZone: tz })
-  );
-}
-
 const cardStyle: React.CSSProperties = {
   background: "#fff",
   borderRadius: 14,
   padding: 18,
   border: "1px solid #E2EAF0",
 };
-
