@@ -11,7 +11,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
   const { data: profile } = await supabase.from("profiles").select("role, full_name").eq("id", user.id).single();
   if (profile && profile.role !== "trainer") redirect("/client");
 
-  const [{ data: clients }, { data: unassigned }, { data: selfGuided }] = await Promise.all([
+  const [{ data: clients }, { data: unassigned }, { data: selfGuided }, { data: groups }] = await Promise.all([
     supabase
       .from("profiles")
       .select("id, full_name, email, created_at, is_placeholder")
@@ -32,7 +32,20 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
       .eq("role", "client")
       .eq("membership", "self_guided")
       .order("created_at", { ascending: false }),
+    supabase
+      .from("groups")
+      .select("id, name, emoji, group_members(user_id)")
+      .eq("trainer_id", user.id)
+      .order("name"),
   ]);
+
+  // group chips per client, so the roster shows how people are organised
+  const groupsByClient: Record<string, { name: string; emoji: string | null }[]> = {};
+  for (const g of (groups ?? []) as { id: string; name: string; emoji: string | null; group_members: { user_id: string }[] }[]) {
+    for (const m of g.group_members ?? []) {
+      (groupsByClient[m.user_id] ??= []).push({ name: g.name, emoji: g.emoji });
+    }
+  }
 
   const params = await searchParams;
   const error = params.error;
@@ -189,6 +202,15 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                   </div>
                 ) : (
                   <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 1 }}>{client.email}</div>
+                )}
+                {groupsByClient[client.id] && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+                    {groupsByClient[client.id].map((g, i) => (
+                      <span key={i} style={{ fontSize: 10, fontWeight: 700, color: "#0F766E", background: "#EBF9F8", border: "1px solid #A7F3D0", borderRadius: 5, padding: "1px 6px" }}>
+                        {g.emoji ?? "👥"} {g.name}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>

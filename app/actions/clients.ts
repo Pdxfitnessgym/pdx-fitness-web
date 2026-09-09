@@ -267,6 +267,26 @@ export async function unassignWorkoutFromClient(formData: FormData) {
   redirect(`/trainer/clients/${client_id}`);
 }
 
+// Add/remove a client from one of the trainer's groups, straight from their page.
+export async function toggleClientGroup(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const client_id = formData.get("client_id") as string;
+  const group_id = formData.get("group_id") as string;
+  const isMember = formData.get("is_member") === "true";
+
+  if (isMember) {
+    await supabase.from("group_members").delete().eq("group_id", group_id).eq("user_id", client_id);
+  } else {
+    await supabase.from("group_members").insert({ group_id, user_id: client_id });
+  }
+
+  revalidatePath(`/trainer/clients/${client_id}`);
+  redirect(`/trainer/clients/${client_id}`);
+}
+
 export async function logSet(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

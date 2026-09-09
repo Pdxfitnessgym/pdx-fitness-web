@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { assignProgram, inviteClient, assignWorkoutToClient, unassignWorkoutFromClient, createAdHocWorkout } from "@/app/actions/clients";
+import { assignProgram, inviteClient, assignWorkoutToClient, unassignWorkoutFromClient, createAdHocWorkout, toggleClientGroup } from "@/app/actions/clients";
 import Link from "next/link";
 import { SessionsPanel } from "@/app/components/SessionsPanel";
 import { ClientNotesEditor } from "@/app/components/ClientNotesEditor";
@@ -73,14 +73,20 @@ export default async function ClientDetailPage({
   let habits = null;
   let habitLogs: { habit_id: string; logged_date: string }[] | null = null;
   let dailySteps: { logged_date: string; steps: number; source: string }[] = [];
+  let myGroups: { id: string; name: string; emoji: string | null }[] = [];
+  let clientGroupIds: string[] = [];
 
   if (tab === "overview") {
-    const [p, ts, sw, aw] = await Promise.all([
+    const [p, ts, sw, aw, gr, gm] = await Promise.all([
       supabase.from("programs").select("id, name, duration_weeks").eq("trainer_id", user.id).order("name"),
       supabase.from("training_sessions").select("id, scheduled_at, status, notes").eq("client_id", clientId).order("scheduled_at", { ascending: false }).limit(20),
       supabase.from("workouts").select("id, name, category, est_duration_mins").eq("trainer_id", user.id).eq("is_standalone", true).eq("is_private", false).order("name"),
       supabase.from("client_workout_assignments").select("workout_id, workouts(id, name, category, est_duration_mins)").eq("client_id", clientId).order("assigned_at", { ascending: false }),
+      supabase.from("groups").select("id, name, emoji").eq("trainer_id", user.id).order("name"),
+      supabase.from("group_members").select("group_id").eq("user_id", clientId),
     ]);
+    myGroups = gr.data ?? [];
+    clientGroupIds = (gm.data ?? []).map((m: { group_id: string }) => m.group_id);
     programs = p.data;
     trainingSessions = ts.data ?? [];
     completedCount = (trainingSessions ?? []).filter((s: { status: string }) => s.status === "completed").length;
@@ -316,6 +322,45 @@ export default async function ClientDetailPage({
         {/* ── OVERVIEW TAB ── */}
         {tab === "overview" && (
           <>
+            {/* Groups */}
+            {!isSelfGuided && (
+              <div style={card}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827" }}>Groups</div>
+                  <Link href="/trainer/groups" style={{ fontSize: 12, color: "#2DC4B8", fontWeight: 600, textDecoration: "none" }}>Manage groups →</Link>
+                </div>
+                <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 12 }}>
+                  Tap to add or remove {client.full_name?.split(" ")[0] ?? "them"}. Groups let you target announcements.
+                </div>
+                {myGroups.length === 0 ? (
+                  <div style={{ color: "#9CA3AF", fontSize: 14 }}>
+                    No groups yet. <Link href="/trainer/groups" style={{ color: "#2DC4B8" }}>Create one →</Link>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {myGroups.map(g => {
+                      const isMember = clientGroupIds.includes(g.id);
+                      return (
+                        <form key={g.id} action={toggleClientGroup}>
+                          <input type="hidden" name="client_id" value={clientId} />
+                          <input type="hidden" name="group_id" value={g.id} />
+                          <input type="hidden" name="is_member" value={isMember ? "true" : "false"} />
+                          <button type="submit" style={{
+                            padding: "8px 14px", borderRadius: 20, cursor: "pointer", fontSize: 13, fontWeight: 700,
+                            border: `1.5px solid ${isMember ? "#2DC4B8" : "#E2EAF0"}`,
+                            background: isMember ? "#2DC4B8" : "#fff",
+                            color: isMember ? "#fff" : "#6B7A8D",
+                          }}>
+                            {isMember ? "✓ " : "+ "}{g.emoji ?? "👥"} {g.name}
+                          </button>
+                        </form>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Active Program */}
             <div style={card}>
               <div style={sectionLabel}>Active Program</div>
