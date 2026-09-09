@@ -80,6 +80,7 @@ export default function TrainerLogWorkoutPage() {
   const [ssRoundRest, setSsRoundRest] = useState("90");
   const [ssSaving, setSsSaving] = useState(false);
   const [editExId, setEditExId] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -243,6 +244,23 @@ export default function TrainerLogWorkoutPage() {
     ));
   }
 
+  // Swap with the neighbour and re-index, same as the program builder
+  async function moveExercise(idx: number, dir: -1 | 1) {
+    const target = idx + dir;
+    if (reordering || target < 0 || target >= exercises.length) return;
+    setReordering(true);
+    const updated = [...exercises];
+    [updated[idx], updated[target]] = [updated[target], updated[idx]];
+    const reindexed = updated.map((e, i) => ({ ...e, order: i }));
+    setExercises(reindexed);
+    const supabase = createClient();
+    await Promise.all([
+      supabase.from("exercises").update({ order: reindexed[idx].order }).eq("id", reindexed[idx].id),
+      supabase.from("exercises").update({ order: reindexed[target].order }).eq("id", reindexed[target].id),
+    ]);
+    setReordering(false);
+  }
+
   async function saveExerciseConfig(exId: string, patch: Partial<ExerciseRow>) {
     const supabase = createClient();
     const { error: upErr } = await supabase.from("exercises").update(patch).eq("id", exId);
@@ -255,8 +273,10 @@ export default function TrainerLogWorkoutPage() {
     const supabase = createClient();
     const { error: delErr } = await supabase.from("exercises").delete().eq("id", exId);
     if (delErr) { setError(delErr.message); return; }
-    setExercises(prev => prev.filter(e => e.id !== exId));
+    const remaining = exercises.filter(e => e.id !== exId).map((e, i) => ({ ...e, order: i }));
+    setExercises(remaining);
     setEditExId(null);
+    await Promise.all(remaining.map(e => supabase.from("exercises").update({ order: e.order }).eq("id", e.id)));
   }
 
   function startTimer(secs: number, key: SetKey) {
@@ -416,6 +436,7 @@ export default function TrainerLogWorkoutPage() {
     const groupExs = ex.group_id != null ? exercises.filter(e => e.group_id === ex.group_id) : [];
     const isLastInGroup = inGroup && groupExs.length > 0 && groupExs[groupExs.length - 1].id === ex.id;
     const isPicked = ssSelected.has(ex.id);
+    const exIdx = exercises.findIndex(e => e.id === ex.id);
     return (
       <div
         key={ex.id}
@@ -435,11 +456,25 @@ export default function TrainerLogWorkoutPage() {
             {ex.is_unilateral && <span style={{ fontSize: 10, fontWeight: 700, color: "#2DC4B8", background: "#F0FDFC", border: "1px solid #A7F3D0", borderRadius: 4, padding: "1px 5px" }}>L/R</span>}
             {allDone && <span style={{ fontSize: 12, color: "#059669", fontWeight: 700 }}>✓</span>}
             {!supersetMode && (
-              <button
-                onClick={() => setEditExId(editExId === ex.id ? null : ex.id)}
-                title="Exercise settings"
-                style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", fontSize: 15, padding: 2 }}
-              >⚙️</button>
+              <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                <button
+                  onClick={() => moveExercise(exIdx, -1)}
+                  disabled={exIdx === 0 || reordering}
+                  title="Move up"
+                  style={{ background: "none", border: "none", fontSize: 13, cursor: exIdx === 0 ? "default" : "pointer", color: exIdx === 0 ? "#E2EAF0" : "#9CA3AF", padding: "2px 5px" }}
+                >▲</button>
+                <button
+                  onClick={() => moveExercise(exIdx, 1)}
+                  disabled={exIdx === exercises.length - 1 || reordering}
+                  title="Move down"
+                  style={{ background: "none", border: "none", fontSize: 13, cursor: exIdx === exercises.length - 1 ? "default" : "pointer", color: exIdx === exercises.length - 1 ? "#E2EAF0" : "#9CA3AF", padding: "2px 5px" }}
+                >▼</button>
+                <button
+                  onClick={() => setEditExId(editExId === ex.id ? null : ex.id)}
+                  title="Exercise settings"
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", fontSize: 15, padding: 2 }}
+                >⚙️</button>
+              </div>
             )}
           </div>
           <div style={{ fontSize: 12, color: "#6B7A8D" }}>
