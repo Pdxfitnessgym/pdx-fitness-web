@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
+import { KitchenMeals } from "@/app/components/KitchenMeals";
 
 type Meal = {
   id: string;
@@ -327,6 +328,8 @@ export default function NutritionPage() {
       </div>
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px", display: "flex", flexDirection: "column", gap: 16 }}>
+
+        <KitchenMeals />
 
         {/* Today's Macros card */}
         <div style={cardStyle}>
