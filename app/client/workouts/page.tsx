@@ -57,23 +57,16 @@ export default async function ClientWorkoutsPage({
     return <CalendarView clientId={user.id} month={sp.month} />;
   }
 
-  // Fetch program + on-demand workouts + assigned workouts in parallel
-  const [cpResult, standaloneResult, assignedResult] = await Promise.all([
+  // Program + workouts assigned to this client specifically. The gym-wide
+  // standalone library is deliberately not shown — a client sees only what was
+  // built or assigned for them.
+  const [cpResult, assignedResult] = await Promise.all([
     supabase
       .from("client_programs")
       .select("id, start_date, programs(id, name, duration_weeks)")
       .eq("client_id", user.id)
       .eq("is_active", true)
       .maybeSingle(),
-    profile?.trainer_id
-      ? supabase
-          .from("workouts")
-          .select("id, name, description, difficulty, est_duration_mins, category, exercises(count)")
-          .eq("trainer_id", profile.trainer_id)
-          .eq("is_standalone", true)
-          .eq("is_private", false)
-          .order("created_at", { ascending: false })
-      : Promise.resolve({ data: [] }),
     supabase
       .from("client_workout_assignments")
       .select("workout_id, workouts(id, name, description, difficulty, est_duration_mins, category, exercises(count))")
@@ -82,19 +75,12 @@ export default async function ClientWorkoutsPage({
   ]);
 
   const cp = cpResult.data;
-  const globalStandalone = (standaloneResult.data ?? []) as StandaloneWorkout[];
-  // Merge assigned workouts — put trainer-assigned first, dedupe with global on-demand
   // Supabase returns related rows as an array, so workouts is StandaloneWorkout[]
-  const assignedWorkouts = ((assignedResult.data ?? []) as unknown as { workout_id: string; workouts: StandaloneWorkout[] }[])
+  const standaloneWorkouts = ((assignedResult.data ?? []) as unknown as { workout_id: string; workouts: StandaloneWorkout[] }[])
     .map(r => (Array.isArray(r.workouts) ? r.workouts[0] : r.workouts))
     .filter((w): w is StandaloneWorkout => Boolean(w));
-  const assignedIds = new Set(assignedWorkouts.map(w => w.id));
-  const standaloneWorkouts: StandaloneWorkout[] = [
-    ...assignedWorkouts,
-    ...globalStandalone.filter(w => !assignedIds.has(w.id)),
-  ];
 
-  // No program + no on-demand → simple message
+  // Nothing built for them yet
   if (!cp && standaloneWorkouts.length === 0) {
     return (
       <div style={{ minHeight: "100dvh", background: "#F4F7FA", paddingBottom: 80 }}>
@@ -114,7 +100,7 @@ export default async function ClientWorkoutsPage({
     );
   }
 
-  // No program but has on-demand → show library
+  // No program, but workouts were assigned to them directly
   if (!cp) {
     return (
       <div style={{ minHeight: "100dvh", background: "#F4F7FA", paddingBottom: 80 }}>
@@ -127,7 +113,7 @@ export default async function ClientWorkoutsPage({
         </div>
         <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px" }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "#6B7A8D", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>
-            On-Demand Library
+            Assigned To You
           </div>
           <OnDemandGrid workouts={standaloneWorkouts} />
         </div>
@@ -204,7 +190,7 @@ export default async function ClientWorkoutsPage({
         {standaloneWorkouts.length > 0 && (
           <div style={{ marginTop: 8 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: "#6B7A8D", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>
-              On-Demand Library
+              Assigned To You
             </div>
             <OnDemandGrid workouts={standaloneWorkouts} />
           </div>
