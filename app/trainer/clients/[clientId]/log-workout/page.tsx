@@ -74,6 +74,13 @@ export default function TrainerLogWorkoutPage() {
   const [addingEx, setAddingEx] = useState(false);
   const [savedToLibrary, setSavedToLibrary] = useState(false);
 
+  // Superset grouping + per-exercise config, same as the normal workout builder
+  const [supersetMode, setSupersetMode] = useState(false);
+  const [ssSelected, setSsSelected] = useState<Set<string>>(new Set());
+  const [ssRoundRest, setSsRoundRest] = useState("90");
+  const [ssSaving, setSsSaving] = useState(false);
+  const [editExId, setEditExId] = useState<string | null>(null);
+
   useEffect(() => {
     (async () => {
       const supabase = createClient();
@@ -199,6 +206,57 @@ export default function TrainerLogWorkoutPage() {
     setExercises(prev => [...prev, { ...row, exercise_library: Array.isArray(row.exercise_library) ? (row.exercise_library[0] ?? null) : row.exercise_library } as ExerciseRow]);
     setShowPicker(false);
     setLibSearch("");
+  }
+
+  function nextGroupId(): number {
+    const ids = new Set(exercises.filter(e => e.group_id != null).map(e => e.group_id!));
+    let n = 1;
+    while (ids.has(n)) n++;
+    return n;
+  }
+
+  async function createSuperset() {
+    if (ssSelected.size < 2) return;
+    setSsSaving(true);
+    const gid = nextGroupId();
+    const roundRest = parseInt(ssRoundRest) || 90;
+    const supabase = createClient();
+    await Promise.all([...ssSelected].map(exId =>
+      supabase.from("exercises").update({ group_id: gid, group_round_rest_seconds: roundRest }).eq("id", exId)
+    ));
+    setExercises(prev => prev.map(e =>
+      ssSelected.has(e.id) ? { ...e, group_id: gid, group_round_rest_seconds: roundRest } : e
+    ));
+    setSupersetMode(false);
+    setSsSelected(new Set());
+    setSsSaving(false);
+  }
+
+  async function ungroupSuperset(gid: number) {
+    const supabase = createClient();
+    const members = exercises.filter(e => e.group_id === gid);
+    await Promise.all(members.map(e =>
+      supabase.from("exercises").update({ group_id: null, group_round_rest_seconds: null }).eq("id", e.id)
+    ));
+    setExercises(prev => prev.map(e =>
+      e.group_id === gid ? { ...e, group_id: null, group_round_rest_seconds: null } : e
+    ));
+  }
+
+  async function saveExerciseConfig(exId: string, patch: Partial<ExerciseRow>) {
+    const supabase = createClient();
+    const { error: upErr } = await supabase.from("exercises").update(patch).eq("id", exId);
+    if (upErr) { setError(upErr.message); return; }
+    setExercises(prev => prev.map(e => e.id === exId ? { ...e, ...patch } : e));
+    setEditExId(null);
+  }
+
+  async function deleteExercise(exId: string) {
+    const supabase = createClient();
+    const { error: delErr } = await supabase.from("exercises").delete().eq("id", exId);
+    if (delErr) { setError(delErr.message); return; }
+    setExercises(prev => prev.filter(e => e.id !== exId));
+    setEditExId(null);
   }
 
   function startTimer(secs: number, key: SetKey) {
@@ -357,13 +415,32 @@ export default function TrainerLogWorkoutPage() {
     });
     const groupExs = ex.group_id != null ? exercises.filter(e => e.group_id === ex.group_id) : [];
     const isLastInGroup = inGroup && groupExs.length > 0 && groupExs[groupExs.length - 1].id === ex.id;
+    const isPicked = ssSelected.has(ex.id);
     return (
-      <div key={ex.id} style={{ background: "#fff", borderRadius: inGroup ? 0 : 16, border: inGroup ? "none" : `1.5px solid ${allDone ? "#6EE7B7" : "#E2EAF0"}`, marginBottom: inGroup ? 0 : 12, overflow: "hidden" }}>
+      <div
+        key={ex.id}
+        onClick={supersetMode ? () => {
+          setSsSelected(prev => { const n = new Set(prev); if (n.has(ex.id)) n.delete(ex.id); else n.add(ex.id); return n; });
+        } : undefined}
+        style={{ background: "#fff", borderRadius: inGroup ? 0 : 16, border: inGroup ? "none" : `1.5px solid ${isPicked ? "#2DC4B8" : allDone ? "#6EE7B7" : "#E2EAF0"}`, marginBottom: inGroup ? 0 : 12, overflow: "hidden", cursor: supersetMode ? "pointer" : "default" }}
+      >
         <div style={{ padding: "14px 16px 10px", borderBottom: "1px solid #F4F7FA" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-            <button onClick={() => openHistory(ex)} style={{ fontWeight: 800, fontSize: 15, color: "#1B68B4", background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left", textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: 3 }}>{ex.name}</button>
+            {supersetMode && (
+              <div style={{ width: 20, height: 20, borderRadius: 5, flexShrink: 0, border: `2px solid ${isPicked ? "#2DC4B8" : "#D1D5DB"}`, background: isPicked ? "#2DC4B8" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, fontWeight: 800 }}>
+                {isPicked ? "✓" : ""}
+              </div>
+            )}
+            <button onClick={() => openHistory(ex)} disabled={supersetMode} style={{ fontWeight: 800, fontSize: 15, color: "#1B68B4", background: "none", border: "none", cursor: supersetMode ? "pointer" : "pointer", padding: 0, textAlign: "left", textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: 3 }}>{ex.name}</button>
             {ex.is_unilateral && <span style={{ fontSize: 10, fontWeight: 700, color: "#2DC4B8", background: "#F0FDFC", border: "1px solid #A7F3D0", borderRadius: 4, padding: "1px 5px" }}>L/R</span>}
             {allDone && <span style={{ fontSize: 12, color: "#059669", fontWeight: 700 }}>✓</span>}
+            {!supersetMode && (
+              <button
+                onClick={() => setEditExId(editExId === ex.id ? null : ex.id)}
+                title="Exercise settings"
+                style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", fontSize: 15, padding: 2 }}
+              >⚙️</button>
+            )}
           </div>
           <div style={{ fontSize: 12, color: "#6B7A8D" }}>
             {ex.sets} sets × {ex.reps}
@@ -372,6 +449,52 @@ export default function TrainerLogWorkoutPage() {
             )}
           </div>
           {ex.notes && <div style={{ fontSize: 11, color: "#9CA3AF", fontStyle: "italic", marginTop: 2 }}>{ex.notes}</div>}
+
+          {editExId === ex.id && (
+            <div style={{ marginTop: 10, background: "#F8FAFB", border: "1px solid #E2EAF0", borderRadius: 10, padding: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#6B7A8D", marginBottom: 4 }}>Sets</div>
+                  <input id={`sets-${ex.id}`} type="number" min={1} defaultValue={ex.sets} style={cfgInp} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#6B7A8D", marginBottom: 4 }}>Reps</div>
+                  <input id={`reps-${ex.id}`} type="text" defaultValue={ex.reps} style={cfgInp} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#6B7A8D", marginBottom: 4 }}>Rest (s)</div>
+                  <input id={`rest-${ex.id}`} type="number" min={0} defaultValue={ex.rest_seconds} style={cfgInp} />
+                </div>
+              </div>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, fontSize: 13, color: "#0D1827", fontWeight: 600 }}>
+                <input id={`uni-${ex.id}`} type="checkbox" defaultChecked={ex.is_unilateral} style={{ width: 18, height: 18 }} />
+                Log left / right separately
+              </label>
+              {ex.group_id != null && (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#1B68B4", marginBottom: 4 }}>Rest between rounds (s)</div>
+                  <input id={`grest-${ex.id}`} type="number" min={0} defaultValue={ex.group_round_rest_seconds ?? 90} style={cfgInp} />
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => {
+                    const g = (id: string) => document.getElementById(id) as HTMLInputElement | null;
+                    saveExerciseConfig(ex.id, {
+                      sets: parseInt(g(`sets-${ex.id}`)?.value ?? "") || ex.sets,
+                      reps: g(`reps-${ex.id}`)?.value?.trim() || ex.reps,
+                      rest_seconds: parseInt(g(`rest-${ex.id}`)?.value ?? "") || 0,
+                      is_unilateral: g(`uni-${ex.id}`)?.checked ?? ex.is_unilateral,
+                      ...(ex.group_id != null ? { group_round_rest_seconds: parseInt(g(`grest-${ex.id}`)?.value ?? "") || 90 } : {}),
+                    });
+                  }}
+                  style={{ flex: 1, padding: "10px", borderRadius: 8, background: "#2DC4B8", color: "#fff", border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                >Save</button>
+                <button onClick={() => setEditExId(null)} style={{ padding: "10px 14px", borderRadius: 8, background: "#fff", border: "1px solid #E2EAF0", color: "#6B7A8D", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Cancel</button>
+                <button onClick={() => deleteExercise(ex.id)} style={{ padding: "10px 14px", borderRadius: 8, background: "#FEE2E2", border: "none", color: "#991B1B", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>Delete</button>
+              </div>
+            </div>
+          )}
         </div>
         <div style={{ padding: "10px 16px 14px" }}>
           {ex.is_unilateral ? (
@@ -582,6 +705,46 @@ export default function TrainerLogWorkoutPage() {
           </div>
         )}
 
+        {/* Superset builder */}
+        {exercises.length >= 2 && (
+          supersetMode ? (
+            <div style={{ background: "#EBF9F8", border: "1.5px solid #2DC4B8", borderRadius: 12, padding: 14, marginBottom: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#0F766E", marginBottom: 10 }}>
+                ⚡ Tap 2 or more exercises to group them
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <span style={{ fontSize: 13, color: "#0F766E", fontWeight: 600 }}>Rest between rounds</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={ssRoundRest}
+                  onChange={e => setSsRoundRest(e.target.value)}
+                  style={{ width: 80, padding: "8px 10px", borderRadius: 8, border: "1px solid #A7F3D0", background: "#fff", fontSize: 14, color: "#0D1827", outline: "none" }}
+                />
+                <span style={{ fontSize: 13, color: "#0F766E" }}>sec</span>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={createSuperset}
+                  disabled={ssSelected.size < 2 || ssSaving}
+                  style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#2DC4B8", color: "#fff", border: "none", fontWeight: 700, fontSize: 14, cursor: "pointer", opacity: ssSelected.size < 2 || ssSaving ? 0.5 : 1 }}
+                >
+                  {ssSaving ? "Saving…" : `Create Superset (${ssSelected.size})`}
+                </button>
+                <button
+                  onClick={() => { setSupersetMode(false); setSsSelected(new Set()); }}
+                  style={{ padding: "12px 16px", borderRadius: 10, background: "#fff", border: "1px solid #A7F3D0", color: "#6B7A8D", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
+                >Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => { setSupersetMode(true); setEditExId(null); }}
+              style={{ width: "100%", padding: "12px", borderRadius: 12, background: "#fff", border: "1.5px solid #2DC4B8", color: "#2DC4B8", fontWeight: 700, fontSize: 14, cursor: "pointer", marginBottom: 12 }}
+            >⚡ Make a Superset</button>
+          )
+        )}
+
         {renderItems.map((item, idx) => {
           if (item.kind === "standalone") return renderExCard(item.ex);
 
@@ -597,6 +760,13 @@ export default function TrainerLogWorkoutPage() {
                   <span style={{ fontSize: 13, fontWeight: 900, color: "#fff", letterSpacing: 1 }}>SUPERSET {letter}</span>
                 </div>
                 <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontWeight: 600 }}>{item.items.length} exercises · {rounds} rounds</span>
+                {!supersetMode && (
+                  <button
+                    onClick={() => ungroupSuperset(item.gid)}
+                    title="Ungroup superset"
+                    style={{ marginLeft: "auto", background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 8, padding: "4px 10px", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer" }}
+                  >Ungroup</button>
+                )}
               </div>
               <div style={{ border: `2px solid ${color}`, borderTop: "none", borderRadius: "0 0 14px 14px", overflow: "hidden" }}>
                 {item.items.map((ex, i) => (
@@ -787,6 +957,10 @@ function HistoryModal({ ex, sessions, loading, onClose }: { ex: ExerciseRow; ses
 function inputStyle(done: boolean): React.CSSProperties {
   return { width: "100%", padding: "10px 8px", borderRadius: 8, border: `1.5px solid ${done ? "#6EE7B7" : "#E2EAF0"}`, background: done ? "#F0FDF4" : "#F8FAFB", fontSize: 15, color: "#0D1827", outline: "none", textAlign: "center", fontWeight: 600 };
 }
+const cfgInp: React.CSSProperties = {
+  width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #E2EAF0",
+  background: "#fff", fontSize: 14, color: "#0D1827", outline: "none",
+};
 const colHdr: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center" };
 const btnTeal: React.CSSProperties = { padding: "15px 20px", borderRadius: 12, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer" };
 const btnGray: React.CSSProperties = { padding: "15px 20px", borderRadius: 12, background: "#F4F7FA", color: "#6B7A8D", fontWeight: 600, fontSize: 15, border: "1px solid #E2EAF0", cursor: "pointer" };
