@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
-type Group = { id: string; name: string; emoji: string; description: string | null; member_count: number };
+type Group = { id: string; name: string; emoji: string; description: string | null; member_count: number; trainer_id: string };
 type Client = { id: string; full_name: string };
 
 const EMOJI_OPTIONS = ["💪", "🔥", "⚡", "🏆", "🎯", "🌱", "🏋️", "🤸"];
@@ -22,16 +22,18 @@ export default function GroupsPage() {
   const [groupMembers, setGroupMembers] = useState<Record<string, string[]>>({});
   const [addingMember, setAddingMember] = useState(false);
   const [error, setError] = useState("");
+  const [myId, setMyId] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      setMyId(user.id);
 
       const [groupsRes, clientsRes] = await Promise.all([
-        supabase.from("groups").select("id, name, emoji, description").eq("trainer_id", user.id).order("created_at"),
-        supabase.from("profiles").select("id, full_name").eq("trainer_id", user.id).order("full_name"),
+        supabase.from("groups").select("id, name, emoji, description, trainer_id").order("created_at"),
+        supabase.from("profiles").select("id, full_name").eq("role", "client").order("full_name"),
       ]);
 
       const rawGroups = groupsRes.data ?? [];
@@ -49,7 +51,7 @@ export default function GroupsPage() {
         membersMap[m.group_id].push(m.user_id);
       }
 
-      const hydratedGroups: Group[] = rawGroups.map((g: { id: string; name: string; emoji: string; description: string | null }) => ({
+      const hydratedGroups: Group[] = rawGroups.map((g: { id: string; name: string; emoji: string; description: string | null; trainer_id: string }) => ({
         ...g,
         member_count: (membersMap[g.id] ?? []).length,
       }));
@@ -73,7 +75,7 @@ export default function GroupsPage() {
     const { data, error: insertErr } = await supabase
       .from("groups")
       .insert({ trainer_id: user.id, name: newName.trim(), emoji: newEmoji, description: newDesc.trim() || null })
-      .select("id, name, emoji, description")
+      .select("id, name, emoji, description, trainer_id")
       .single();
 
     // Surface failures instead of clearing the form as if it saved
@@ -93,8 +95,13 @@ export default function GroupsPage() {
   };
 
   const deleteGroup = async (groupId: string) => {
+    setError("");
     const supabase = createClient();
-    await supabase.from("groups").delete().eq("id", groupId);
+    const { error: delErr, count } = await supabase
+      .from("groups").delete({ count: "exact" }).eq("id", groupId);
+    if (delErr) { setError(delErr.message); return; }
+    // RLS returns success with zero rows when another trainer owns the group
+    if (!count) { setError("Only the trainer who created this group can delete it."); return; }
     setGroups((prev) => prev.filter((g) => g.id !== groupId));
     if (activeGroup?.id === groupId) setActiveGroup(null);
   };
@@ -149,7 +156,7 @@ export default function GroupsPage() {
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
             <div>
               <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: "#111827" }}>Community Groups</h1>
-              <p style={{ margin: "4px 0 0", fontSize: 14, color: "#6B7280" }}>Create groups and manage members</p>
+              <p style={{ margin: "4px 0 0", fontSize: 14, color: "#6B7280" }}>Shared across the gym — any trainer can add anyone</p>
             </div>
             <button
               onClick={() => { setCreating(true); setActiveGroup(null); }}
@@ -396,7 +403,7 @@ export default function GroupsPage() {
                       </div>
                     )}
 
-                    <button
+                    {group.trainer_id === myId && <button
                       onClick={() => deleteGroup(group.id)}
                       style={{
                         background: "none",
@@ -409,7 +416,7 @@ export default function GroupsPage() {
                       }}
                     >
                       Delete Group
-                    </button>
+                    </button>}
                   </div>
                 )}
               </div>

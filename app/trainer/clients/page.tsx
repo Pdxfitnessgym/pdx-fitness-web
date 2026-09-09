@@ -35,7 +35,6 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
     supabase
       .from("groups")
       .select("id, name, emoji, group_members(user_id)")
-      .eq("trainer_id", user.id)
       .order("name"),
   ]);
 

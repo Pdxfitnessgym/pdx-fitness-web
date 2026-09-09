@@ -39,7 +39,6 @@ export default function AnnouncementsPage() {
       supabase
         .from("groups")
         .select("id, name, emoji")
-        .eq("trainer_id", user.id)
         .order("name"),
     ]);
     setAnnouncements(data ?? []);

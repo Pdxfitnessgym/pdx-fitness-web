@@ -82,7 +82,7 @@ export default async function ClientDetailPage({
       supabase.from("training_sessions").select("id, scheduled_at, status, notes").eq("client_id", clientId).order("scheduled_at", { ascending: false }).limit(20),
       supabase.from("workouts").select("id, name, category, est_duration_mins").eq("trainer_id", user.id).eq("is_standalone", true).eq("is_private", false).order("name"),
       supabase.from("client_workout_assignments").select("workout_id, workouts(id, name, category, est_duration_mins)").eq("client_id", clientId).order("assigned_at", { ascending: false }),
-      supabase.from("groups").select("id, name, emoji").eq("trainer_id", user.id).order("name"),
+      supabase.from("groups").select("id, name, emoji").order("name"),
       supabase.from("group_members").select("group_id").eq("user_id", clientId),
     ]);
     myGroups = gr.data ?? [];
