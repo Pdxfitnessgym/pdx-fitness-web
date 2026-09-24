@@ -14,7 +14,7 @@ type Exercise = {
   notes: string | null;
   order: number;
   exercise_library_id: string | null;
-  exercise_library: { video_url: string | null } | null;
+  exercise_library: { video_url: string | null; youtube_url: string | null } | null;
   is_unilateral: boolean;
   suggested_weight: string | null;
   weight_type: string | null;
@@ -205,7 +205,7 @@ export default function StandaloneWorkoutEditorPage() {
     const [{ data: w }, { data: exs }] = await Promise.all([
       supabase.from("workouts").select("id, name, description, difficulty, est_duration_mins, category").eq("id", workoutId).single(),
       supabase.from("exercises")
-        .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library_id, exercise_library(video_url), is_unilateral, suggested_weight, weight_type")
+        .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library_id, exercise_library(video_url, youtube_url), is_unilateral, suggested_weight, weight_type")
         .eq("workout_id", workoutId).order("order"),
     ]);
     setWorkout(w as Workout);
@@ -367,7 +367,7 @@ export default function StandaloneWorkoutEditorPage() {
         {exercises.map((ex, idx) => {
           const isExpanded = expandedId === ex.id;
           const edit = edits[ex.id];
-          const vidUrl = ex.exercise_library?.video_url;
+          const vidUrl = ex.exercise_library?.video_url ?? ex.exercise_library?.youtube_url;
           const ytId = vidUrl ? getYouTubeId(vidUrl) : null;
 
           return (

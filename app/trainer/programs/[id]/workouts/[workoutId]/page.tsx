@@ -16,7 +16,7 @@ type Exercise = {
   notes: string | null;
   order: number;
   exercise_library_id: string | null;
-  exercise_library: { video_url: string | null } | null;
+  exercise_library: { video_url: string | null; youtube_url: string | null } | null;
   group_id: number | null;
   group_round_rest_seconds: number | null;
   is_unilateral: boolean;
@@ -41,6 +41,11 @@ const WEIGHT_TYPES = [
   { value: "plate", label: "Plate" },
   { value: "bodyweight", label: "Bodyweight" },
 ];
+
+function getYouTubeId(url: string): string | null {
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([^&\n?#]+)/);
+  return match ? match[1] : null;
+}
 
 function groupLetter(id: number) { return String.fromCharCode(64 + id); }
 function groupColor(id: number) { return GROUP_COLORS[(id - 1) % GROUP_COLORS.length]; }
@@ -71,7 +76,7 @@ export default function WorkoutBuilderPage() {
       const [{ data: w }, { data: exs }] = await Promise.all([
         supabase.from("workouts").select("name, week_number, day_of_week, programs(name, trainer_id)").eq("id", workoutId).single(),
         supabase.from("exercises")
-          .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library_id, exercise_library(video_url), group_id, group_round_rest_seconds, is_unilateral, suggested_weight, weight_type")
+          .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library_id, exercise_library(video_url, youtube_url), group_id, group_round_rest_seconds, is_unilateral, suggested_weight, weight_type")
           .eq("workout_id", workoutId)
           .order("order"),
       ]);
@@ -247,6 +252,7 @@ export default function WorkoutBuilderPage() {
     const isDeletingThis = deleting === ex.id;
     const isSavingThis = saving === ex.id;
     const videoUrl = ex.exercise_library?.video_url ?? null;
+    const ytId = !videoUrl && ex.exercise_library?.youtube_url ? getYouTubeId(ex.exercise_library.youtube_url) : null;
     const isSelected = selected.has(ex.id);
     const color = ex.group_id != null ? groupColor(ex.group_id) : "#E2EAF0";
 
@@ -268,6 +274,11 @@ export default function WorkoutBuilderPage() {
           {videoUrl ? (
             <div style={{ width: 52, height: 52, borderRadius: 10, overflow: "hidden", flexShrink: 0, background: "#000" }}>
               <video src={videoUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} muted playsInline preload="metadata" />
+            </div>
+          ) : ytId ? (
+            <div style={{ width: 52, height: 52, borderRadius: 10, overflow: "hidden", flexShrink: 0, background: "#000", position: "relative" }}>
+              <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.25)", color: "#fff", fontSize: 12 }}>▶</div>
             </div>
           ) : (
             <div style={{ width: 52, height: 52, borderRadius: 10, background: "#F4F7FA", border: "1px solid #E2EAF0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 20 }}>💪</div>

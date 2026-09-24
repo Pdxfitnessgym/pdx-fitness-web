@@ -15,13 +15,18 @@ type ExerciseRow = {
   rest_seconds: number;
   notes: string | null;
   order: number;
-  exercise_library: { video_url: string | null; instructions: string | null } | null;
+  exercise_library: { video_url: string | null; youtube_url: string | null; instructions: string | null } | null;
   group_id: number | null;
   group_round_rest_seconds: number | null;
   is_unilateral: boolean;
   suggested_weight: string | null;
   weight_type: string | null;
 };
+
+function getYouTubeId(url: string): string | null {
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([^&\n?#]+)/);
+  return match ? match[1] : null;
+}
 
 type SetKey = string;
 type LoggedSet = { reps: string | null; weight: number | null };
@@ -55,7 +60,7 @@ export default function WorkoutSessionPage() {
   const [confirmFinish, setConfirmFinish] = useState(false);
   const [autoFill, setAutoFill] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [videoModal, setVideoModal] = useState<{ url: string | null; name: string; notes: string | null } | null>(null);
+  const [videoModal, setVideoModal] = useState<{ url: string | null; ytId?: string | null; name: string; notes: string | null } | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -65,7 +70,7 @@ export default function WorkoutSessionPage() {
       const [{ data: w }, { data: exs }, { data: { user } }] = await Promise.all([
         supabase.from("workouts").select("name").eq("id", workoutId).single(),
         supabase.from("exercises")
-          .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library(video_url, instructions), group_id, group_round_rest_seconds, is_unilateral, suggested_weight, weight_type")
+          .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library(video_url, youtube_url, instructions), group_id, group_round_rest_seconds, is_unilateral, suggested_weight, weight_type")
           .eq("workout_id", workoutId)
           .order("order"),
         supabase.auth.getUser(),
@@ -349,6 +354,7 @@ export default function WorkoutSessionPage() {
   function renderExCard(ex: ExerciseRow, inGroup?: boolean, groupExs?: ExerciseRow[]) {
     const allSetsLogged = isExerciseDone(logged, ex.id, ex.sets, ex.is_unilateral);
     const videoUrl = ex.exercise_library?.video_url ?? null;
+    const ytId = !videoUrl && ex.exercise_library?.youtube_url ? getYouTubeId(ex.exercise_library.youtube_url) : null;
     const exInfo = [ex.exercise_library?.instructions, ex.notes].filter(Boolean).join("\n\n") || null;
     const color = ex.group_id != null ? groupColor(ex.group_id) : "#2DC4B8";
 
@@ -363,9 +369,11 @@ export default function WorkoutSessionPage() {
       <div style={{ background: "#fff", border: inGroup ? "none" : `1.5px solid ${allSetsLogged ? "#A7F3D0" : "#E2EAF0"}`, borderRadius: inGroup ? 0 : 14, marginBottom: inGroup ? 0 : 12, overflow: "hidden" }}>
         {/* Header */}
         <div style={{ padding: "12px 16px", display: "flex", gap: 12, alignItems: "center", borderBottom: mode === "session" ? `1px solid #F4F7FA` : "none" }}>
-          {videoUrl ? (
-            <div onClick={() => setVideoModal({ url: videoUrl, name: ex.name, notes: exInfo })} style={{ width: 56, height: 56, borderRadius: 10, overflow: "hidden", flexShrink: 0, background: "#000", cursor: "pointer", position: "relative" }}>
-              <video src={videoUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} muted playsInline preload="metadata" />
+          {videoUrl || ytId ? (
+            <div onClick={() => setVideoModal({ url: videoUrl, ytId, name: ex.name, notes: exInfo })} style={{ width: 56, height: 56, borderRadius: 10, overflow: "hidden", flexShrink: 0, background: "#000", cursor: "pointer", position: "relative" }}>
+              {videoUrl
+                ? <video src={videoUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} muted playsInline preload="metadata" />
+                : <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt={ex.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
               <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}>
                 <div style={{ width: 20, height: 20, borderRadius: "50%", background: "rgba(255,255,255,0.9)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, paddingLeft: 2 }}>▶</div>
               </div>
@@ -376,8 +384,8 @@ export default function WorkoutSessionPage() {
           <div style={{ flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2, flexWrap: "wrap" }}>
               <div
-                onClick={() => { if (videoUrl || exInfo) setVideoModal({ url: videoUrl, name: ex.name, notes: exInfo }); }}
-                style={{ fontWeight: 800, fontSize: 15, color: "#0D1827", cursor: videoUrl || exInfo ? "pointer" : "default", textDecoration: videoUrl || exInfo ? "underline" : "none", textDecorationStyle: "dotted", textUnderlineOffset: 3 }}
+                onClick={() => { if (videoUrl || ytId || exInfo) setVideoModal({ url: videoUrl, ytId, name: ex.name, notes: exInfo }); }}
+                style={{ fontWeight: 800, fontSize: 15, color: "#0D1827", cursor: videoUrl || ytId || exInfo ? "pointer" : "default", textDecoration: videoUrl || ytId || exInfo ? "underline" : "none", textDecorationStyle: "dotted", textUnderlineOffset: 3 }}
               >{ex.name}</div>
               {ex.is_unilateral && <span style={{ fontSize: 10, fontWeight: 700, color: "#2DC4B8", background: "#F0FDFC", border: "1px solid #A7F3D0", borderRadius: 4, padding: "1px 5px" }}>L/R</span>}
               {allSetsLogged && <span style={{ fontSize: 12, color: "#059669", fontWeight: 700 }}>✓</span>}
@@ -689,6 +697,16 @@ export default function WorkoutSessionPage() {
         <div onClick={() => setVideoModal(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 18, overflow: "hidden", width: "100%", maxWidth: 420 }}>
             {videoModal.url && <video src={videoModal.url} controls autoPlay playsInline style={{ width: "100%", maxHeight: 320, display: "block", background: "#000" }} />}
+            {!videoModal.url && videoModal.ytId && (
+              <div style={{ position: "relative", paddingTop: "56.25%", background: "#000" }}>
+                <iframe
+                  src={`https://www.youtube.com/embed/${videoModal.ytId}?autoplay=1&playsinline=1`}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+                />
+              </div>
+            )}
             <div style={{ padding: "16px 20px 20px" }}>
               <div style={{ fontSize: 17, fontWeight: 700, color: "#0D1827", marginBottom: videoModal.notes ? 8 : 12 }}>{videoModal.name}</div>
               {videoModal.notes && <div style={{ fontSize: 14, color: "#6B7A8D", marginBottom: 14, whiteSpace: "pre-wrap" }}>{videoModal.notes}</div>}
