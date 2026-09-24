@@ -144,3 +144,16 @@ export async function toggleProgramShared(formData: FormData) {
   revalidatePath(`/trainer/programs/${program_id}`);
   redirect(`/trainer/programs/${program_id}`);
 }
+
+// Cascades to the workout's exercises and any client logs for it (FK on delete cascade).
+export async function deleteWorkout(formData: FormData) {
+  const supabase = await createClient();
+  const id = formData.get("id") as string;
+  const program_id = formData.get("program_id") as string;
+
+  const { error } = await supabase.from("workouts").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/trainer/programs/${program_id}`);
+  redirect(`/trainer/programs/${program_id}`);
+}

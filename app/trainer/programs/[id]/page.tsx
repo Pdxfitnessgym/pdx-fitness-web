@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { HomeLink } from "@/app/components/HomeLink";
 import { toggleProgramShared } from "@/app/actions/programs";
+import { DeleteWorkoutButton } from "@/app/components/DeleteWorkoutButton";
 
 
 export default async function ProgramDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -72,7 +73,8 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {byWeek[week]?.map(wo => (
-                <Link key={wo.id} href={`/trainer/programs/${id}/workouts/${wo.id}`} style={{ background: "#fff", borderRadius: 12, padding: "14px 16px", border: "1px solid #E2EAF0", textDecoration: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div key={wo.id} style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+                <Link href={`/trainer/programs/${id}/workouts/${wo.id}`} style={{ flex: 1, background: "#fff", borderRadius: 12, padding: "14px 16px", border: "1px solid #E2EAF0", textDecoration: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 600, color: "#0D1827" }}>{wo.name}</div>
                     <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>
@@ -81,6 +83,10 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
                   </div>
                   <div style={{ color: "#2DC4B8", fontSize: 18 }}>→</div>
                 </Link>
+                {program.trainer_id === user.id && (
+                  <DeleteWorkoutButton workoutId={wo.id} programId={id} name={wo.name} exerciseCount={(wo.exercises as any)?.[0]?.count ?? 0} />
+                )}
+                </div>
               ))}
               <Link
                 href={`/trainer/programs/${id}/workouts/new?week=${week}`}
