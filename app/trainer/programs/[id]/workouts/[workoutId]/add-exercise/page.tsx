@@ -104,6 +104,10 @@ export default function AddExercisePage() {
             placeholder="Search exercises..."
             style={{ width: "100%", padding: "11px 16px", borderRadius: 12, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 15, color: "#0D1827", outline: "none" }}
           />
+          <Link
+            href={`/trainer/exercises/new?returnTo=/trainer/programs/${programId}/workouts/${workoutId}/add-exercise`}
+            style={{ display: "block", marginTop: 8, color: "#2DC4B8", fontSize: 14, fontWeight: 600, textDecoration: "none" }}
+          >+ Create new exercise</Link>
         </div>
       </div>
 
@@ -199,12 +203,6 @@ export default function AddExercisePage() {
           </div>
         )}
 
-        <div style={{ marginTop: 16, textAlign: "center" }}>
-          <Link
-            href={`/trainer/exercises/new?returnTo=/trainer/programs/${programId}/workouts/${workoutId}/add-exercise`}
-            style={{ color: "#2DC4B8", fontSize: 14, fontWeight: 600, textDecoration: "none" }}
-          >+ Create new exercise</Link>
-        </div>
       </div>
 
       {/* Video preview modal */}

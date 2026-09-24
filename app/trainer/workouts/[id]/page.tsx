@@ -525,6 +525,10 @@ export default function StandaloneWorkoutEditorPage() {
                 autoFocus
                 style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 14, color: "#0D1827", outline: "none", boxSizing: "border-box" }}
               />
+              <Link
+                href={`/trainer/exercises/new?returnTo=/trainer/workouts/${workoutId}`}
+                style={{ display: "block", marginTop: 8, color: "#2DC4B8", fontSize: 14, fontWeight: 600, textDecoration: "none" }}
+              >+ Create new exercise</Link>
             </div>
 
             {/* Selected exercises config */}
