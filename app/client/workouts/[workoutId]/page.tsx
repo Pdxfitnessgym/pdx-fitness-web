@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
-import { buildSetKey, calcTotalSets, isExerciseDone, parseRepsInput, parseWeightInput, repsInputMode, repsToText, weightToNumber, type Side } from "@/lib/workout-utils";
+import { buildSetKey, calcTotalSets, isExerciseDone, parseRepsInput, parseWeightInput, repsInputMode, repsToText, totalVolumeLbs, volumeComparison, weightToNumber, type Side } from "@/lib/workout-utils";
 import { HomeLink } from "@/app/components/HomeLink";
 
 type ExerciseRow = {
@@ -348,7 +348,14 @@ export default function WorkoutSessionPage() {
   );
 
   if (mode === "share" || mode === "done") {
-    return <WorkoutDoneScreen workoutName={workout?.name ?? "Workout"} setsLogged={doneSetCount} workoutLogId={workoutLogId} />;
+    return (
+      <WorkoutDoneScreen
+        workoutName={workout?.name ?? "Workout"}
+        setsLogged={doneSetCount}
+        workoutLogId={workoutLogId}
+        volumeLbs={totalVolumeLbs(Object.values(logged))}
+      />
+    );
   }
 
   function renderExCard(ex: ExerciseRow, inGroup?: boolean, groupExs?: ExerciseRow[]) {
@@ -741,7 +748,7 @@ const inputStyle = (done: boolean): React.CSSProperties => ({
   background: done ? "#F0FDF4" : "#F8FAFB", fontSize: 16, color: "#0D1827", outline: "none", textAlign: "center", fontWeight: 600,
 });
 
-function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId }: { workoutName: string; setsLogged: number; workoutLogId: string | null }) {
+function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId, volumeLbs }: { workoutName: string; setsLogged: number; workoutLogId: string | null; volumeLbs: number }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [caption, setCaption] = useState("");
   const [trainerNotes, setTrainerNotes] = useState("");
@@ -805,6 +812,21 @@ function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId }: { workoutN
         <div style={{ fontSize: 64, marginBottom: 12 }}>🎉</div>
         <div style={{ fontSize: 26, fontWeight: 800, color: "#1B68B4", marginBottom: 6 }}>Workout Complete!</div>
         <div style={{ fontSize: 15, color: "#6B7A8D" }}>{workoutName} · {setsLogged} sets logged</div>
+
+        {volumeLbs > 0 && (
+          <div style={{ marginTop: 18, background: "linear-gradient(135deg, #1B68B4 0%, #2DC4B8 100%)", borderRadius: 18, padding: "20px 24px", boxShadow: "0 4px 20px rgba(27,104,180,0.28)" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.75)", textTransform: "uppercase", letterSpacing: 1 }}>
+              You just lifted
+            </div>
+            <div style={{ fontSize: 40, fontWeight: 900, color: "#fff", lineHeight: 1.1, marginTop: 4 }}>
+              {volumeLbs.toLocaleString()}
+              <span style={{ fontSize: 18, fontWeight: 700, marginLeft: 6 }}>lbs</span>
+            </div>
+            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 6 }}>
+              total weight moved{volumeComparison(volumeLbs) ? ` — ${volumeComparison(volumeLbs)}` : ""} 💪
+            </div>
+          </div>
+        )}
       </div>
       <div style={{ background: "#fff", borderRadius: 16, padding: 18, border: "1px solid #E2EAF0", marginBottom: 16 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827", marginBottom: 12 }}>How do you feel? 💬</div>

@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { saveWorkoutToLibrary } from "@/app/actions/clients";
-import { buildSetKey, parseRepsInput, parseWeightInput, repsInputMode, repsToText, weightToNumber, type Side } from "@/lib/workout-utils";
+import { buildSetKey, parseRepsInput, parseWeightInput, repsInputMode, repsToText, totalVolumeLbs, volumeComparison, weightToNumber, type Side } from "@/lib/workout-utils";
 import { HomeLink } from "@/app/components/HomeLink";
 
 type ExerciseRow = {
@@ -653,6 +653,23 @@ export default function TrainerLogWorkoutPage() {
         <div style={{ fontSize: 56 }}>✅</div>
         <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4" }}>Workout Logged!</div>
         <div style={{ fontSize: 14, color: "#6B7A8D" }}>{doneSetCount} sets saved for {clientName}</div>
+        {(() => {
+          const vol = totalVolumeLbs(Object.values(logged));
+          if (vol <= 0) return null;
+          return (
+            <div style={{ background: "linear-gradient(135deg, #1B68B4 0%, #2DC4B8 100%)", borderRadius: 16, padding: "16px 22px", textAlign: "center", marginTop: 4 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.75)", textTransform: "uppercase", letterSpacing: 1 }}>
+                {clientName} just lifted
+              </div>
+              <div style={{ fontSize: 32, fontWeight: 900, color: "#fff", lineHeight: 1.15, marginTop: 2 }}>
+                {vol.toLocaleString()}<span style={{ fontSize: 15, fontWeight: 700, marginLeft: 5 }}>lbs</span>
+              </div>
+              {volumeComparison(vol) && (
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", marginTop: 4 }}>{volumeComparison(vol)} 💪</div>
+              )}
+            </div>
+          );
+        })()}
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8, width: "100%", maxWidth: 300 }}>
           {/* Keep a one-off workout for reuse */}
           {selectedWorkout && (
