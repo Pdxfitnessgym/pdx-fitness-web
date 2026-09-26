@@ -78,22 +78,44 @@ export default async function ClientDashboard() {
   const prog = cp?.programs as unknown as { name: string; workouts: { id: string; name: string }[] } | null;
   const programWorkouts = prog?.workouts ?? [];
 
-  // Workouts individually assigned to this client (one-offs and on-demand)
-  const { data: assignedRows } = await supabase
-    .from("client_workout_assignments")
-    .select("workouts(id, name)")
-    .eq("client_id", user.id)
-    .order("assigned_at", { ascending: false });
-  const assignedWorkouts = ((assignedRows ?? []) as unknown as { workouts: { id: string; name: string } | { id: string; name: string }[] }[])
-    .map(r => (Array.isArray(r.workouts) ? r.workouts[0] : r.workouts))
-    .filter(Boolean) as { id: string; name: string }[];
-
+  // Only the program's workouts here. One-off sessions a trainer built live are
+  // still on the Workouts page — they'd clutter the daily pick.
   const seen = new Set<string>();
-  const pickable = [...assignedWorkouts, ...programWorkouts].filter(w => {
+  const pickable = programWorkouts.filter(w => {
     if (!w || seen.has(w.id)) return false;
     seen.add(w.id);
     return true;
   });
+
+  // Goals and a couple of top lifts, surfaced on the home screen
+  const [{ data: goalRows }, { data: prRows }] = await Promise.all([
+    supabase.from("goals")
+      .select("id, title, target_value, completed")
+      .eq("client_id", user.id)
+      .order("completed")
+      .order("created_at", { ascending: false })
+      .limit(3),
+    supabase.from("set_logs")
+      .select("weight_lbs, exercises(name)")
+      .eq("client_id", user.id)
+      .not("weight_lbs", "is", null)
+      .order("weight_lbs", { ascending: false })
+      .limit(200),
+  ]);
+  const goals = (goalRows ?? []) as { id: string; title: string; target_value: number | null; completed: boolean }[];
+
+  // Heaviest set per exercise, top 3
+  const bestByExercise: Record<string, number> = {};
+  for (const row of prRows ?? []) {
+    const name = (row.exercises as unknown as { name: string } | null)?.name;
+    const w = row.weight_lbs as number | null;
+    if (!name || w == null) continue;
+    if (!bestByExercise[name] || w > bestByExercise[name]) bestByExercise[name] = w;
+  }
+  const topPrs = Object.entries(bestByExercise)
+    .map(([name, weight]) => ({ name, weight }))
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, 3);
 
   // What they already finished today, so the list can show it
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
@@ -212,18 +234,6 @@ export default async function ClientDashboard() {
           </div>
         )}
 
-        {/* Nutrition shortcut */}
-        <div style={{ marginBottom: 16 }}>
-          <a href="/client/nutrition" style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 14, textDecoration: "none" }}>
-            <div style={{ fontSize: 32 }}>🥗</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 15, color: "#0D1827" }}>Nutrition</div>
-              <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 2 }}>Meal plan · Log food · Track macros</div>
-            </div>
-            <div style={{ color: "#9CA3AF", fontSize: 20 }}>›</div>
-          </a>
-        </div>
-
         {/* Sessions shortcuts */}
         <div style={{ marginBottom: 16, display: "flex", gap: 10 }}>
           <a href="/client/book" style={{ ...cardStyle, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", textDecoration: "none", padding: "16px 12px", border: "2px solid #1B68B4" }}>
@@ -281,6 +291,47 @@ export default async function ClientDashboard() {
               : <div style={{ color: "#9CA3AF", fontSize: 13 }}>—</div>}
           </a>
         </div>
+
+        {/* Goals */}
+        {goals.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <a href="/client/progress?tab=goals" style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 12, display: "block", textDecoration: "none" }}>My Goals →</a>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {goals.map(g => (
+                <a key={g.id} href="/client/progress?tab=goals" style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}>
+                  <div style={{ fontSize: 22, flexShrink: 0 }}>{g.completed ? "✅" : "🎯"}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827", textDecoration: g.completed ? "line-through" : "none" }}>{g.title}</div>
+                    {g.target_value != null && (
+                      <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>Target {g.target_value}</div>
+                    )}
+                  </div>
+                  {g.completed && <div style={{ fontSize: 11, fontWeight: 700, color: "#059669" }}>Done</div>}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Personal records */}
+        {topPrs.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <a href="/client/progress?tab=strength" style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 12, display: "block", textDecoration: "none" }}>Personal Records →</a>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {topPrs.map(pr => (
+                <div key={pr.name} style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ fontSize: 22, flexShrink: 0 }}>🏆</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pr.name}</div>
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: "#1B68B4", flexShrink: 0 }}>
+                    {pr.weight}<span style={{ fontSize: 12, fontWeight: 600, color: "#6B7A8D", marginLeft: 3 }}>lbs</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <ClientBottomNav />
       </div>
