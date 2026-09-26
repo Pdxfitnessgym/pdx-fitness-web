@@ -568,13 +568,15 @@ export default function TrainerLogWorkoutPage() {
                             <input type="text" inputMode={repsInputMode(ex.reps)}
                               placeholder={logged[key]?.reps != null ? String(logged[key].reps) : ex.reps.split(/[-x]/)[0].trim()}
                               value={inp.reps}
+                              className="log-input"
                               onChange={e => { const v = parseRepsInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
-                              style={inputStyle(isDone)} />
+                              style={inputStyle(isDone, !!inp.reps)} />
                             <input type="text" inputMode="decimal"
                               placeholder={logged[key]?.weight != null ? String(logged[key].weight) : prev?.weight != null ? String(prev.weight) : ex.suggested_weight ?? "0"}
                               value={inp.weight}
+                              className="log-input"
                               onChange={e => { const v = parseWeightInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
-                              style={inputStyle(isDone)} />
+                              style={inputStyle(isDone, !!inp.weight)} />
                             <button onClick={() => handleLogSet(ex.id, setNum, side)}
                               style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : sideColor, color: isDone ? "#059669" : "#fff", fontWeight: 700, fontSize: 16, border: `1.5px solid ${isDone ? "#6EE7B7" : sideColor}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                               ✓
@@ -611,13 +613,15 @@ export default function TrainerLogWorkoutPage() {
                       <input type="text" inputMode={repsInputMode(ex.reps)}
                         placeholder={logged[key]?.reps != null ? String(logged[key].reps) : ex.reps.split(/[-x]/)[0].trim()}
                         value={inp.reps}
+                        className="log-input"
                         onChange={e => { const v = parseRepsInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
-                        style={inputStyle(isDone)} />
+                        style={inputStyle(isDone, !!inp.reps)} />
                       <input type="text" inputMode="decimal"
                         placeholder={logged[key]?.weight != null ? String(logged[key].weight) : prev?.weight != null ? String(prev.weight) : ex.suggested_weight ?? "0"}
                         value={inp.weight}
+                        className="log-input"
                         onChange={e => { const v = parseWeightInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
-                        style={inputStyle(isDone)} />
+                        style={inputStyle(isDone, !!inp.weight)} />
                       <button onClick={() => handleLogSet(ex.id, setNum, "both")}
                         style={{ padding: "10px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : "#2DC4B8", color: isDone ? "#059669" : "#fff", fontWeight: 700, fontSize: 20, border: `1.5px solid ${isDone ? "#6EE7B7" : "#2DC4B8"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         {isDone ? "✓" : inGroup && !isLastInGroup ? "✓" : "⏱"}
@@ -1009,8 +1013,16 @@ function HistoryModal({ ex, sessions, loading, onClose }: { ex: ExerciseRow; ses
   );
 }
 
-function inputStyle(done: boolean): React.CSSProperties {
-  return { width: "100%", padding: "10px 8px", borderRadius: 8, border: `1.5px solid ${done ? "#6EE7B7" : "#E2EAF0"}`, background: done ? "#F0FDF4" : "#F8FAFB", fontSize: 15, color: "#0D1827", outline: "none", textAlign: "center", fontWeight: 600 };
+function inputStyle(done: boolean, filled = false): React.CSSProperties {
+  return {
+    width: "100%", padding: "10px 8px", borderRadius: 8, fontSize: 15, outline: "none",
+    textAlign: "center", color: "#0D1827", fontWeight: done || filled ? 700 : 600,
+    // Empty fields are dashed and pale, so a greyed placeholder never reads as a logged value
+    borderWidth: 1.5,
+    borderStyle: done || filled ? "solid" : "dashed",
+    borderColor: done ? "#6EE7B7" : filled ? "#1B68B4" : "#CBD5E1",
+    background: done ? "#F0FDF4" : filled ? "#fff" : "#FBFCFD",
+  };
 }
 const cfgInp: React.CSSProperties = {
   width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #E2EAF0",

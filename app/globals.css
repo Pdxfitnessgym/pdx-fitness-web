@@ -27,3 +27,18 @@ body {
   70% { opacity: 1; }
   100% { opacity: 0; transform: scale(0.95); }
 }
+
+/* Set-logging inputs. A numeric placeholder centred in a box reads as an entered
+   value, so an empty field is deliberately distinct: dashed border and a faint
+   italic hint, versus a solid border and dark bold text once something is typed. */
+.log-input::placeholder {
+  color: #C7CFD9;
+  font-style: italic;
+  font-weight: 400;
+  opacity: 1; /* Firefox dims placeholders by default */
+}
+.log-input:focus {
+  border-color: #1B68B4 !important;
+  border-style: solid !important;
+  background: #fff !important;
+}
