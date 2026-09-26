@@ -87,6 +87,19 @@ export default async function ClientDashboard() {
     return true;
   });
 
+  // Next upcoming session with their coach
+  const { data: nextSession } = await supabase
+    .from("training_sessions")
+    .select("scheduled_at, notes, profiles!trainer_id(full_name)")
+    .eq("client_id", user.id)
+    .in("status", ["scheduled", "pending"])
+    .gte("scheduled_at", new Date().toISOString())
+    .order("scheduled_at")
+    .limit(1)
+    .maybeSingle();
+
+  const coachName = (nextSession?.profiles as unknown as { full_name: string } | null)?.full_name ?? null;
+
   // Goals and a couple of top lifts, surfaced on the home screen
   const [{ data: goalRows }, { data: prRows }] = await Promise.all([
     supabase.from("goals")
@@ -245,6 +258,33 @@ export default async function ClientDashboard() {
             <div style={{ fontWeight: 700, fontSize: 14, color: "#0D1827" }}>My Sessions</div>
           </a>
         </div>
+
+        {/* Next session with their coach */}
+        {nextSession && (() => {
+          const when = new Date(nextSession.scheduled_at as string);
+          const days = Math.round((new Date(when).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86400000);
+          const relative = days === 0 ? "Today" : days === 1 ? "Tomorrow" : `In ${days} days`;
+          return (
+            <a href="/client/sessions" style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 14, textDecoration: "none", marginBottom: 16, border: "2px solid #2DC4B8" }}>
+              <div style={{ fontSize: 30, flexShrink: 0 }}>🤝</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 600 }}>
+                  Your next session{coachName ? ` with ${coachName.split(" ")[0]}` : ""}
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#0D1827", marginTop: 2 }}>
+                  {when.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+                  {" · "}
+                  {when.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                </div>
+                <div style={{ fontSize: 12, color: "#2DC4B8", fontWeight: 700, marginTop: 2 }}>{relative}</div>
+                {nextSession.notes && (
+                  <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 4 }}>{nextSession.notes as string}</div>
+                )}
+              </div>
+              <div style={{ color: "#9CA3AF", fontSize: 20 }}>›</div>
+            </a>
+          );
+        })()}
 
         {/* Community / Habits row */}
         <div style={{ marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
