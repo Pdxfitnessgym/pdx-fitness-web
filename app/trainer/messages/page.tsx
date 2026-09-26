@@ -37,9 +37,11 @@ export default function TrainerMessagesPage() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [groupName, setGroupName] = useState("");
+  const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
 
   const fetchConvos = useCallback(async (uid: string) => {
@@ -97,7 +99,13 @@ export default function TrainerMessagesPage() {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return;
       setUserId(user.id);
-      const { data: clientData } = await supabase.from("profiles").select("id, full_name").eq("trainer_id", user.id);
+      // The gym admin has no clients of their own but oversees everyone, so they
+      // can message any client; a regular trainer sees their own roster.
+      const { data: me } = await supabase.from("profiles").select("is_admin").eq("id", user.id).single();
+      setIsAdmin(me?.is_admin === true);
+      const { data: clientData } = me?.is_admin
+        ? await supabase.from("profiles").select("id, full_name").eq("role", "client").order("full_name")
+        : await supabase.from("profiles").select("id, full_name").eq("trainer_id", user.id).order("full_name");
       setClients((clientData ?? []).map(c => ({ id: c.id, name: c.full_name ?? "Client" })));
       fetchConvos(user.id);
     });
@@ -153,13 +161,23 @@ export default function TrainerMessagesPage() {
       {showNew && (
         <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px" }}>
           <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E2EAF0", padding: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827", marginBottom: 12 }}>Message a Client</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827", marginBottom: 12 }}>Message a Client{isAdmin ? " (all gym clients)" : ""}</div>
             {clients.length === 0 ? (
-              <div style={{ fontSize: 14, color: "#9CA3AF" }}>No clients yet. Add clients first.</div>
+              <div style={{ fontSize: 14, color: "#9CA3AF" }}>
+                No clients are assigned to this account yet. Add one from <a href="/trainer/clients" style={{ color: "#2DC4B8", fontWeight: 600 }}>My Clients</a>.
+              </div>
             ) : (
               <>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
-                  {clients.map(c => (
+                {clients.length > 6 && (
+                  <input
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="Search clients…"
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 14, color: "#0D1827", outline: "none", boxSizing: "border-box", marginBottom: 10 }}
+                  />
+                )}
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12, maxHeight: 320, overflowY: "auto" }}>
+                  {clients.filter(c => c.name.toLowerCase().includes(search.toLowerCase())).map(c => (
                     <label key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
                       <input
                         type="checkbox"
