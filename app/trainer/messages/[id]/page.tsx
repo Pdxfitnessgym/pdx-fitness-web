@@ -57,16 +57,24 @@ export default function TrainerChatPage({ params }: { params: Promise<{ id: stri
 
       const [{ data: convo }, { data: memberData }, { data: msgData }] = await Promise.all([
         supabase.from("conversations").select("name, is_group").eq("id", conversationId).single(),
-        supabase.from("conversation_members").select("user_id, profiles!conversation_members_user_id_fkey(full_name)").eq("conversation_id", conversationId),
+        supabase.from("conversation_members").select("user_id").eq("conversation_id", conversationId),
         supabase.from("messages").select("id, sender_id, content, created_at").eq("conversation_id", conversationId).order("created_at", { ascending: true }).limit(100),
       ]);
 
       if (!convo) { window.location.href = "/trainer/messages"; return; }
 
-      const memberList: Member[] = (memberData ?? []).map(m => {
-        const p = m.profiles as unknown as { full_name: string };
-        return { user_id: m.user_id, name: p?.full_name ?? "Member" };
-      });
+      // Names come from public_profiles — clients can't read other rows in profiles,
+      // which is what left the header and every sender showing as "Member".
+      const memberIds = (memberData ?? []).map(m => m.user_id);
+      const { data: nameRows } = memberIds.length
+        ? await supabase.from("public_profiles").select("id, full_name").in("id", memberIds)
+        : { data: [] };
+      const nameById: Record<string, string> = {};
+      (nameRows ?? []).forEach(n => { nameById[n.id] = n.full_name ?? "Member"; });
+      const memberList: Member[] = (memberData ?? []).map(m => ({
+        user_id: m.user_id,
+        name: nameById[m.user_id] ?? "Member",
+      }));
       setMembers(memberList);
       setIsGroup(convo.is_group);
 
