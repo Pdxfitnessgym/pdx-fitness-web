@@ -17,6 +17,28 @@ export async function assignClientToMe(formData: FormData) {
   redirect("/trainer/clients?success=1");
 }
 
+// Route a new signup to whichever trainer will coach them, not just the person
+// who happens to be looking at the dashboard.
+export async function assignClientToTrainer(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const clientId = formData.get("client_id") as string;
+  const trainerId = (formData.get("trainer_id") as string) || user.id;
+
+  const svc = createServiceClient();
+  const { data: target } = await svc
+    .from("profiles").select("id, role").eq("id", trainerId).single();
+  if (!target || target.role !== "trainer") {
+    redirect("/trainer/clients?error=bad_trainer");
+  }
+
+  await svc.from("profiles").update({ trainer_id: trainerId }).eq("id", clientId);
+  revalidatePath("/trainer/clients");
+  redirect(`/trainer/clients?success=1&to=${trainerId === user.id ? "me" : "other"}`);
+}
+
 export async function addClientByEmail(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { addClientByEmail, assignClientToMe, createPlaceholderClient } from "@/app/actions/clients";
+import { addClientByEmail, assignClientToTrainer, createPlaceholderClient } from "@/app/actions/clients";
 import Link from "next/link";
 
 export default async function ClientsPage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
@@ -11,7 +11,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
   const { data: profile } = await supabase.from("profiles").select("role, full_name").eq("id", user.id).single();
   if (profile && profile.role !== "trainer") redirect("/client");
 
-  const [{ data: clients }, { data: unassigned }, { data: selfGuided }, { data: groups }] = await Promise.all([
+  const [{ data: clients }, { data: unassigned }, { data: selfGuided }, { data: groups }, { data: trainers }] = await Promise.all([
     supabase
       .from("profiles")
       .select("id, full_name, email, created_at, is_placeholder")
@@ -36,6 +36,11 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
       .from("groups")
       .select("id, name, emoji, group_members(user_id)")
       .order("name"),
+    supabase
+      .from("profiles")
+      .select("id, full_name, email")
+      .eq("role", "trainer")
+      .order("full_name"),
   ]);
 
   // group chips per client, so the roster shows how people are organised
@@ -56,6 +61,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
     has_trainer: "That client already has a trainer.",
     no_name: "Enter a name for the client.",
     create_failed: "Couldn't create that client. Try again.",
+    bad_trainer: "That person isn't a trainer.",
   };
 
   return (
@@ -94,10 +100,21 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                   <div style={{ fontSize: 12, color: "#6B7A8D", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.email}</div>
                   <div style={{ fontSize: 11, color: "#B45309", fontWeight: 600, marginTop: 1 }}>Joined {joinedLabel}</div>
                 </div>
-                <form action={assignClientToMe}>
+                <form action={assignClientToTrainer} style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
                   <input type="hidden" name="client_id" value={c.id} />
+                  <select
+                    name="trainer_id"
+                    defaultValue={user.id}
+                    style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #FCD34D", background: "#fff", fontSize: 13, color: "#0D1827", outline: "none", maxWidth: 150 }}
+                  >
+                    {(trainers ?? []).map(t => (
+                      <option key={t.id} value={t.id}>
+                        {t.id === user.id ? "Me" : (t.full_name ?? t.email)}
+                      </option>
+                    ))}
+                  </select>
                   <button type="submit" style={{ padding: "8px 16px", borderRadius: 20, background: "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
-                    Assign to me
+                    Assign
                   </button>
                 </form>
               </div>
@@ -109,7 +126,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
 
         {success && (
           <div style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
-            ✓ Client assigned successfully!
+✓ Client assigned{params.to === "other" ? " to that trainer" : " to you"}.
           </div>
         )}
 
