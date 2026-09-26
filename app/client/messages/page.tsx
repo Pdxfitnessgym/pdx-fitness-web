@@ -43,6 +43,7 @@ export default function ClientMessagesPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [groupName, setGroupName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [startError, setStartError] = useState("");
 
   const fetchConvos = useCallback(async (uid: string) => {
     const supabase = createClient();
@@ -110,15 +111,17 @@ export default function ClientMessagesPage() {
       const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
       setMyName(profile?.full_name ?? "");
 
-      // Peers come from public_profiles — clients can only read their own row in
-      // profiles, so that table can't supply a recipient list.
+      // A client messages their trainer and no one else — client-to-client chat
+      // happens in the community feed. Names come from public_profiles because a
+      // client can only read their own row in profiles.
       const { data: myProfile } = await supabase.from("profiles").select("trainer_id, role").eq("id", user.id).single();
-      let peerQuery = supabase.from("public_profiles").select("id, full_name").neq("id", user.id);
       if (myProfile?.trainer_id) {
-        peerQuery = supabase.from("public_profiles").select("id, full_name").neq("id", user.id).or(`id.eq.${myProfile.trainer_id},trainer_id.eq.${myProfile.trainer_id}`);
+        const { data: peerData } = await supabase
+          .from("public_profiles").select("id, full_name").eq("id", myProfile.trainer_id);
+        setPeers((peerData ?? []).map(p => ({ id: p.id, name: p.full_name ?? "Trainer" })));
+      } else {
+        setPeers([]);
       }
-      const { data: peerData } = await peerQuery;
-      setPeers((peerData ?? []).map(p => ({ id: p.id, name: p.full_name ?? "Member" })));
 
       fetchConvos(user.id);
     });
@@ -129,15 +132,27 @@ export default function ClientMessagesPage() {
     setCreating(true);
     const supabase = createClient();
     const isGroup = selected.size > 1;
-    const { data: convo } = await supabase
+    const { data: convo, error: convoErr } = await supabase
       .from("conversations")
       .insert({ is_group: isGroup, name: isGroup ? (groupName.trim() || "Group Chat") : null, created_by: userId })
       .select("id")
       .single();
-    if (!convo) { setCreating(false); return; }
+    // Fail loud — this silently did nothing when the row couldn't be read back
+    if (convoErr || !convo) {
+      setStartError(convoErr?.message ?? "Couldn't start that chat. Please try again.");
+      setCreating(false);
+      return;
+    }
 
     const memberIds = [userId, ...Array.from(selected)];
-    await supabase.from("conversation_members").insert(memberIds.map(uid => ({ conversation_id: convo.id, user_id: uid })));
+    const { error: memberErr } = await supabase
+      .from("conversation_members")
+      .insert(memberIds.map(uid => ({ conversation_id: convo.id, user_id: uid })));
+    if (memberErr) {
+      setStartError(memberErr.message);
+      setCreating(false);
+      return;
+    }
 
     setShowNew(false);
     setSelected(new Set());
@@ -172,10 +187,10 @@ export default function ClientMessagesPage() {
         <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px" }}>
           <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E2EAF0", padding: 16 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827", marginBottom: 12 }}>New Message</div>
-            <div style={{ fontSize: 12, color: "#6B7A8D", marginBottom: 8 }}>Select people to message:</div>
+            <div style={{ fontSize: 12, color: "#6B7A8D", marginBottom: 8 }}>Message your trainer:</div>
             {peers.length === 0 && (
               <div style={{ fontSize: 13, color: "#9CA3AF", background: "#F8FAFB", border: "1px solid #E2EAF0", borderRadius: 10, padding: "12px 14px", marginBottom: 12 }}>
-                No one to message yet. You&apos;ll see your trainer here once you&apos;re assigned to one.
+                No trainer assigned yet — once you have one, they&apos;ll show up here. To chat with other members, use the Feed.
               </div>
             )}
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
@@ -198,7 +213,7 @@ export default function ClientMessagesPage() {
                 </label>
               ))}
             </div>
-            {selected.size > 1 && (
+            {false && (
               <input
                 value={groupName}
                 onChange={e => setGroupName(e.target.value)}
@@ -206,10 +221,13 @@ export default function ClientMessagesPage() {
                 style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 14, color: "#0D1827", outline: "none", boxSizing: "border-box", marginBottom: 10 }}
               />
             )}
+            {startError && (
+              <div style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 8, padding: "10px 12px", fontSize: 13, marginBottom: 10 }}>{startError}</div>
+            )}
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => { setShowNew(false); setSelected(new Set()); }} style={{ flex: 1, padding: "10px", borderRadius: 10, background: "#F4F7FA", border: "1px solid #E2EAF0", cursor: "pointer", fontWeight: 600, fontSize: 13, color: "#6B7A8D" }}>Cancel</button>
               <button onClick={createConvo} disabled={selected.size === 0 || creating} style={{ flex: 2, padding: "10px", borderRadius: 10, background: "#1B68B4", border: "none", cursor: "pointer", fontWeight: 700, fontSize: 14, color: "#fff", opacity: selected.size === 0 || creating ? 0.5 : 1 }}>
-                {creating ? "Starting..." : selected.size > 1 ? "Create Group" : "Start Chat"}
+                {creating ? "Starting..." : "Start Chat"}
               </button>
             </div>
           </div>

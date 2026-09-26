@@ -43,6 +43,7 @@ export default function TrainerMessagesPage() {
   const [groupName, setGroupName] = useState("");
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
+  const [startError, setStartError] = useState("");
 
   const fetchConvos = useCallback(async (uid: string) => {
     const supabase = createClient();
@@ -116,15 +117,27 @@ export default function TrainerMessagesPage() {
     setCreating(true);
     const supabase = createClient();
     const isGroup = selected.size > 1;
-    const { data: convo } = await supabase
+    const { data: convo, error: convoErr } = await supabase
       .from("conversations")
       .insert({ is_group: isGroup, name: isGroup ? (groupName.trim() || "Group Chat") : null, created_by: userId })
       .select("id")
       .single();
-    if (!convo) { setCreating(false); return; }
+    // Fail loud — this silently did nothing when the row couldn't be read back
+    if (convoErr || !convo) {
+      setStartError(convoErr?.message ?? "Couldn't start that chat. Please try again.");
+      setCreating(false);
+      return;
+    }
 
     const memberIds = [userId, ...Array.from(selected)];
-    await supabase.from("conversation_members").insert(memberIds.map(uid => ({ conversation_id: convo.id, user_id: uid })));
+    const { error: memberErr } = await supabase
+      .from("conversation_members")
+      .insert(memberIds.map(uid => ({ conversation_id: convo.id, user_id: uid })));
+    if (memberErr) {
+      setStartError(memberErr.message);
+      setCreating(false);
+      return;
+    }
 
     setShowNew(false);
     setSelected(new Set());
@@ -203,6 +216,9 @@ export default function TrainerMessagesPage() {
                     placeholder="Group name (optional)"
                     style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 14, color: "#0D1827", outline: "none", boxSizing: "border-box", marginBottom: 10 }}
                   />
+                )}
+                {startError && (
+                  <div style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 8, padding: "10px 12px", fontSize: 13, marginBottom: 10 }}>{startError}</div>
                 )}
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => { setShowNew(false); setSelected(new Set()); }} style={{ flex: 1, padding: "10px", borderRadius: 10, background: "#F4F7FA", border: "1px solid #E2EAF0", cursor: "pointer", fontWeight: 600, fontSize: 13, color: "#6B7A8D" }}>Cancel</button>
