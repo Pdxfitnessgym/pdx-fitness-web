@@ -359,10 +359,21 @@ export default function TrainerLogWorkoutPage() {
     setInputs(prev => {
       const merged = { ...prev };
       Object.entries(prevLogged).forEach(([key, v]) => {
-        if (v.weight == null) return;
         const cur = merged[key] ?? { reps: "", weight: "" };
-        if (next && !cur.weight) merged[key] = { ...cur, weight: String(v.weight) };
-        if (!next && cur.weight === String(v.weight)) merged[key] = { ...cur, weight: "" };
+        const lastReps = v.reps ?? "";
+        const lastWeight = v.weight != null ? String(v.weight) : "";
+        // Turning on fills only blanks, so anything already typed is never overwritten.
+        // Turning off clears only the values that came from last time.
+        const updated = next
+          ? {
+              reps: !cur.reps && lastReps ? lastReps : cur.reps,
+              weight: !cur.weight && lastWeight ? lastWeight : cur.weight,
+            }
+          : {
+              reps: lastReps && cur.reps === lastReps ? "" : cur.reps,
+              weight: lastWeight && cur.weight === lastWeight ? "" : cur.weight,
+            };
+        if (updated.reps !== cur.reps || updated.weight !== cur.weight) merged[key] = updated;
       });
       return merged;
     });
@@ -751,11 +762,11 @@ export default function TrainerLogWorkoutPage() {
       </div>
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px" }}>
-        {Object.values(prevLogged).some(v => v.weight != null) && (
+        {Object.values(prevLogged).some(v => v.weight != null || v.reps) && (
           <div style={{ marginBottom: 14, background: "#fff", borderRadius: 12, border: "1px solid #E2EAF0", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827" }}>Auto-fill last weights</div>
-              <div style={{ fontSize: 12, color: "#6B7A8D" }}>Pre-enter the weights from the last session</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827" }}>Auto-fill last session</div>
+              <div style={{ fontSize: 12, color: "#6B7A8D" }}>Pre-enter last time&apos;s reps and weights</div>
             </div>
             <button onClick={toggleAutoFill} aria-pressed={autoFill}
               style={{ width: 50, height: 30, borderRadius: 15, border: "none", cursor: "pointer", flexShrink: 0, background: autoFill ? "#2DC4B8" : "#E2EAF0", position: "relative", transition: "background 0.15s" }}>
