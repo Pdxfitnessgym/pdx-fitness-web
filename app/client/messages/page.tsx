@@ -60,7 +60,7 @@ export default function ClientMessagesPage() {
 
     const [{ data: conversations }, { data: allMembers }, { data: lastMsgs }] = await Promise.all([
       supabase.from("conversations").select("id, name, is_group, created_at").in("id", convoIds),
-      supabase.from("conversation_members").select("conversation_id, user_id, profiles!conversation_members_user_id_fkey(full_name)").in("conversation_id", convoIds),
+      supabase.from("conversation_members").select("conversation_id, user_id").in("conversation_id", convoIds),
       supabase.from("messages").select("conversation_id, content, created_at").in("conversation_id", convoIds).order("created_at", { ascending: false }),
     ]);
 
@@ -69,11 +69,18 @@ export default function ClientMessagesPage() {
       if (!lastMsgByConvo[m.conversation_id]) lastMsgByConvo[m.conversation_id] = m;
     });
 
+    // Names come from public_profiles; clients can't read other rows in profiles
+    const memberIdList = [...new Set((allMembers ?? []).map(m => m.user_id))];
+    const { data: memberNames } = memberIdList.length
+      ? await supabase.from("public_profiles").select("id, full_name").in("id", memberIdList)
+      : { data: [] };
+    const nameById: Record<string, string> = {};
+    (memberNames ?? []).forEach(p => { nameById[p.id] = p.full_name ?? "Member"; });
+
     const membersByConvo: Record<string, { user_id: string; name: string }[]> = {};
     (allMembers ?? []).forEach(m => {
       if (!membersByConvo[m.conversation_id]) membersByConvo[m.conversation_id] = [];
-      const p = m.profiles as unknown as { full_name: string };
-      membersByConvo[m.conversation_id].push({ user_id: m.user_id, name: p?.full_name ?? "Member" });
+      membersByConvo[m.conversation_id].push({ user_id: m.user_id, name: nameById[m.user_id] ?? "Member" });
     });
 
     const mapped: Convo[] = (conversations ?? []).map(c => {
@@ -103,11 +110,12 @@ export default function ClientMessagesPage() {
       const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
       setMyName(profile?.full_name ?? "");
 
-      // Load peers (trainer + other clients of same trainer)
+      // Peers come from public_profiles — clients can only read their own row in
+      // profiles, so that table can't supply a recipient list.
       const { data: myProfile } = await supabase.from("profiles").select("trainer_id, role").eq("id", user.id).single();
-      let peerQuery = supabase.from("profiles").select("id, full_name").neq("id", user.id);
+      let peerQuery = supabase.from("public_profiles").select("id, full_name").neq("id", user.id);
       if (myProfile?.trainer_id) {
-        peerQuery = supabase.from("profiles").select("id, full_name").neq("id", user.id).or(`id.eq.${myProfile.trainer_id},trainer_id.eq.${myProfile.trainer_id}`);
+        peerQuery = supabase.from("public_profiles").select("id, full_name").neq("id", user.id).or(`id.eq.${myProfile.trainer_id},trainer_id.eq.${myProfile.trainer_id}`);
       }
       const { data: peerData } = await peerQuery;
       setPeers((peerData ?? []).map(p => ({ id: p.id, name: p.full_name ?? "Member" })));

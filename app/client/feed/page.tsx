@@ -69,10 +69,9 @@ export default function FeedPage() {
       .from("posts")
       .select(`
         id, author_id, content, photo_url, video_url, post_type, workout_name, group_id, created_at,
-        profiles!posts_author_id_fkey(id, full_name),
         groups(name, emoji),
         post_likes(user_id),
-        post_comments(id, author_id, content, created_at, profiles!post_comments_author_id_fkey(id, full_name))
+        post_comments(id, author_id, content, created_at)
       `)
       .order("created_at", { ascending: false })
       .limit(50);
@@ -81,7 +80,27 @@ export default function FeedPage() {
 
     const { data } = await query;
 
-    const mapped: Post[] = (data ?? []).map((p: any) => ({
+    // Author names come from public_profiles — a client can only read their own
+    // row in profiles, so embedding it left every post and comment unnamed.
+    const authorIds = [...new Set([
+      ...(data ?? []).map((p: { author_id: string }) => p.author_id),
+      ...(data ?? []).flatMap((p: { post_comments?: { author_id: string }[] }) => (p.post_comments ?? []).map(c => c.author_id)),
+    ])].filter(Boolean);
+    const { data: authorRows } = authorIds.length
+      ? await supabase.from("public_profiles").select("id, full_name").in("id", authorIds)
+      : { data: [] };
+    const authorById: Record<string, { id: string; full_name: string }> = {};
+    (authorRows ?? []).forEach(a => { authorById[a.id] = { id: a.id, full_name: a.full_name ?? "Member" }; });
+    const withAuthors = (data ?? []).map((p: Record<string, unknown>) => ({
+      ...p,
+      profiles: authorById[p.author_id as string] ?? { id: p.author_id, full_name: "Member" },
+      post_comments: ((p.post_comments ?? []) as { author_id: string }[]).map(c => ({
+        ...c,
+        profiles: authorById[c.author_id] ?? { id: c.author_id, full_name: "Member" },
+      })),
+    }));
+
+    const mapped: Post[] = withAuthors.map((p: any) => ({
       id: p.id,
       author_id: p.author_id,
       content: p.content,
