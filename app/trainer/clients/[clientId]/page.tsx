@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { assignProgram, inviteClient, assignWorkoutToClient, unassignWorkoutFromClient, createAdHocWorkout, toggleClientGroup } from "@/app/actions/clients";
+import { assignProgram, inviteClient, assignWorkoutToClient, unassignWorkoutFromClient, createAdHocWorkout, toggleClientGroup, removeProgramFromClient } from "@/app/actions/clients";
 import Link from "next/link";
 import { SessionsPanel } from "@/app/components/SessionsPanel";
 import { ClientNotesEditor } from "@/app/components/ClientNotesEditor";
@@ -303,6 +303,12 @@ export default async function ClientDetailPage({
           </div>
         )}
 
+        {sp.removed && (
+          <div style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
+            ✓ Program removed — their logged history is kept.
+          </div>
+        )}
+
         {sp.workout_assigned && (
           <div style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
             ✓ Workout added for this client
@@ -404,11 +410,19 @@ export default async function ClientDetailPage({
             <div style={card}>
               <div style={sectionLabel}>Active Program</div>
               {activeProgram ? (
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 17, color: "#0D1827" }}>{prog?.name}</div>
-                  <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 4 }}>
-                    Started {activeProgram.start_date} · {prog?.duration_weeks} weeks · Week {currentWeek}
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 17, color: "#0D1827" }}>{prog?.name}</div>
+                    <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 4 }}>
+                      Started {activeProgram.start_date} · {prog?.duration_weeks} weeks · Week {currentWeek}
+                    </div>
                   </div>
+                  <form action={removeProgramFromClient}>
+                    <input type="hidden" name="client_id" value={clientId} />
+                    <button type="submit" title="Take them off this program" style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #E2EAF0", background: "#fff", color: "#6B7A8D", fontWeight: 700, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+                      Remove
+                    </button>
+                  </form>
                 </div>
               ) : (
                 <div style={{ color: "#9CA3AF", fontSize: 14 }}>No program assigned</div>

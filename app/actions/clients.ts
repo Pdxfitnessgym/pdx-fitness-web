@@ -215,6 +215,26 @@ export async function saveWorkoutToLibrary(formData: FormData) {
   revalidatePath("/trainer/workouts");
 }
 
+// Take a client off their current program. Deactivates the assignment rather
+// than deleting it, so their logged history and this record of what they were on
+// both survive.
+export async function removeProgramFromClient(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const client_id = formData.get("client_id") as string;
+  const { error } = await supabase
+    .from("client_programs")
+    .update({ is_active: false })
+    .eq("client_id", client_id)
+    .eq("is_active", true);
+  if (error) redirect(`/trainer/clients/${client_id}?error=remove_failed`);
+
+  revalidatePath(`/trainer/clients/${client_id}`);
+  redirect(`/trainer/clients/${client_id}?removed=1`);
+}
+
 // Give a client a single on-demand workout without assigning a whole program.
 export async function assignWorkoutToClient(formData: FormData) {
   const supabase = await createClient();

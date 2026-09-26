@@ -17,6 +17,26 @@ export default function ProgramsPage() {
   const [saving, setSaving] = useState(false);
   const [duplicating, setDuplicating] = useState<string | null>(null);
   const [myId, setMyId] = useState<string | null>(null);
+  // What a delete would actually destroy — workout_logs cascade from workouts
+  const [impact, setImpact] = useState<{ workouts: number; sessions: number; clients: number } | null>(null);
+
+  async function openDeleteConfirm(id: string) {
+    setConfirmDeleteId(id);
+    setImpact(null);
+    const supabase = createClient();
+    const { data: ws } = await supabase.from("workouts").select("id").eq("program_id", id);
+    const ids = (ws ?? []).map(w => w.id);
+    if (ids.length === 0) { setImpact({ workouts: 0, sessions: 0, clients: 0 }); return; }
+    const [{ data: logs }, { data: enrolled }] = await Promise.all([
+      supabase.from("workout_logs").select("client_id").in("workout_id", ids),
+      supabase.from("client_programs").select("client_id").eq("program_id", id),
+    ]);
+    setImpact({
+      workouts: ids.length,
+      sessions: (logs ?? []).length,
+      clients: new Set([...(logs ?? []).map(l => l.client_id), ...(enrolled ?? []).map(e => e.client_id)]).size,
+    });
+  }
 
   useEffect(() => { load(); }, []);
 
@@ -130,7 +150,7 @@ export default function ProgramsPage() {
                       style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "#9CA3AF", fontSize: 16, lineHeight: 1, opacity: duplicating === p.id ? 0.4 : 1 }}
                     >📋</button>
                     <button
-                      onClick={e => { e.preventDefault(); setConfirmDeleteId(p.id); }}
+                      onClick={e => { e.preventDefault(); openDeleteConfirm(p.id); }}
                       title="Delete program"
                       style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "#9CA3AF", fontSize: 16, lineHeight: 1 }}
                     >🗑️</button>
@@ -167,9 +187,25 @@ export default function ProgramsPage() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20 }}>
           <div style={{ background: "#fff", borderRadius: 16, padding: 24, maxWidth: 340, width: "100%" }}>
             <div style={{ fontSize: 17, fontWeight: 800, color: "#0D1827", marginBottom: 8 }}>Delete program?</div>
-            <div style={{ fontSize: 14, color: "#6B7A8D", marginBottom: 20 }}>
-              This will delete <strong>{programs.find(p => p.id === confirmDeleteId)?.name}</strong> and all its workouts. This cannot be undone.
+            <div style={{ fontSize: 14, color: "#6B7A8D", marginBottom: 14 }}>
+              This deletes <strong>{programs.find(p => p.id === confirmDeleteId)?.name}</strong> and everything inside it. This cannot be undone.
             </div>
+            {impact === null ? (
+              <div style={{ fontSize: 13, color: "#9CA3AF", marginBottom: 20 }}>Checking what this affects…</div>
+            ) : impact.sessions > 0 ? (
+              <div style={{ background: "#FEE2E2", border: "1px solid #FCA5A5", borderRadius: 10, padding: "12px 14px", marginBottom: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#991B1B", marginBottom: 4 }}>⚠️ This also erases logged history</div>
+                <div style={{ fontSize: 13, color: "#991B1B", lineHeight: 1.5 }}>
+                  {impact.workouts} workout{impact.workouts !== 1 ? "s" : ""} and <strong>{impact.sessions} completed session{impact.sessions !== 1 ? "s" : ""}</strong> across {impact.clients} client{impact.clients !== 1 ? "s" : ""} will be permanently deleted, including their sets and weights.
+                  <br /><br />
+                  To stop clients using it without losing their history, remove the program from them on their client page instead.
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 20 }}>
+                {impact.workouts} workout{impact.workouts !== 1 ? "s" : ""} · no logged sessions, so no client history is affected.
+              </div>
+            )}
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setConfirmDeleteId(null)} style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#F4F7FA", border: "1px solid #E2EAF0", fontWeight: 600, fontSize: 14, cursor: "pointer", color: "#0D1827" }}>Cancel</button>
               <button onClick={() => confirmDelete(confirmDeleteId)} style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#DC2626", border: "none", fontWeight: 700, fontSize: 14, cursor: "pointer", color: "#fff" }}>Delete</button>
