@@ -173,6 +173,11 @@ export default function ClientMessagesPage() {
           <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E2EAF0", padding: 16 }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827", marginBottom: 12 }}>New Message</div>
             <div style={{ fontSize: 12, color: "#6B7A8D", marginBottom: 8 }}>Select people to message:</div>
+            {peers.length === 0 && (
+              <div style={{ fontSize: 13, color: "#9CA3AF", background: "#F8FAFB", border: "1px solid #E2EAF0", borderRadius: 10, padding: "12px 14px", marginBottom: 12 }}>
+                No one to message yet. You&apos;ll see your trainer here once you&apos;re assigned to one.
+              </div>
+            )}
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
               {peers.map(p => (
                 <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
