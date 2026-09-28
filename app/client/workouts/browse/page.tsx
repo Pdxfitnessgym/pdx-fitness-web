@@ -78,19 +78,19 @@ export default async function BrowseWorkoutsPage({
   const assignedIds = new Set(assignedRows.map(r => r.workout_id));
 
   // One list: from the client's side "a workout I can do" is the same thing
-  // whether their trainer set it up or they built it. The icon says which.
-  const extras: (LibWorkout & { own: boolean })[] = [];
+  // whether their trainer set it up or they built it themselves.
+  const extras: LibWorkout[] = [];
   const seen = new Set<string>();
   for (const row of assignedRows) {
     const w = Array.isArray(row.workouts) ? row.workouts[0] : row.workouts;
     if (!w || seen.has(w.id)) continue;
     seen.add(w.id);
-    extras.push({ ...w, own: w.created_by === user.id });
+    extras.push(w);
   }
   for (const w of mine) {
     if (seen.has(w.id)) continue;
     seen.add(w.id);
-    extras.push({ ...w, own: true });
+    extras.push(w);
   }
 
   return (
@@ -129,7 +129,7 @@ export default async function BrowseWorkoutsPage({
             <div style={sectionLabel}>Your Saved Workouts</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {extras.map(w => (
-                <WorkoutRow key={w.id} w={w} icon={w.own ? "✏️" : "⚡"} href={`/client/workouts/${w.id}`} />
+                <WorkoutRow key={w.id} w={w} icon="⚡" href={`/client/workouts/${w.id}`} />
               ))}
             </div>
           </div>
