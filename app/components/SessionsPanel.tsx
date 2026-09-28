@@ -120,7 +120,13 @@ export function SessionsPanel({
       {/* Schedule form */}
       {showSchedule && (
         <form
-          action={async (fd) => { await scheduleSession(fd); setShowSchedule(false); }}
+          action={async (fd) => {
+            // Convert the local-time input to an explicit UTC instant
+            const local = fd.get("scheduled_at") as string;
+            if (local) fd.set("scheduled_at", new Date(local).toISOString());
+            await scheduleSession(fd);
+            setShowSchedule(false);
+          }}
           style={{ display: "flex", flexDirection: "column", gap: 10, padding: 14, background: "#F4F7FA", borderRadius: 12 }}
         >
           <input type="hidden" name="client_id" value={clientId} />

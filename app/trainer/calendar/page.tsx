@@ -15,6 +15,13 @@ type Session = {
 type Client = { id: string; full_name: string };
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// Calendar cells are local days, so bucket by the local date — toISOString()
+// would push an evening session onto the next day.
+function toLocalDateKey(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
 const STATUS_COLOR: Record<string, string> = {
@@ -96,14 +103,14 @@ export default function TrainerCalendarPage() {
     else setViewMonth(m => m + 1);
   }
 
-  const todayStr = today.toISOString().split("T")[0];
+  const todayStr = toLocalDateKey(today);
   const firstDay = new Date(viewYear, viewMonth, 1).getDay();
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
 
   // map date → sessions
   const sessionMap: Record<string, Session[]> = {};
   for (const s of sessions) {
-    const d = new Date(s.scheduled_at).toISOString().split("T")[0];
+    const d = toLocalDateKey(new Date(s.scheduled_at));
     if (!sessionMap[d]) sessionMap[d] = [];
     sessionMap[d].push(s);
   }
