@@ -38,7 +38,7 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
       .order("name"),
     supabase
       .from("profiles")
-      .select("id, full_name, email")
+      .select("id, full_name, email, is_admin")
       .eq("role", "trainer")
       .order("full_name"),
   ]);
@@ -50,6 +50,12 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
       (groupsByClient[m.user_id] ??= []).push({ name: g.name, emoji: g.emoji });
     }
   }
+
+  // The admin account exists for oversight and coaches nobody, so assigning a
+  // client to it would strand them. Fall back to the full list if it's the only one.
+  const assignable = (trainers ?? []).filter(t => !t.is_admin);
+  const trainerOptions = assignable.length > 0 ? assignable : (trainers ?? []);
+  const defaultTrainerId = trainerOptions.some(t => t.id === user.id) ? user.id : trainerOptions[0]?.id;
 
   const params = await searchParams;
   const error = params.error;
@@ -104,10 +110,10 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                   <input type="hidden" name="client_id" value={c.id} />
                   <select
                     name="trainer_id"
-                    defaultValue={user.id}
+                    defaultValue={defaultTrainerId}
                     style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #FCD34D", background: "#fff", fontSize: 13, color: "#0D1827", outline: "none", maxWidth: 190 }}
                   >
-                    {(trainers ?? []).map(t => (
+                    {trainerOptions.map(t => (
                       <option key={t.id} value={t.id}>
                         {/* Names can collide between accounts, so always show the email */}
                         {t.id === user.id ? "Me" : (t.full_name?.trim() || "Trainer")} — {t.email}
