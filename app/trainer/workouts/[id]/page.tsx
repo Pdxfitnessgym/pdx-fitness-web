@@ -282,7 +282,6 @@ export default function StandaloneWorkoutEditorPage() {
     const { data } = await supabase
       .from("exercise_library")
       .select("id, name, muscle_group, equipment, video_url")
-      .or(`trainer_id.eq.${user.id},trainer_id.is.null`)
       .order("name");
     setLibExercises((data ?? []) as LibExercise[]);
     setLibLoading(false);

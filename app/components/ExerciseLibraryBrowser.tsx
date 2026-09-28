@@ -18,7 +18,7 @@ function matches(ex: Ex, q: string) {
   );
 }
 
-export function ExerciseLibraryBrowser({ master, mine }: { master: Ex[]; mine: Ex[] }) {
+export function ExerciseLibraryBrowser({ master, mine, myId }: { master: Ex[]; mine: Ex[]; myId: string }) {
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
 
@@ -57,28 +57,28 @@ export function ExerciseLibraryBrowser({ master, mine }: { master: Ex[]; mine: E
       {shownMaster.length > 0 && (
         <div>
           <SectionHeading label="Master Library" count={shownMaster.length} accent />
-          <ExerciseList exercises={shownMaster} />
+          <ExerciseList exercises={shownMaster} myId={myId} />
         </div>
       )}
 
       {!nothing && (
         <div>
-          <SectionHeading label="My Exercises" count={shownMine.length} />
+          <SectionHeading label="Added by Trainers" count={shownMine.length} />
           {shownMine.length === 0 ? (
             q ? (
               <div style={{ ...cardStyle, color: "#9CA3AF", fontSize: 14, textAlign: "center" }}>
-                None of your own exercises match.
+                Nothing trainers have added matches.
               </div>
             ) : (
               <div style={{ ...cardStyle, textAlign: "center", padding: "32px 24px" }}>
                 <div style={{ fontSize: 36, marginBottom: 10 }}>🏋️</div>
-                <div style={{ fontWeight: 600, color: "#0D1827", marginBottom: 4 }}>No personal exercises yet</div>
-                <div style={{ color: "#6B7A8D", fontSize: 14, marginBottom: 16 }}>Add your own exercises alongside the master library</div>
+                <div style={{ fontWeight: 600, color: "#0D1827", marginBottom: 4 }}>Nothing added yet</div>
+                <div style={{ color: "#6B7A8D", fontSize: 14, marginBottom: 16 }}>Anything you add here is available to every trainer and client</div>
                 <Link href="/trainer/exercises/new" style={btnStyle}>+ Add Exercise</Link>
               </div>
             )
           ) : (
-            <ExerciseList exercises={shownMine} />
+            <ExerciseList exercises={shownMine} myId={myId} />
           )}
         </div>
       )}
@@ -95,7 +95,7 @@ function SectionHeading({ label, count, accent }: { label: string; count: number
   );
 }
 
-function ExerciseList({ exercises }: { exercises: Ex[] }) {
+function ExerciseList({ exercises, myId }: { exercises: Ex[]; myId: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {exercises.map(ex => (
@@ -115,7 +115,12 @@ function ExerciseList({ exercises }: { exercises: Ex[] }) {
             <div style={{ width: 72, height: 72, borderRadius: 10, background: "#F4F7FA", border: "1px solid #E2EAF0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 28 }}>💪</div>
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "#0D1827" }}>{ex.name}</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#0D1827", display: "flex", alignItems: "center", gap: 6 }}>
+              {ex.name}
+              {ex.trainer_id === myId && (
+                <span style={{ fontSize: 10, fontWeight: 700, background: "#EBF9F8", color: "#2DC4B8", padding: "1px 6px", borderRadius: 20 }}>YOURS</span>
+              )}
+            </div>
             <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>
               {[ex.muscle_group, ex.equipment].filter(Boolean).join(" · ")}
             </div>

@@ -11,11 +11,11 @@ export default async function ExerciseLibraryPage() {
   const { data: exercises } = await supabase
     .from("exercise_library")
     .select("*")
-    .or(`trainer_id.eq.${user.id},trainer_id.is.null`)
     .order("name");
 
+  // Shared gym library: master entries, then everything any trainer has added
   const master = (exercises?.filter(e => e.trainer_id === null) ?? []) as Ex[];
-  const mine = (exercises?.filter(e => e.trainer_id === user.id) ?? []) as Ex[];
+  const mine = (exercises?.filter(e => e.trainer_id !== null) ?? []) as Ex[];
 
   return (
     <div style={{ minHeight: "100dvh", background: "#F4F7FA" }}>
@@ -24,13 +24,13 @@ export default async function ExerciseLibraryPage() {
           <div>
             <Link href="/trainer" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Dashboard</Link>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginTop: 4 }}>Exercise Library</div>
-            <div style={{ fontSize: 13, color: "#6B7A8D" }}>{master.length} master · {mine.length} personal</div>
+            <div style={{ fontSize: 13, color: "#6B7A8D" }}>{master.length + mine.length} exercises · shared across the gym</div>
           </div>
           <Link href="/trainer/exercises/new" style={btnStyle}>+ Add Exercise</Link>
         </div>
       </div>
 
-      <ExerciseLibraryBrowser master={master} mine={mine} />
+      <ExerciseLibraryBrowser master={master} mine={mine} myId={user.id} />
     </div>
   );
 }

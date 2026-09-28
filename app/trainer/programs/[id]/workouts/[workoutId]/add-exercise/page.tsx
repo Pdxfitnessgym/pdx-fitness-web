@@ -31,7 +31,6 @@ export default function AddExercisePage() {
       const { data } = await supabase
         .from("exercise_library")
         .select("id, name, muscle_group, equipment, video_url, youtube_url, trainer_id")
-        .or(`trainer_id.eq.${user.id},trainer_id.is.null`)
         .order("name");
       setExercises((data ?? []) as Exercise[]);
       setLoading(false);

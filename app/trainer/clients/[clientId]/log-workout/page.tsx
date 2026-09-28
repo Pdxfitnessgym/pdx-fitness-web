@@ -182,7 +182,6 @@ export default function TrainerLogWorkoutPage() {
     const { data } = await supabase
       .from("exercise_library")
       .select("id, name, muscle_group")
-      .or(`trainer_id.eq.${user.id},trainer_id.is.null`)
       .order("name");
     setLibExercises(data ?? []);
     setLibLoading(false);
