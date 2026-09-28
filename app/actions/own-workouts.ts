@@ -39,7 +39,8 @@ export async function createOwnWorkout(formData: FormData) {
     .insert({ client_id: user.id, workout_id: workout.id, assigned_by: user.id });
 
   revalidatePath("/client/workouts");
-  redirect(`/client/workouts/${workout.id}`);
+  // Straight into the builder — a brand new workout has no exercises yet
+  redirect(`/client/workouts/${workout.id}/build`);
 }
 
 // Pull one of the gym's shared workouts onto their own list.

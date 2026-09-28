@@ -47,7 +47,7 @@ export default function WorkoutSessionPage() {
   const workoutId = params.workoutId as string;
 
   const [mode, setMode] = useState<Mode>("preview");
-  const [workout, setWorkout] = useState<{ name: string } | null>(null);
+  const [workout, setWorkout] = useState<{ name: string; created_by: string | null } | null>(null);
   const [exercises, setExercises] = useState<ExerciseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [workoutLogId, setWorkoutLogId] = useState<string | null>(null);
@@ -68,7 +68,7 @@ export default function WorkoutSessionPage() {
     const supabase = createClient();
     (async () => {
       const [{ data: w }, { data: exs }, { data: { user } }] = await Promise.all([
-        supabase.from("workouts").select("name").eq("id", workoutId).single(),
+        supabase.from("workouts").select("name, created_by").eq("id", workoutId).single(),
         supabase.from("exercises")
           .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library(video_url, youtube_url, instructions), group_id, group_round_rest_seconds, is_unilateral, suggested_weight, weight_type")
           .eq("workout_id", workoutId)
@@ -577,6 +577,20 @@ export default function WorkoutSessionPage() {
               <div style={{ color: "#fff", fontWeight: 700, fontSize: 16, marginTop: 2 }}>{exercises.length} exercises</div>
             </div>
             <div style={{ color: "rgba(255,255,255,0.75)", fontSize: 14 }}>~{estMinutes(exercises)} min</div>
+          </div>
+        )}
+
+        {exercises.length === 0 && workout && userId && workout.created_by === userId && (
+          <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2EAF0", padding: 24, textAlign: "center", marginBottom: 16 }}>
+            <div style={{ fontSize: 34, marginBottom: 10 }}>🏗️</div>
+            <div style={{ fontWeight: 700, color: "#0D1827", marginBottom: 4 }}>This workout is empty</div>
+            <div style={{ fontSize: 14, color: "#6B7A8D", marginBottom: 18 }}>Add some exercises and it&apos;s ready to go.</div>
+            <Link
+              href={`/client/workouts/${workoutId}/build`}
+              style={{ display: "inline-block", background: "#1B68B4", color: "#fff", borderRadius: 12, padding: "13px 22px", fontWeight: 700, fontSize: 15, textDecoration: "none" }}
+            >
+              + Add exercises
+            </Link>
           </div>
         )}
 
