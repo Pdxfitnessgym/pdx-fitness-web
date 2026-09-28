@@ -361,6 +361,28 @@ export default function InstallPage() {
             ))}
           </div>
         </div>
+
+        {/* Get into the app — this page is the starting point we send clients */}
+        <div style={{ background: "#1E293B", borderRadius: 20, padding: "22px", marginTop: 20, marginBottom: 32 }}>
+          <div style={{ fontWeight: 800, fontSize: 17, color: "#fff", marginBottom: 6 }}>
+            Ready to get started?
+          </div>
+          <div style={{ fontSize: 14, color: "#94A3B8", lineHeight: 1.6, marginBottom: 16 }}>
+            Once the app is on your home screen, open it from there and create your account.
+          </div>
+          <Link
+            href="/signup"
+            style={{ display: "block", textAlign: "center", padding: "15px", borderRadius: 14, background: "#2DC4B8", color: "#fff", fontWeight: 800, fontSize: 16, textDecoration: "none", marginBottom: 10 }}
+          >
+            Create your account →
+          </Link>
+          <Link
+            href="/login"
+            style={{ display: "block", textAlign: "center", padding: "13px", borderRadius: 14, background: "transparent", border: "1px solid #334155", color: "#94A3B8", fontWeight: 600, fontSize: 14, textDecoration: "none" }}
+          >
+            Already have an account? Log in
+          </Link>
+        </div>
       </div>
     </div>
   );
