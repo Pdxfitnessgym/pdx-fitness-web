@@ -27,7 +27,9 @@ export async function proxy(request: NextRequest) {
   const isCalendarFeed = pathname.startsWith("/api/calendar/") && !pathname.endsWith("/subscribe");
   const isResetPassword = pathname.startsWith("/reset-password");
   const isAuthCallback = pathname.startsWith("/auth/callback");
-  const isPublic = pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname === "/" || isCalendarFeed || pathname.startsWith("/forgot-password") || isResetPassword || isAuthCallback;
+  // /install must be reachable before signing in — it's the setup guide new
+  // clients follow to add the app to their home screen and allow notifications.
+  const isPublic = pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname === "/" || isCalendarFeed || pathname.startsWith("/forgot-password") || isResetPassword || isAuthCallback || pathname.startsWith("/install");
   const isPendingPage = pathname.startsWith("/pending-approval");
 
   if (!user && !isPublic) {
