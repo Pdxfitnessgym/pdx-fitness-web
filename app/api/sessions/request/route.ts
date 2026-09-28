@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { sendPushToUser } from "@/lib/push";
+import { formatGymDate, formatGymTime } from "@/lib/time";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -31,15 +32,8 @@ export async function POST(req: NextRequest) {
     (session.profiles as unknown as { full_name: string } | null)?.full_name || "A client";
 
   const scheduledAt = new Date(session.scheduled_at);
-  const dateStr = scheduledAt.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-  const timeStr = scheduledAt.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const dateStr = formatGymDate(scheduledAt);
+  const timeStr = formatGymTime(scheduledAt);
 
   await sendPushToUser(session.trainer_id, {
     title: "New Session Request 📅",

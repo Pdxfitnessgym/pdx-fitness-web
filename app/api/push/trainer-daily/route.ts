@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { sendPushToUser } from "@/lib/push";
+import { formatGymTime, gymDayRange } from "@/lib/time";
 
 export async function GET(req: NextRequest) {
   if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -8,17 +9,16 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = createServiceClient();
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date();
-  todayEnd.setHours(23, 59, 59, 999);
+  // Server runs in UTC; "today" has to mean the gym's day, or the digest
+  // drops evening sessions and picks up last night's.
+  const { start: todayStart, end: todayEnd } = gymDayRange();
 
   const { data: sessions } = await supabase
     .from("training_sessions")
     .select("trainer_id, scheduled_at, profiles!client_id(full_name)")
     .eq("status", "scheduled")
-    .gte("scheduled_at", todayStart.toISOString())
-    .lte("scheduled_at", todayEnd.toISOString())
+    .gte("scheduled_at", todayStart)
+    .lte("scheduled_at", todayEnd)
     .order("scheduled_at");
 
   if (!sessions?.length) return NextResponse.json({ sent: 0 });
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   const byTrainer: Record<string, { name: string; time: string }[]> = {};
   for (const s of sessions) {
     const clientName = (s.profiles as unknown as { full_name: string } | null)?.full_name ?? "Client";
-    const time = new Date(s.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    const time = formatGymTime(s.scheduled_at);
     if (!byTrainer[s.trainer_id]) byTrainer[s.trainer_id] = [];
     byTrainer[s.trainer_id].push({ name: clientName, time });
   }

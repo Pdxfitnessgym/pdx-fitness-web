@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { GYM_TZ } from "@/lib/time";
 import { sendPushToUser } from "@/lib/push";
 
 export async function assignClientToMe(formData: FormData) {
@@ -237,7 +238,7 @@ export async function createAdHocWorkout(formData: FormData) {
 
   const client_id = formData.get("client_id") as string;
   const typedName = (formData.get("name") as string)?.trim();
-  const name = typedName || `Session — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+  const name = typedName || `Session — ${new Date().toLocaleDateString("en-US", { timeZone: GYM_TZ, month: "short", day: "numeric" })}`;
 
   const { data: workout, error } = await supabase
     .from("workouts")

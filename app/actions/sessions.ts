@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { sendPushToUser } from "@/lib/push";
+import { formatGymDateTime } from "@/lib/time";
 
 export async function updateSessionsPurchased(formData: FormData) {
   const supabase = await createClient();
@@ -39,7 +40,7 @@ export async function scheduleSession(formData: FormData) {
   // notify client
   sendPushToUser(client_id, {
     title: "Session Scheduled 📅",
-    body: `A training session has been booked for ${new Date(scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`,
+    body: `A training session has been booked for ${formatGymDateTime(scheduled_at)}`,
     url: "/client",
   }).catch(() => {});
 
@@ -68,7 +69,7 @@ export async function updateSessionTime(formData: FormData) {
 
   sendPushToUser(client_id, {
     title: "Session Moved 📅",
-    body: `Your session is now ${new Date(scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`,
+    body: `Your session is now ${formatGymDateTime(scheduled_at)}`,
     url: "/client",
   }).catch(() => {});
 
