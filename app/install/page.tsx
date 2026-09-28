@@ -189,9 +189,9 @@ export default function InstallPage() {
             Install PDX Fitness<br />on your phone
           </div>
           <div style={{ fontSize: 16, color: "#94A3B8", lineHeight: 1.65 }}>
-            Add PDX Fitness to your home screen as a real app. Opens fullscreen and lets you receive
-            push notifications when your trainer sends a message, posts an announcement, or responds
-            to your check-in.
+            Add PDX Fitness to your home screen as a real app. This allows the app to open in
+            fullscreen and lets you receive push notifications when your trainer sends a message,
+            posts an announcement, or responds to your check-in.
           </div>
         </div>
 
