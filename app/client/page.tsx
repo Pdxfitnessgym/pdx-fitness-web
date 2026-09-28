@@ -239,9 +239,10 @@ export default async function ClientDashboard() {
 
         {/* Sessions shortcuts */}
         <div style={{ marginBottom: 16, display: "flex", gap: 10 }}>
-          <a href="/client/book" style={{ ...cardStyle, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", textDecoration: "none", padding: "16px 12px", border: "2px solid #1B68B4" }}>
-            <div style={{ fontSize: 28, marginBottom: 6 }}>📆</div>
-            <div style={{ fontWeight: 700, fontSize: 14, color: "#1B68B4" }}>Book Session</div>
+          <a href="/client/request-session" style={{ ...cardStyle, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", textDecoration: "none", padding: "16px 12px", border: "2px solid #1B68B4" }}>
+            <div style={{ fontSize: 28, marginBottom: 6 }}>💬</div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: "#1B68B4" }}>Request Session</div>
+            <div style={{ fontSize: 11, color: "#6B7A8D", marginTop: 3 }}>Message your coach</div>
           </a>
           <a href="/client/sessions" style={{ ...cardStyle, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", textDecoration: "none", padding: "16px 12px" }}>
             <div style={{ fontSize: 28, marginBottom: 6 }}>🤝</div>
