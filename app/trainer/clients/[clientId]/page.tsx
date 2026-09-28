@@ -136,8 +136,8 @@ export default async function ClientDetailPage({
         .not("completed_at", "is", null).gte("completed_at", monday.toISOString()).lt("completed_at", sunday.toISOString()),
       supabase.from("habit_logs").select("logged_date").eq("client_id", clientId)
         .gte("logged_date", monday.toLocaleDateString("en-CA")).lt("logged_date", sunday.toLocaleDateString("en-CA")),
-      supabase.from("food_logs").select("logged_at").eq("client_id", clientId)
-        .gte("logged_at", monday.toISOString()).lt("logged_at", sunday.toISOString()),
+      supabase.from("food_logs").select("logged_date").eq("client_id", clientId)
+        .gte("logged_date", monday.toLocaleDateString("en-CA")).lt("logged_date", sunday.toLocaleDateString("en-CA")),
     ]);
 
     const mark = (dates: Date[]) => {
@@ -151,7 +151,7 @@ export default async function ClientDetailPage({
 
     compliance = [
       { label: "Workouts", days: mark((wl.data ?? []).map(r => new Date(r.completed_at as string))) },
-      { label: "Nutrition", days: mark((fl.data ?? []).map(r => new Date(r.logged_at as string))) },
+      { label: "Nutrition", days: mark((fl.data ?? []).map(r => new Date((r.logged_date as string) + "T12:00:00"))) },
       { label: "Habits", days: mark((hl.data ?? []).map(r => new Date((r.logged_date as string) + "T12:00:00"))) },
     ];
     const endLabel = new Date(sunday.getTime() - 86400000);
