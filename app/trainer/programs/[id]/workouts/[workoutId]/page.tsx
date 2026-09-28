@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { HomeLink } from "@/app/components/HomeLink";
+import { getYouTubeId } from "@/lib/youtube";
 
 const GROUP_COLORS = ["#1B68B4", "#2DC4B8"];
 
@@ -42,10 +43,6 @@ const WEIGHT_TYPES = [
   { value: "bodyweight", label: "Bodyweight" },
 ];
 
-function getYouTubeId(url: string): string | null {
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([^&\n?#]+)/);
-  return match ? match[1] : null;
-}
 
 function groupLetter(id: number) { return String.fromCharCode(64 + id); }
 function groupColor(id: number) { return GROUP_COLORS[(id - 1) % GROUP_COLORS.length]; }

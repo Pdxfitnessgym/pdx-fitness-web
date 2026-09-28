@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { HomeLink } from "@/app/components/HomeLink";
+import { getYouTubeId } from "@/lib/youtube";
 
 type Exercise = {
   id: string;
@@ -52,10 +53,6 @@ const DIFF_COLOR: Record<string, string> = {
   advanced: "#EF4444",
 };
 
-function getYouTubeId(url: string): string | null {
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/);
-  return match ? match[1] : null;
-}
 
 export default function StandaloneWorkoutEditorPage() {
   const params = useParams();

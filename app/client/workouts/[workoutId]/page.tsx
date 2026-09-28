@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 import { buildSetKey, calcTotalSets, isExerciseDone, parseRepsInput, parseWeightInput, repsInputMode, repsToText, totalVolumeLbs, volumeComparison, weightToNumber, type Side } from "@/lib/workout-utils";
 import { HomeLink } from "@/app/components/HomeLink";
+import { getYouTubeId } from "@/lib/youtube";
 
 type ExerciseRow = {
   id: string;
@@ -23,10 +24,6 @@ type ExerciseRow = {
   weight_type: string | null;
 };
 
-function getYouTubeId(url: string): string | null {
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([^&\n?#]+)/);
-  return match ? match[1] : null;
-}
 
 type SetKey = string;
 type LoggedSet = { reps: string | null; weight: number | null };

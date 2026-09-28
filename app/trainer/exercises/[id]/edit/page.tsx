@@ -27,6 +27,8 @@ export default function EditExercisePage() {
   const [saving, setSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState("");
+  const [isMaster, setIsMaster] = useState(false);
+  const [canEditMaster, setCanEditMaster] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -44,6 +46,9 @@ export default function EditExercisePage() {
       setInstructions(ex.instructions ?? "");
       setYoutubeUrl(ex.youtube_url ?? "");
       setExistingVideoUrl(ex.video_url ?? null);
+      setIsMaster(ex.trainer_id === null);
+      const { data: me } = await supabase.from("profiles").select("is_admin").eq("id", user.id).single();
+      setCanEditMaster(!!me?.is_admin);
       setLoading(false);
     }
     load();
@@ -97,8 +102,18 @@ export default function EditExercisePage() {
       };
       if (video_url !== undefined) update.video_url = video_url;
 
-      const { error: dbError } = await supabase.from("exercise_library").update(update).eq("id", id);
+      const { data: saved, error: dbError } = await supabase
+        .from("exercise_library").update(update).eq("id", id).select("id");
       if (dbError) { setError("Save failed: " + dbError.message); setSaving(false); return; }
+      if (!saved?.length) {
+        setError(
+          "Nothing was saved — this is a master exercise, and only the gym admin account can change those. " +
+          "Add it to your own library instead and edit your copy.",
+        );
+        setSaving(false);
+        setUploadProgress(0);
+        return;
+      }
 
       setUploadProgress(100);
       router.push(`/trainer/exercises/${id}`);
@@ -124,6 +139,12 @@ export default function EditExercisePage() {
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px" }}>
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {error && <div style={{ background: "#FEE2E2", color: "#DC2626", padding: "12px 16px", borderRadius: 10, fontSize: 14 }}>{error}</div>}
+
+          {isMaster && !canEditMaster && (
+            <div style={{ background: "#FEF3C7", color: "#92400E", padding: "12px 16px", borderRadius: 10, fontSize: 13, fontWeight: 600 }}>
+              This is a master exercise. Only the gym admin account can change it — your edits here won&apos;t save.
+            </div>
+          )}
 
           {/* Video */}
           <div style={cardStyle}>

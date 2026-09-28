@@ -3,11 +3,8 @@ import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { getYouTubeId } from "@/lib/youtube";
 
-function getYouTubeId(url: string): string | null {
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/);
-  return match ? match[1] : null;
-}
 
 type Exercise = { id: string; name: string; muscle_group: string | null; equipment: string | null; video_url: string | null; youtube_url: string | null; trainer_id: string | null };
 type Selected = { exercise: Exercise; sets: number; reps: string; rest_seconds: number; notes: string };

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { getYouTubeId } from "@/lib/youtube";
 
 export type Ex = {
   id: string; name: string; muscle_group: string | null; equipment: string | null;
@@ -8,10 +9,6 @@ export type Ex = {
   trainer_id: string | null;
 };
 
-function getYouTubeId(url: string): string | null {
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/);
-  return match ? match[1] : null;
-}
 
 function matches(ex: Ex, q: string) {
   return (
