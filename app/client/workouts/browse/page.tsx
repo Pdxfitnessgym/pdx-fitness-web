@@ -126,7 +126,7 @@ export default async function BrowseWorkoutsPage({
 
         {extras.length > 0 && (
           <div>
-            <div style={sectionLabel}>Your Workouts</div>
+            <div style={sectionLabel}>Your Saved Workouts</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {extras.map(w => (
                 <WorkoutRow key={w.id} w={w} icon={w.own ? "✏️" : "⚡"} href={`/client/workouts/${w.id}`} />
