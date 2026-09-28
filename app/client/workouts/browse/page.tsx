@@ -76,11 +76,22 @@ export default async function BrowseWorkoutsPage({
   const assignedRows = (assignedRes.data ?? []) as unknown as
     { workout_id: string; workouts: (LibWorkout & { created_by: string | null }) | (LibWorkout & { created_by: string | null })[] }[];
   const assignedIds = new Set(assignedRows.map(r => r.workout_id));
-  // Workouts a trainer handed them — the ones they built themselves get their
-  // own section below, so don't list them twice.
-  const assigned = assignedRows
-    .map(r => (Array.isArray(r.workouts) ? r.workouts[0] : r.workouts))
-    .filter((w): w is LibWorkout & { created_by: string | null } => Boolean(w) && w.created_by !== user.id);
+
+  // One list: from the client's side "a workout I can do" is the same thing
+  // whether their trainer set it up or they built it. The icon says which.
+  const extras: (LibWorkout & { own: boolean })[] = [];
+  const seen = new Set<string>();
+  for (const row of assignedRows) {
+    const w = Array.isArray(row.workouts) ? row.workouts[0] : row.workouts;
+    if (!w || seen.has(w.id)) continue;
+    seen.add(w.id);
+    extras.push({ ...w, own: w.created_by === user.id });
+  }
+  for (const w of mine) {
+    if (seen.has(w.id)) continue;
+    seen.add(w.id);
+    extras.push({ ...w, own: true });
+  }
 
   return (
     <div style={{ minHeight: "100dvh", background: "#F4F7FA", paddingBottom: 90 }}>
@@ -113,11 +124,13 @@ export default async function BrowseWorkoutsPage({
           </div>
         )}
 
-        {assigned.length > 0 && (
+        {extras.length > 0 && (
           <div>
-            <div style={sectionLabel}>Assigned To You</div>
+            <div style={sectionLabel}>Your Workouts</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {assigned.map(w => <WorkoutRow key={w.id} w={w} icon="⚡" href={`/client/workouts/${w.id}`} />)}
+              {extras.map(w => (
+                <WorkoutRow key={w.id} w={w} icon={w.own ? "✏️" : "⚡"} href={`/client/workouts/${w.id}`} />
+              ))}
             </div>
           </div>
         )}
@@ -140,16 +153,6 @@ Travelling or stuck without equipment? Put together a one-off. Only you can see 
             </button>
           </form>
         </div>
-
-        {/* Workouts they made */}
-        {mine.length > 0 && (
-          <div>
-            <div style={sectionLabel}>My Own Workouts</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {mine.map(w => <WorkoutRow key={w.id} w={w} icon="✏️" href={`/client/workouts/${w.id}`} />)}
-            </div>
-          </div>
-        )}
 
         {/* Trainer's shared library */}
         <div>

@@ -120,7 +120,7 @@ export default async function ClientWorkoutsPage({
         <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px" }}>
           <StartButton />
           <div style={{ fontSize: 12, fontWeight: 700, color: "#6B7A8D", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>
-            Assigned To You
+            Your Workouts
           </div>
           <OnDemandGrid workouts={standaloneWorkouts} />
         </div>
@@ -199,7 +199,7 @@ export default async function ClientWorkoutsPage({
         {standaloneWorkouts.length > 0 && (
           <div style={{ marginTop: 8 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: "#6B7A8D", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>
-              Assigned To You
+              Your Workouts
             </div>
             <OnDemandGrid workouts={standaloneWorkouts} />
           </div>
