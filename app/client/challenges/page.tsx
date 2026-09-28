@@ -201,8 +201,8 @@ export default function ClientChallengesPage() {
             {challenges.length === 0 && (
               <div style={{ background: "#fff", borderRadius: 16, padding: "48px 24px", border: "1px solid #E2EAF0", textAlign: "center" }}>
                 <div style={{ fontSize: 48, marginBottom: 12 }}>🏆</div>
-                <div style={{ fontWeight: 700, fontSize: 17, color: "#0D1827", marginBottom: 6 }}>No active challenges</div>
-                <div style={{ fontSize: 14, color: "#6B7A8D" }}>Your trainer will post challenges here. Check back soon!</div>
+                <div style={{ fontWeight: 700, fontSize: 17, color: "#0D1827", marginBottom: 6 }}>Coming soon!</div>
+                <div style={{ fontSize: 14, color: "#6B7A8D" }}>Group challenges are on the way. Watch this space.</div>
               </div>
             )}
           </>
