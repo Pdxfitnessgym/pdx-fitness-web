@@ -823,7 +823,7 @@ function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId, volumeLbs }:
         const url = supabase.storage.from("post-media").getPublicUrl(path).data.publicUrl;
         if (isVideo) video_url = url; else photo_url = url;
       }
-      await supabase.from("posts").insert({ author_id: user.id, content: caption.trim() || null, photo_url, video_url, post_type: "workout_complete", workout_name: workoutName, workout_log_id: workoutLogId });
+      await supabase.from("posts").insert({ author_id: user.id, content: caption.trim() || null, photo_url, video_url, post_type: "workout_complete", workout_name: workoutName, workout_log_id: workoutLogId, total_volume_lbs: volumeLbs > 0 ? volumeLbs : null });
       setShared(true);
     } catch { setError("Something went wrong"); } finally { setSharing(false); }
   }
@@ -870,7 +870,12 @@ function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId, volumeLbs }:
         <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 6 }}>Only your trainer sees this.</div>
       </div>
       <div style={{ background: "#fff", borderRadius: 16, padding: 18, border: "1px solid #E2EAF0", marginBottom: 16 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827", marginBottom: 12 }}>Share with the community 🔥</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827", marginBottom: 4 }}>Share with the community 🔥</div>
+        {volumeLbs > 0 && (
+          <div style={{ fontSize: 12, color: "#6B7A8D", marginBottom: 12 }}>
+            Your {volumeLbs.toLocaleString()} lbs total will show on the post.
+          </div>
+        )}
         <textarea value={caption} onChange={e => setCaption(e.target.value)} placeholder="How did it go? Any PRs? Hype it up..." rows={3}
           style={{ width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 14, color: "#0D1827", outline: "none", resize: "none", fontFamily: "inherit" }} />
         {mediaPreview && (

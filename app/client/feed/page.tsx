@@ -14,6 +14,7 @@ type Post = {
   video_url: string | null;
   post_type: string;
   workout_name: string | null;
+  total_volume_lbs: number | null;
   group_id: string | null;
   group_name: string | null;
   group_emoji: string | null;
@@ -68,7 +69,7 @@ export default function FeedPage() {
     let query = supabase
       .from("posts")
       .select(`
-        id, author_id, content, photo_url, video_url, post_type, workout_name, group_id, created_at,
+        id, author_id, content, photo_url, video_url, post_type, workout_name, total_volume_lbs, group_id, created_at,
         groups(name, emoji),
         post_likes(user_id),
         post_comments(id, author_id, content, created_at)
@@ -108,6 +109,7 @@ export default function FeedPage() {
       video_url: p.video_url,
       post_type: p.post_type,
       workout_name: p.workout_name,
+      total_volume_lbs: p.total_volume_lbs,
       group_id: p.group_id,
       group_name: p.groups?.name ?? null,
       group_emoji: p.groups?.emoji ?? null,
@@ -384,10 +386,19 @@ function PostCard({ post, me, expandedComments, commentInputs, submittingComment
         </div>
       </div>
 
-      {/* Workout name pill */}
-      {post.workout_name && (
-        <div style={{ margin: "10px 16px 0", display: "inline-block", background: "#EBF4FF", color: "#1B68B4", fontSize: 12, fontWeight: 700, padding: "4px 10px", borderRadius: 20 }}>
-          {post.workout_name}
+      {/* Workout name + how much they moved */}
+      {(post.workout_name || post.total_volume_lbs) && (
+        <div style={{ margin: "10px 16px 0", display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {post.workout_name && (
+            <span style={{ background: "#EBF4FF", color: "#1B68B4", fontSize: 12, fontWeight: 700, padding: "4px 10px", borderRadius: 20 }}>
+              {post.workout_name}
+            </span>
+          )}
+          {post.total_volume_lbs ? (
+            <span style={{ background: "linear-gradient(135deg, #1B68B4 0%, #2DC4B8 100%)", color: "#fff", fontSize: 12, fontWeight: 800, padding: "4px 10px", borderRadius: 20 }}>
+              🏋️ {post.total_volume_lbs.toLocaleString()} lbs lifted
+            </span>
+          ) : null}
         </div>
       )}
 
