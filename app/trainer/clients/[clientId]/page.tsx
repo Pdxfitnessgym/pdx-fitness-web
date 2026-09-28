@@ -131,12 +131,12 @@ export default async function ClientDetailPage({
     sunday.setDate(monday.getDate() + 7);
     const dayIndex = (d: Date) => Math.floor((d.getTime() - monday.getTime()) / 86400000);
 
-    const [wl, hl, fl] = await Promise.all([
+    // Nutrition sits out of the grid until meal logging is ready — the working
+    // food_logs query is in commit c6f336d when it's time to put it back.
+    const [wl, hl] = await Promise.all([
       supabase.from("workout_logs").select("completed_at").eq("client_id", clientId)
         .not("completed_at", "is", null).gte("completed_at", monday.toISOString()).lt("completed_at", sunday.toISOString()),
       supabase.from("habit_logs").select("logged_date").eq("client_id", clientId)
-        .gte("logged_date", monday.toLocaleDateString("en-CA")).lt("logged_date", sunday.toLocaleDateString("en-CA")),
-      supabase.from("food_logs").select("logged_date").eq("client_id", clientId)
         .gte("logged_date", monday.toLocaleDateString("en-CA")).lt("logged_date", sunday.toLocaleDateString("en-CA")),
     ]);
 
@@ -151,7 +151,6 @@ export default async function ClientDetailPage({
 
     compliance = [
       { label: "Workouts", days: mark((wl.data ?? []).map(r => new Date(r.completed_at as string))) },
-      { label: "Nutrition", days: mark((fl.data ?? []).map(r => new Date((r.logged_date as string) + "T12:00:00"))) },
       { label: "Habits", days: mark((hl.data ?? []).map(r => new Date((r.logged_date as string) + "T12:00:00"))) },
     ];
     const endLabel = new Date(sunday.getTime() - 86400000);

@@ -23,7 +23,6 @@ function fmtDateTime(iso: string) {
 export default function ClientSessionsPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
-  const [cancelling, setCancelling] = useState<string | null>(null);
 
   useEffect(() => { load(); }, []);
 
@@ -43,14 +42,6 @@ export default function ClientSessionsPage() {
     setLoading(false);
   }
 
-  async function cancelSession(id: string) {
-    setCancelling(id);
-    const supabase = createClient();
-    await supabase.from("training_sessions").update({ status: "cancelled" }).eq("id", id);
-    await load();
-    setCancelling(null);
-  }
-
   const now = new Date().toISOString();
   const upcoming = sessions.filter(s => (s.status === "scheduled" || s.status === "pending") && s.scheduled_at >= now);
   const past = sessions.filter(s => ["completed", "no_show", "cancelled"].includes(s.status) || (s.status === "scheduled" && s.scheduled_at < now));
@@ -66,10 +57,9 @@ export default function ClientSessionsPage() {
   function SessionCard({ s }: { s: Session }) {
     const { date, time } = fmtDateTime(s.scheduled_at);
     const style = statusStyle[s.status] ?? statusStyle.cancelled;
-    const canCancel = (s.status === "pending" || s.status === "scheduled") && s.scheduled_at >= now;
     return (
       <div style={{ background: "#fff", borderRadius: 14, padding: 18, border: "1px solid #E2EAF0" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: canCancel ? 12 : 0 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827" }}>{date}</div>
             <div style={{ fontSize: 14, color: "#6B7A8D", marginTop: 2 }}>{time} · with {s.trainer?.full_name ?? "Trainer"}</div>
@@ -77,15 +67,6 @@ export default function ClientSessionsPage() {
           </div>
           <div style={{ fontSize: 12, fontWeight: 700, padding: "4px 10px", borderRadius: 20, background: style.bg, color: style.color, flexShrink: 0, whiteSpace: "nowrap" }}>{style.label}</div>
         </div>
-        {canCancel && (
-          <button
-            onClick={() => cancelSession(s.id)}
-            disabled={cancelling === s.id}
-            style={{ padding: "10px 16px", borderRadius: 10, background: "#FEE2E2", color: "#DC2626", fontWeight: 600, fontSize: 13, border: "none", cursor: "pointer", opacity: cancelling === s.id ? 0.6 : 1 }}
-          >
-            {cancelling === s.id ? "Cancelling..." : "Cancel Session"}
-          </button>
-        )}
       </div>
     );
   }
