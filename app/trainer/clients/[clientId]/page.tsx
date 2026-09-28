@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { assignProgram, inviteClient, assignWorkoutToClient, unassignWorkoutFromClient, createAdHocWorkout, toggleClientGroup, removeProgramFromClient } from "@/app/actions/clients";
+import { assignProgram, inviteClient, assignWorkoutToClient, unassignWorkoutFromClient, createAdHocWorkout, toggleClientGroup, removeProgramFromClient, removeClientFromRoster, deleteClientAccount } from "@/app/actions/clients";
 import Link from "next/link";
 import { SessionsPanel } from "@/app/components/SessionsPanel";
 import { ClientNotesEditor } from "@/app/components/ClientNotesEditor";
@@ -200,6 +200,21 @@ export default async function ClientDetailPage({
       const { data: hlData } = await supabase.from("habit_logs").select("habit_id, logged_date").eq("client_id", clientId).gte("logged_date", thirtyAgo.toISOString().split("T")[0]);
       habitLogs = hlData;
     }
+  }
+
+  // Only counted when the delete confirmation is open — it's an extra round trip
+  let deleteImpact: { workouts: number; sets: number; progress: number; sessions: number } | null = null;
+  if (sp.confirm_delete) {
+    const [wl, sl, pl, ts] = await Promise.all([
+      supabase.from("workout_logs").select("*", { count: "exact", head: true }).eq("client_id", clientId),
+      supabase.from("set_logs").select("*", { count: "exact", head: true }).eq("client_id", clientId),
+      supabase.from("progress_logs").select("*", { count: "exact", head: true }).eq("client_id", clientId),
+      supabase.from("training_sessions").select("*", { count: "exact", head: true }).eq("client_id", clientId),
+    ]);
+    deleteImpact = {
+      workouts: wl.count ?? 0, sets: sl.count ?? 0,
+      progress: pl.count ?? 0, sessions: ts.count ?? 0,
+    };
   }
 
   const today = new Date().toISOString().split("T")[0];
@@ -842,7 +857,59 @@ export default async function ClientDetailPage({
 
         {/* ── NOTES TAB ── */}
         {tab === "notes" && (
-          <ClientNotesEditor clientId={clientId} initialNotes={(client as any).client_notes ?? ""} />
+          <>
+            <ClientNotesEditor clientId={clientId} initialNotes={(client as any).client_notes ?? ""} />
+
+            {/* Danger zone */}
+            <div style={{ ...card, borderColor: "#FCA5A5", marginTop: 8 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#991B1B", marginBottom: 4 }}>Remove this client</div>
+              <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 14 }}>
+                Two different things — pick carefully.
+              </div>
+
+              <form action={removeClientFromRoster} style={{ marginBottom: 10 }}>
+                <input type="hidden" name="client_id" value={clientId} />
+                <button type="submit" style={{ width: "100%", padding: "12px", borderRadius: 10, background: "#fff", border: "1px solid #E2EAF0", color: "#0D1827", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                  Remove from my clients
+                </button>
+                <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: 6 }}>
+                  Keeps their account and all their data. They go back to New Signups and can be reassigned.
+                </div>
+              </form>
+
+              {sp.confirm_delete ? (
+                <div style={{ background: "#FEE2E2", border: "1px solid #FCA5A5", borderRadius: 10, padding: "14px", marginTop: 14 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "#991B1B", marginBottom: 8 }}>
+                    ⚠️ Permanently delete {client.full_name}?
+                  </div>
+                  <div style={{ fontSize: 13, color: "#991B1B", lineHeight: 1.6, marginBottom: 14 }}>
+                    This erases their account and everything in it — they will be signed out and cannot log in again. This cannot be undone.
+                    {deleteImpact && (
+                      <>
+                        <br /><br />
+                        Deleting now destroys <strong>{deleteImpact.workouts} logged workouts</strong>, <strong>{deleteImpact.sets} recorded sets</strong>, {deleteImpact.progress} progress entries and {deleteImpact.sessions} training sessions, plus their goals, habits, messages and posts.
+                      </>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <Link href={`/trainer/clients/${clientId}?tab=notes`} style={{ flex: 1, textAlign: "center", padding: "12px", borderRadius: 10, background: "#fff", border: "1px solid #E2EAF0", color: "#0D1827", fontWeight: 700, fontSize: 14, textDecoration: "none" }}>
+                      Cancel
+                    </Link>
+                    <form action={deleteClientAccount} style={{ flex: 1 }}>
+                      <input type="hidden" name="client_id" value={clientId} />
+                      <button type="submit" style={{ width: "100%", padding: "12px", borderRadius: 10, background: "#DC2626", border: "none", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                        Delete forever
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              ) : (
+                <Link href={`/trainer/clients/${clientId}?tab=notes&confirm_delete=1`} style={{ display: "block", textAlign: "center", padding: "12px", borderRadius: 10, background: "#FEE2E2", color: "#991B1B", fontWeight: 700, fontSize: 14, textDecoration: "none", marginTop: 4 }}>
+                  Delete account permanently
+                </Link>
+              )}
+            </div>
+          </>
         )}
 
         {/* ── HABITS TAB ── */}

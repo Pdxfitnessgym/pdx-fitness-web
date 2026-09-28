@@ -155,6 +155,47 @@ export async function inviteClient(formData: FormData) {
   redirect(`/trainer/clients/${clientId}?invited=${linkErr ? "nomail" : "1"}`);
 }
 
+// Take someone off your roster without touching their data. They return to the
+// New Signups queue and can be picked up by any trainer.
+export async function removeClientFromRoster(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const clientId = formData.get("client_id") as string;
+  const svc = createServiceClient();
+  const { data: client } = await svc.from("profiles").select("id, trainer_id").eq("id", clientId).single();
+  const { data: me } = await svc.from("profiles").select("is_admin").eq("id", user.id).single();
+  if (!client || (client.trainer_id !== user.id && !me?.is_admin)) redirect("/trainer/clients");
+
+  await svc.from("profiles").update({ trainer_id: null }).eq("id", clientId);
+  revalidatePath("/trainer/clients");
+  redirect("/trainer/clients?removed_from_roster=1");
+}
+
+// Permanently delete the account. Deleting the auth user cascades through profiles
+// to every record they own — workout and set logs, progress, goals, habits,
+// sessions, messages, posts. There is no undo.
+export async function deleteClientAccount(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const clientId = formData.get("client_id") as string;
+  const svc = createServiceClient();
+  const { data: client } = await svc.from("profiles").select("id, role, trainer_id").eq("id", clientId).single();
+  const { data: me } = await svc.from("profiles").select("is_admin").eq("id", user.id).single();
+
+  if (!client || client.role !== "client") redirect("/trainer/clients");
+  if (client.trainer_id !== user.id && !me?.is_admin) redirect("/trainer/clients");
+
+  const { error } = await svc.auth.admin.deleteUser(clientId);
+  if (error) redirect(`/trainer/clients/${clientId}?error=delete_failed`);
+
+  revalidatePath("/trainer/clients");
+  redirect("/trainer/clients?deleted=1");
+}
+
 export async function assignProgram(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
