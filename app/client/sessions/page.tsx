@@ -104,9 +104,9 @@ export default function ClientSessionsPage() {
           <div style={{ textAlign: "center", padding: 40, color: "#6B7A8D" }}>Loading...</div>
         ) : (
           <>
-            {/* Book button */}
-            <Link href="/client/book" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "14px", borderRadius: 12, background: "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 15, textDecoration: "none", textAlign: "center" }}>
-              + Book a Session
+            {/* Sessions are booked by the trainer — this opens the chat instead */}
+            <Link href="/client/request-session" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "14px", borderRadius: 12, background: "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 15, textDecoration: "none", textAlign: "center" }}>
+              💬 Request a Session
             </Link>
 
             {/* Upcoming */}

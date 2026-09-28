@@ -164,7 +164,7 @@ export default function ClientProfilePage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
             {[
               { icon: "💬", label: "Message", href: "/client/messages" },
-              { icon: "📆", label: "Book", href: "/client/book" },
+              { icon: "📆", label: "Request", href: "/client/request-session" },
               { icon: "📈", label: "Progress", href: "/client/progress" },
               { icon: "🌱", label: "Habits", href: "/client/habits" },
             ].map(item => (
@@ -200,7 +200,7 @@ export default function ClientProfilePage() {
           <div style={{ background: "#fff", marginBottom: 8 }}>
             <div style={{ padding: "16px 20px 4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 1 }}>Session Credits</div>
-              <Link href="/client/book" style={{ fontSize: 13, fontWeight: 700, color: "#1B68B4", textDecoration: "none" }}>+ Book</Link>
+              <Link href="/client/request-session" style={{ fontSize: 13, fontWeight: 700, color: "#1B68B4", textDecoration: "none" }}>+ Request</Link>
             </div>
             <div style={{ padding: "12px 20px 20px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>

@@ -59,8 +59,8 @@ export async function POST(req: NextRequest) {
 
     await sendPushToUser(session.client_id, {
       title: "Session Request Declined",
-      body: "Your trainer couldn't confirm that slot. Try another time.",
-      url: "/client/book",
+      body: "Your trainer couldn't confirm that slot. Message them to find another time.",
+      url: "/client/request-session",
     });
   }
 
