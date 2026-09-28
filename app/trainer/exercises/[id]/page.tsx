@@ -18,7 +18,8 @@ export default async function ExerciseDetailPage({ params }: { params: Promise<{
     .eq("id", id)
     .single();
 
-  if (!ex || (ex.trainer_id !== null && ex.trainer_id !== user.id)) redirect("/trainer/exercises");
+  // Shared library — any trainer can open and edit any exercise; RLS enforces it
+  if (!ex) redirect("/trainer/exercises");
 
   return (
     <div style={{ minHeight: "100dvh", background: "#F4F7FA" }}>

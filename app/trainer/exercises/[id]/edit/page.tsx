@@ -27,8 +27,6 @@ export default function EditExercisePage() {
   const [saving, setSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState("");
-  const [isMaster, setIsMaster] = useState(false);
-  const [canEditMaster, setCanEditMaster] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -36,19 +34,13 @@ export default function EditExercisePage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
       const { data: ex } = await supabase.from("exercise_library").select("*").eq("id", id).single();
-      if (!ex || (ex.trainer_id !== null && ex.trainer_id !== user.id)) {
-        router.push("/trainer/exercises");
-        return;
-      }
+      if (!ex) { router.push("/trainer/exercises"); return; }
       setName(ex.name ?? "");
       setMuscleGroup(ex.muscle_group ?? "");
       setEquipment(ex.equipment ?? "");
       setInstructions(ex.instructions ?? "");
       setYoutubeUrl(ex.youtube_url ?? "");
       setExistingVideoUrl(ex.video_url ?? null);
-      setIsMaster(ex.trainer_id === null);
-      const { data: me } = await supabase.from("profiles").select("is_admin").eq("id", user.id).single();
-      setCanEditMaster(!!me?.is_admin);
       setLoading(false);
     }
     load();
@@ -106,10 +98,7 @@ export default function EditExercisePage() {
         .from("exercise_library").update(update).eq("id", id).select("id");
       if (dbError) { setError("Save failed: " + dbError.message); setSaving(false); return; }
       if (!saved?.length) {
-        setError(
-          "Nothing was saved — this is a master exercise, and only the gym admin account can change those. " +
-          "Add it to your own library instead and edit your copy.",
-        );
+        setError("Nothing was saved — the exercise may have been deleted. Go back and try again.");
         setSaving(false);
         setUploadProgress(0);
         return;
@@ -140,11 +129,6 @@ export default function EditExercisePage() {
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {error && <div style={{ background: "#FEE2E2", color: "#DC2626", padding: "12px 16px", borderRadius: 10, fontSize: 14 }}>{error}</div>}
 
-          {isMaster && !canEditMaster && (
-            <div style={{ background: "#FEF3C7", color: "#92400E", padding: "12px 16px", borderRadius: 10, fontSize: 13, fontWeight: 600 }}>
-              This is a master exercise. Only the gym admin account can change it — your edits here won&apos;t save.
-            </div>
-          )}
 
           {/* Video */}
           <div style={cardStyle}>
