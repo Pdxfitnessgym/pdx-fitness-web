@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
+import { gymToday } from "@/lib/time";
 
 const EMOJI_OPTIONS = ["💧", "🏃", "😴", "🥗", "🧘", "💊", "📖", "🚶", "🧴", "🍎", "🏋️", "☀️"];
 
@@ -22,7 +23,7 @@ export default function HabitsPage() {
   const [emoji, setEmoji] = useState("✅");
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
-  const today = new Date().toISOString().split("T")[0];
+  const today = gymToday();
 
   async function fetchHabits() {
     const supabase = createClient();
@@ -41,7 +42,7 @@ export default function HabitsPage() {
     // fetch logs for past 30 days to calculate streaks + today's state
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const since = thirtyDaysAgo.toISOString().split("T")[0];
+    const since = gymToday(thirtyDaysAgo);
 
     const { data: logs } = await supabase
       .from("habit_logs")
@@ -64,7 +65,7 @@ export default function HabitsPage() {
       const check = new Date();
       if (!doneToday) check.setDate(check.getDate() - 1);
       while (true) {
-        const d = check.toISOString().split("T")[0];
+        const d = gymToday(check);
         if (!dates.has(d)) break;
         streak++;
         check.setDate(check.getDate() - 1);
