@@ -105,11 +105,12 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                   <select
                     name="trainer_id"
                     defaultValue={user.id}
-                    style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #FCD34D", background: "#fff", fontSize: 13, color: "#0D1827", outline: "none", maxWidth: 150 }}
+                    style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #FCD34D", background: "#fff", fontSize: 13, color: "#0D1827", outline: "none", maxWidth: 190 }}
                   >
                     {(trainers ?? []).map(t => (
                       <option key={t.id} value={t.id}>
-                        {t.id === user.id ? "Me" : (t.full_name ?? t.email)}
+                        {/* Names can collide between accounts, so always show the email */}
+                        {t.id === user.id ? "Me" : (t.full_name?.trim() || "Trainer")} — {t.email}
                       </option>
                     ))}
                   </select>
