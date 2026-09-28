@@ -11,7 +11,7 @@ const STEPS: Record<Tab, { title: string; body: React.ReactNode }[]> = {
       body: (
         <>
           Make sure you&apos;re viewing this page in <strong>Safari</strong> (not Chrome or another browser).
-          The URL bar should show <strong>pdx-fitness.vercel.app</strong>.
+          The URL bar should show <strong>pdx-fitness-web.vercel.app</strong>.
         </>
       ),
     },
