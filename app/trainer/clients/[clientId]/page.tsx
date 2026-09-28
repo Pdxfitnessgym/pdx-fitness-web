@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { assignProgram, inviteClient, assignWorkoutToClient, unassignWorkoutFromClient, createAdHocWorkout, toggleClientGroup, removeProgramFromClient, removeClientFromRoster, deleteClientAccount } from "@/app/actions/clients";
+import { assignProgram, inviteClient, assignWorkoutToClient, unassignWorkoutFromClient, deleteWorkout, createAdHocWorkout, toggleClientGroup, removeProgramFromClient, removeClientFromRoster, deleteClientAccount } from "@/app/actions/clients";
 import Link from "next/link";
 import { SessionsPanel } from "@/app/components/SessionsPanel";
 import { ClientNotesEditor } from "@/app/components/ClientNotesEditor";
@@ -349,6 +349,16 @@ export default async function ClientDetailPage({
             That email is already used by another account.
           </div>
         )}
+        {sp.error === "workout_has_logs" && (
+          <div style={{ background: "#FEF3C7", color: "#92400E", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
+            That workout has logged sessions, so it wasn&apos;t deleted — removing it would wipe that history. Use Remove to take it off this client instead.
+          </div>
+        )}
+        {sp.error === "workout_delete_failed" && (
+          <div style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
+            Couldn&apos;t delete that workout — it belongs to another trainer.
+          </div>
+        )}
         {(sp.error === "invite_failed" || sp.error === "not_invitable") && (
           <div style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
             Couldn&apos;t send that invite. Try again.
@@ -518,7 +528,12 @@ export default async function ClientDetailPage({
                       <form action={unassignWorkoutFromClient}>
                         <input type="hidden" name="client_id" value={clientId} />
                         <input type="hidden" name="workout_id" value={w.id} />
-                        <button type="submit" title="Remove" style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", fontSize: 15, padding: 4 }}>✕</button>
+                        <button type="submit" title="Take it off this client — the workout itself is kept" style={{ background: "none", border: "none", cursor: "pointer", color: "#6B7A8D", fontSize: 12, fontWeight: 600, padding: 4, whiteSpace: "nowrap" }}>Remove</button>
+                      </form>
+                      <form action={deleteWorkout}>
+                        <input type="hidden" name="client_id" value={clientId} />
+                        <input type="hidden" name="workout_id" value={w.id} />
+                        <button type="submit" title="Delete this workout entirely" style={{ background: "none", border: "none", cursor: "pointer", color: "#DC2626", fontSize: 12, fontWeight: 600, padding: 4, whiteSpace: "nowrap" }}>Delete</button>
                       </form>
                     </div>
                   ))}

@@ -351,6 +351,33 @@ export async function unassignWorkoutFromClient(formData: FormData) {
   redirect(`/trainer/clients/${client_id}`);
 }
 
+// Delete a one-off workout outright, for clearing up mistakes. Deleting cascades
+// to workout_logs, so anything with a logged session is refused rather than
+// quietly wiping the client's history.
+export async function deleteWorkout(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const client_id = formData.get("client_id") as string;
+  const workout_id = formData.get("workout_id") as string;
+
+  const { count } = await supabase
+    .from("workout_logs")
+    .select("id", { count: "exact", head: true })
+    .eq("workout_id", workout_id);
+
+  if ((count ?? 0) > 0) redirect(`/trainer/clients/${client_id}?error=workout_has_logs`);
+
+  const { data: deleted } = await supabase
+    .from("workouts").delete().eq("id", workout_id).select("id");
+
+  if (!deleted?.length) redirect(`/trainer/clients/${client_id}?error=workout_delete_failed`);
+
+  revalidatePath(`/trainer/clients/${client_id}`);
+  redirect(`/trainer/clients/${client_id}`);
+}
+
 // Add/remove a client from one of the trainer's groups, straight from their page.
 export async function toggleClientGroup(formData: FormData) {
   const supabase = await createClient();
