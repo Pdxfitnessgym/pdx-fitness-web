@@ -375,6 +375,13 @@ async function CalendarView({ clientId, month }: { clientId: string; month?: str
           </div>
         )}
 
+        <Link
+          href="/client/workouts/browse"
+          style={{ display: "block", textAlign: "center", padding: "12px", fontSize: 13, color: "#6B7A8D", textDecoration: "none", marginTop: 4 }}
+        >
+          Travelling or want something different? <span style={{ color: "#2DC4B8", fontWeight: 700 }}>Find a one-off workout →</span>
+        </Link>
+
         <CalendarSyncCard />
       </div>
       <ClientBottomNav />
