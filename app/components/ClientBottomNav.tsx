@@ -68,7 +68,7 @@ export function ClientBottomNav() {
       const { data: memberships } = await supabase
         .from("conversation_members")
         .select("conversation_id, last_read_at")
-        .eq("profile_id", user.id);
+        .eq("user_id", user.id);
 
       if (!memberships?.length) return;
 
@@ -110,7 +110,7 @@ export function ClientBottomNav() {
       right: 0,
       background: "#fff",
       borderTop: "1px solid #E2EAF0",
-      paddingBottom: "env(safe-area-inset-bottom, 8px)",
+      paddingBottom: "max(env(safe-area-inset-bottom, 0px), 12px)",
       zIndex: 100,
     }}>
       <div style={{ maxWidth: 640, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(5, 1fr)" }}>
@@ -126,7 +126,8 @@ export function ClientBottomNav() {
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                padding: "10px 0 8px",
+                minHeight: 56,
+                padding: "12px 0 10px",
                 textDecoration: "none",
                 gap: 4,
               }}
