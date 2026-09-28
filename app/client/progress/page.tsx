@@ -65,7 +65,7 @@ function ProgressBar({ pct, color = "#2DC4B8" }: { pct: number; color?: string }
 
 export default function ProgressPage() {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [tab, setTab] = useState<"body" | "strength" | "goals">("body");
+  const [tab, setTab] = useState<"body" | "strength" | "goals">("goals");
 
   // body state
   const [logs, setLogs] = useState<Log[]>([]);
@@ -318,9 +318,9 @@ export default function ProgressPage() {
   const bTrend = trend(latestBf, prevBf, true);
 
   const TABS: { key: "body" | "strength" | "goals"; label: string }[] = [
-    { key: "body", label: "Body" },
-    { key: "strength", label: "Strength" },
     { key: "goals", label: "Goals" },
+    { key: "strength", label: "Strength" },
+    { key: "body", label: "Body" },
   ];
 
   return (
