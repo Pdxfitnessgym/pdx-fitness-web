@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
+import { WeeklyCompliance } from "@/app/components/WeeklyCompliance";
 
 type Log = {
   id: string;
@@ -354,6 +355,8 @@ export default function ProgressPage() {
       </div>
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px", display: "flex", flexDirection: "column", gap: 16 }}>
+
+        <WeeklyCompliance />
 
         {/* ── BODY TAB ── */}
         {tab === "body" && (
