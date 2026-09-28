@@ -501,6 +501,12 @@ export default async function ClientDetailPage({
                           </div>
                         )}
                       </div>
+                      <Link
+                        href={`/trainer/clients/${clientId}/log-workout?workout=${w.id}`}
+                        style={{ padding: "8px 14px", borderRadius: 8, background: "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 13, textDecoration: "none", whiteSpace: "nowrap", flexShrink: 0 }}
+                      >
+                        ▶ Start
+                      </Link>
                       <form action={unassignWorkoutFromClient}>
                         <input type="hidden" name="client_id" value={clientId} />
                         <input type="hidden" name="workout_id" value={w.id} />
