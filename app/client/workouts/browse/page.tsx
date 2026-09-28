@@ -38,7 +38,11 @@ export default async function BrowseWorkoutsPage({
 
   const sp = await searchParams;
 
-  const [libRes, mineRes, assignedRes] = await Promise.all([
+  const cpRes = await supabase
+    .from("client_programs").select("program_id")
+    .eq("client_id", user.id).eq("is_active", true).maybeSingle();
+
+  const [libRes, mineRes, assignedRes, progRes] = await Promise.all([
     profile?.trainer_id
       ? supabase
           .from("workouts")
@@ -55,13 +59,28 @@ export default async function BrowseWorkoutsPage({
       .order("created_at", { ascending: false }),
     supabase
       .from("client_workout_assignments")
-      .select("workout_id")
+      .select("workout_id, workouts(id, name, description, difficulty, est_duration_mins, category, created_by, exercises(count))")
       .eq("client_id", user.id),
+    cpRes.data?.program_id
+      ? supabase
+          .from("workouts")
+          .select("id, name, description, difficulty, est_duration_mins, category, exercises(count)")
+          .eq("program_id", cpRes.data.program_id)
+          .order("week_number").order("day_of_week")
+      : Promise.resolve({ data: [] }),
   ]);
 
   const library = (libRes.data ?? []) as LibWorkout[];
   const mine = (mineRes.data ?? []) as LibWorkout[];
-  const assignedIds = new Set((assignedRes.data ?? []).map(r => r.workout_id));
+  const programWorkouts = (progRes.data ?? []) as LibWorkout[];
+  const assignedRows = (assignedRes.data ?? []) as unknown as
+    { workout_id: string; workouts: (LibWorkout & { created_by: string | null }) | (LibWorkout & { created_by: string | null })[] }[];
+  const assignedIds = new Set(assignedRows.map(r => r.workout_id));
+  // Workouts a trainer handed them — the ones they built themselves get their
+  // own section below, so don't list them twice.
+  const assigned = assignedRows
+    .map(r => (Array.isArray(r.workouts) ? r.workouts[0] : r.workouts))
+    .filter((w): w is LibWorkout & { created_by: string | null } => Boolean(w) && w.created_by !== user.id);
 
   return (
     <div style={{ minHeight: "100dvh", background: "#F4F7FA", paddingBottom: 90 }}>
@@ -71,9 +90,9 @@ export default async function BrowseWorkoutsPage({
             <Link href="/client/workouts" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← My Workouts</Link>
             <HomeLink role="client" />
           </div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginTop: 4 }}>Extra Workouts</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginTop: 4 }}>Start a Workout</div>
           <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 2 }}>
-            For travel days or when you want something different
+            Pick one from your program, or something different
           </div>
         </div>
       </div>
@@ -82,6 +101,24 @@ export default async function BrowseWorkoutsPage({
         {sp.added && (
           <div style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
             ✓ Added to your workouts
+          </div>
+        )}
+
+        {programWorkouts.length > 0 && (
+          <div>
+            <div style={sectionLabel}>Your Program</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {programWorkouts.map(w => <WorkoutRow key={w.id} w={w} icon="💪" href={`/client/workouts/${w.id}`} />)}
+            </div>
+          </div>
+        )}
+
+        {assigned.length > 0 && (
+          <div>
+            <div style={sectionLabel}>Assigned To You</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {assigned.map(w => <WorkoutRow key={w.id} w={w} icon="⚡" href={`/client/workouts/${w.id}`} />)}
+            </div>
           </div>
         )}
 

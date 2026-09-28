@@ -60,7 +60,7 @@ export default async function ClientWorkoutsPage({
   // Program + workouts assigned to this client specifically. The gym-wide
   // standalone library is deliberately not shown — a client sees only what was
   // built or assigned for them.
-  const [cpResult, assignedResult, logsResult] = await Promise.all([
+  const [cpResult, assignedResult] = await Promise.all([
     supabase
       .from("client_programs")
       .select("id, start_date, programs(id, name, duration_weeks)")
@@ -72,15 +72,9 @@ export default async function ClientWorkoutsPage({
       .select("workout_id, workouts(id, name, description, difficulty, est_duration_mins, category, exercises(count))")
       .eq("client_id", user.id)
       .order("assigned_at", { ascending: false }),
-    supabase
-      .from("workout_logs")
-      .select("workout_id")
-      .eq("client_id", user.id)
-      .not("completed_at", "is", null),
   ]);
 
   const cp = cpResult.data;
-  const doneIds = new Set((logsResult.data ?? []).map(r => r.workout_id));
   // Supabase returns related rows as an array, so workouts is StandaloneWorkout[]
   const standaloneWorkouts = ((assignedResult.data ?? []) as unknown as { workout_id: string; workouts: StandaloneWorkout[] }[])
     .map(r => (Array.isArray(r.workouts) ? r.workouts[0] : r.workouts))
@@ -99,7 +93,13 @@ export default async function ClientWorkoutsPage({
         <div style={{ maxWidth: 640, margin: "0 auto", padding: 32, textAlign: "center" }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>⚡</div>
           <div style={{ fontWeight: 700, color: "#0D1827", marginBottom: 6 }}>No program assigned yet</div>
-          <div style={{ fontSize: 14, color: "#6B7A8D" }}>Your trainer will assign a program soon.</div>
+          <div style={{ fontSize: 14, color: "#6B7A8D", marginBottom: 20 }}>Your trainer will assign a program soon.</div>
+          <Link
+            href="/client/workouts/browse"
+            style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#2DC4B8", color: "#fff", borderRadius: 12, padding: "14px 20px", fontSize: 15, fontWeight: 700, textDecoration: "none" }}
+          >
+            ⚡ Find a workout to do
+          </Link>
         </div>
         <ClientBottomNav />
       </div>
@@ -118,7 +118,7 @@ export default async function ClientWorkoutsPage({
           </div>
         </div>
         <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px" }}>
-          <StartButton workout={pickNext(standaloneWorkouts, doneIds)} />
+          <StartButton />
           <div style={{ fontSize: 12, fontWeight: 700, color: "#6B7A8D", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>
             Assigned To You
           </div>
@@ -154,7 +154,7 @@ export default async function ClientWorkoutsPage({
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px", display: "flex", flexDirection: "column", gap: 10 }}>
 
-        <StartButton workout={pickNext(workouts ?? [], doneIds) ?? pickNext(standaloneWorkouts, doneIds)} />
+        <StartButton />
 
         {/* Program workouts */}
         {workouts && workouts.length > 0 ? (
@@ -204,33 +204,16 @@ export default async function ClientWorkoutsPage({
             <OnDemandGrid workouts={standaloneWorkouts} />
           </div>
         )}
-        <Link
-          href="/client/workouts/browse"
-          style={{ display: "block", textAlign: "center", padding: "12px", fontSize: 13, color: "#6B7A8D", textDecoration: "none", marginTop: 4 }}
-        >
-          Travelling or want something different? <span style={{ color: "#2DC4B8", fontWeight: 700 }}>Find a one-off workout →</span>
-        </Link>
       </div>
       <ClientBottomNav />
     </div>
   );
 }
 
-// The first workout with exercises they haven't finished yet; once they've been
-// through everything it loops back to the start so the button always works.
-function pickNext<T extends { id: string; name: string; exercises: { count: number }[] }>(
-  list: T[],
-  doneIds: Set<string>,
-): T | null {
-  const startable = list.filter(w => (w.exercises?.[0]?.count ?? 0) > 0);
-  return startable.find(w => !doneIds.has(w.id)) ?? startable[0] ?? null;
-}
-
-function StartButton({ workout }: { workout: { id: string; name: string } | null }) {
-  if (!workout) return null;
+function StartButton() {
   return (
     <Link
-      href={`/client/workouts/${workout.id}`}
+      href="/client/workouts/browse"
       style={{
         display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
         background: "#1B68B4", borderRadius: 14, padding: "16px 18px",
@@ -238,12 +221,7 @@ function StartButton({ workout }: { workout: { id: string; name: string } | null
       }}
     >
       <span style={{ fontSize: 18 }}>▶</span>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: "#fff" }}>Start a Workout</div>
-        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.8)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {workout.name}
-        </div>
-      </div>
+      <div style={{ fontSize: 16, fontWeight: 800, color: "#fff" }}>Start a Workout</div>
     </Link>
   );
 }
