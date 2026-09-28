@@ -194,6 +194,14 @@ export default function FeedPage() {
     setPosting(false);
   }
 
+  async function deletePost(postId: string) {
+    if (!confirm("Delete this post? This can't be undone.")) return;
+    const supabase = createClient();
+    const { error } = await supabase.from("posts").delete().eq("id", postId);
+    if (error) { alert("Couldn't delete that post. Please try again."); return; }
+    setPosts(prev => prev.filter(p => p.id !== postId));
+  }
+
   async function toggleLike(postId: string, liked: boolean) {
     if (!me) return;
     const supabase = createClient();
@@ -333,6 +341,7 @@ export default function FeedPage() {
                 onCommentChange={(id, val) => setCommentInputs(prev => ({ ...prev, [id]: val }))}
                 onCommentSubmit={submitComment}
                 onLightbox={setLightbox}
+                onDelete={deletePost}
               />
             ))}
           </div>
@@ -351,13 +360,15 @@ export default function FeedPage() {
   );
 }
 
-function PostCard({ post, me, expandedComments, commentInputs, submittingComment, onToggleLike, onToggleComments, onCommentChange, onCommentSubmit, onLightbox }: {
+function PostCard({ post, me, expandedComments, commentInputs, submittingComment, onToggleLike, onToggleComments, onCommentChange, onCommentSubmit, onLightbox, onDelete }: {
   post: Post; me: Profile | null; expandedComments: Set<string>; commentInputs: Record<string, string>;
   submittingComment: string | null; onToggleLike: (id: string, liked: boolean) => void;
   onToggleComments: (id: string) => void; onCommentChange: (id: string, val: string) => void;
   onCommentSubmit: (id: string) => void; onLightbox: (url: string) => void;
+  onDelete: (id: string) => void;
 }) {
   const showComments = expandedComments.has(post.id);
+  const isMine = !!me && post.author_id === me.id;
   return (
     <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E2EAF0", overflow: "hidden" }}>
       {/* Post header */}
@@ -384,6 +395,15 @@ function PostCard({ post, me, expandedComments, commentInputs, submittingComment
             )}
           </div>
         </div>
+        {isMine && (
+          <button
+            onClick={() => onDelete(post.id)}
+            aria-label="Delete this post"
+            style={{ background: "none", border: "none", color: "#9CA3AF", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: "6px 4px", flexShrink: 0, alignSelf: "flex-start" }}
+          >
+            Delete
+          </button>
+        )}
       </div>
 
       {/* Workout name + how much they moved */}
