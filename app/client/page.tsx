@@ -4,6 +4,7 @@ import Image from "next/image";
 import { NotificationBanner } from "@/app/components/NotificationBanner";
 import { LogoutButton } from "@/app/components/LogoutButton";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
+import { GYM_TZ, formatGymDate, formatGymTime, gymDaysUntil } from "@/lib/time";
 
 
 export default async function ClientDashboard() {
@@ -227,7 +228,7 @@ export default async function ClientDashboard() {
                   <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>📢</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.65)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 5 }}>
-                      {new Date(a.created_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                      {formatGymDate(a.created_at)}
                     </div>
                     <div style={{ fontSize: 15, fontWeight: 600, color: "#fff", lineHeight: 1.55 }}>{a.content}</div>
                   </div>
@@ -236,6 +237,33 @@ export default async function ClientDashboard() {
             ))}
           </div>
         )}
+
+        {/* Next session with their coach */}
+        {nextSession && (() => {
+          const when = nextSession.scheduled_at as string;
+          const days = gymDaysUntil(when);
+          const relative = days === 0 ? "Today" : days === 1 ? "Tomorrow" : `In ${days} days`;
+          return (
+            <a href="/client/sessions" style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 14, textDecoration: "none", marginBottom: 16, border: "2px solid #2DC4B8" }}>
+              <div style={{ fontSize: 30, flexShrink: 0 }}>🤝</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 600 }}>
+                  Your next session{coachName ? ` with ${coachName.split(" ")[0]}` : ""}
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#0D1827", marginTop: 2 }}>
+                  {new Date(when).toLocaleDateString("en-US", { timeZone: GYM_TZ, weekday: "long", month: "short", day: "numeric" })}
+                  {" · "}
+                  {formatGymTime(when)}
+                </div>
+                <div style={{ fontSize: 12, color: "#2DC4B8", fontWeight: 700, marginTop: 2 }}>{relative}</div>
+                {nextSession.notes && (
+                  <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 4 }}>{nextSession.notes as string}</div>
+                )}
+              </div>
+              <div style={{ color: "#9CA3AF", fontSize: 20 }}>›</div>
+            </a>
+          );
+        })()}
 
         {/* Sessions shortcuts */}
         <div style={{ marginBottom: 16, display: "flex", gap: 10 }}>
@@ -249,33 +277,6 @@ export default async function ClientDashboard() {
             <div style={{ fontWeight: 700, fontSize: 14, color: "#0D1827" }}>My Sessions</div>
           </a>
         </div>
-
-        {/* Next session with their coach */}
-        {nextSession && (() => {
-          const when = new Date(nextSession.scheduled_at as string);
-          const days = Math.round((new Date(when).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86400000);
-          const relative = days === 0 ? "Today" : days === 1 ? "Tomorrow" : `In ${days} days`;
-          return (
-            <a href="/client/sessions" style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 14, textDecoration: "none", marginBottom: 16, border: "2px solid #2DC4B8" }}>
-              <div style={{ fontSize: 30, flexShrink: 0 }}>🤝</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, color: "#6B7A8D", fontWeight: 600 }}>
-                  Your next session{coachName ? ` with ${coachName.split(" ")[0]}` : ""}
-                </div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: "#0D1827", marginTop: 2 }}>
-                  {when.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
-                  {" · "}
-                  {when.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                </div>
-                <div style={{ fontSize: 12, color: "#2DC4B8", fontWeight: 700, marginTop: 2 }}>{relative}</div>
-                {nextSession.notes && (
-                  <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 4 }}>{nextSession.notes as string}</div>
-                )}
-              </div>
-              <div style={{ color: "#9CA3AF", fontSize: 20 }}>›</div>
-            </a>
-          );
-        })()}
 
         {/* Community / Habits row */}
         <div style={{ marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>

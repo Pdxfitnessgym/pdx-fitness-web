@@ -39,3 +39,11 @@ export function gymDayRange(now: Date = new Date()): { start: string; end: strin
     end: new Date(Date.parse(`${day}T23:59:59.999Z`) - offset).toISOString(),
   };
 }
+
+// Whole days from the gym's today to the gym's day containing `iso`.
+// 0 = today, 1 = tomorrow.
+export function gymDaysUntil(iso: string | Date, now: Date = new Date()): number {
+  return Math.round(
+    (Date.parse(gymToday(new Date(iso))) - Date.parse(gymToday(now))) / 86400000,
+  );
+}
