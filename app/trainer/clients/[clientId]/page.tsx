@@ -19,7 +19,7 @@ const TABS = [
   { key: "notes", label: "Notes" },
 ];
 
-type StandaloneWorkout = { id: string; name: string; category: string | null; est_duration_mins: number | null };
+type StandaloneWorkout = { id: string; name: string; category: string | null; est_duration_mins: number | null; exercises?: { count: number }[] };
 
 const DIFF_COLORS: Record<string, string> = {
   weight: "#1B68B4",
@@ -84,7 +84,7 @@ export default async function ClientDetailPage({
       supabase.from("programs").select("id, name, duration_weeks").eq("trainer_id", user.id).order("name"),
       supabase.from("training_sessions").select("id, scheduled_at, status, notes").eq("client_id", clientId).order("scheduled_at", { ascending: false }).limit(20),
       supabase.from("workouts").select("id, name, category, est_duration_mins").eq("trainer_id", user.id).eq("is_standalone", true).eq("is_private", false).order("name"),
-      supabase.from("client_workout_assignments").select("workout_id, workouts(id, name, category, est_duration_mins)").eq("client_id", clientId).order("assigned_at", { ascending: false }),
+      supabase.from("client_workout_assignments").select("workout_id, workouts(id, name, category, est_duration_mins, exercises(count))").eq("client_id", clientId).order("assigned_at", { ascending: false }),
       supabase.from("groups").select("id, name, emoji").order("name"),
       supabase.from("group_members").select("group_id").eq("user_id", clientId),
     ]);
@@ -495,11 +495,19 @@ export default async function ClientDetailPage({
                       <span style={{ fontSize: 18 }}>⚡</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827" }}>{w.name}</div>
-                        {(w.category || w.est_duration_mins) && (
-                          <div style={{ fontSize: 12, color: "#6B7A8D" }}>
-                            {[w.category, w.est_duration_mins ? `~${w.est_duration_mins} min` : null].filter(Boolean).join(" · ")}
-                          </div>
-                        )}
+                        {(() => {
+                          const n = w.exercises?.[0]?.count ?? 0;
+                          const bits = [
+                            n > 0 ? `${n} exercise${n === 1 ? "" : "s"}` : "Empty — nothing added yet",
+                            w.category,
+                            w.est_duration_mins ? `~${w.est_duration_mins} min` : null,
+                          ].filter(Boolean);
+                          return (
+                            <div style={{ fontSize: 12, color: n > 0 ? "#6B7A8D" : "#D97706", fontWeight: n > 0 ? 400 : 600 }}>
+                              {bits.join(" · ")}
+                            </div>
+                          );
+                        })()}
                       </div>
                       <Link
                         href={`/trainer/clients/${clientId}/log-workout?workout=${w.id}`}
