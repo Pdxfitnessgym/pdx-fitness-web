@@ -103,6 +103,45 @@ export default async function TrainerDashboard() {
 
         <TrainerActivityFeed trainerId={user.id} isAdmin={!!profile?.is_admin} />
 
+        {/* Calendar quick link */}
+        <Link href="/trainer/calendar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fff", borderRadius: 14, padding: "14px 18px", border: "1px solid #E2EAF0", textDecoration: "none", marginBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#0D1827" }}>📅 Session Calendar</div>
+            <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>View schedule · Sync to Apple/Google</div>
+          </div>
+          <div style={{ color: "#1B68B4", fontSize: 18 }}>›</div>
+        </Link>
+
+        {/* Nav */}
+        <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Navigate</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+          {[
+            { label: "Home", href: "/trainer", icon: "🏠" },
+            { label: "Clients", href: "/trainer/clients", icon: "👥" },
+            // Gym owner only — every client across all trainers
+            ...((profile as unknown as { is_admin?: boolean } | null)?.is_admin
+              ? [{ label: "Everyone", href: "/admin/clients", icon: "🏛️" }]
+              : []),
+            { label: "Programs", href: "/trainer/programs", icon: "📋" },
+            { label: "Exercises", href: "/trainer/exercises", icon: "🏋️" },
+            { label: "On-Demand", href: "/trainer/workouts", icon: "⚡" },
+            { label: "Calendar", href: "/trainer/calendar", icon: "📅" },
+            { label: "Challenges", href: "/trainer/challenges", icon: "🏆" },
+            { label: "Messages", href: "/trainer/messages", icon: "💬" },
+            { label: "Availability", href: "/trainer/availability", icon: "🗓️" },
+            { label: "Sessions", href: "/trainer/sessions", icon: "🤝" },
+            { label: "Check-ins", href: "/trainer/checkins", icon: "📋" },
+            { label: "Announce", href: "/trainer/announcements", icon: "📢" },
+            { label: "Groups", href: "/trainer/groups", icon: "👥" },
+            { label: "Nutrition", href: "/trainer/nutrition", icon: "🥗" },
+          ].map(item => (
+            <a key={item.href} href={item.href} style={navItem}>
+              <span style={{ fontSize: 22 }}>{item.icon}</span>
+              <span style={{ fontSize: 11, color: "#6B7A8D", marginTop: 4 }}>{item.label}</span>
+            </a>
+          ))}
+        </div>
+
         {/* Build section */}
         <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Build</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
@@ -146,45 +185,6 @@ export default async function TrainerDashboard() {
             <span style={{ fontWeight: 700, fontSize: 15, color: "#1B68B4" }}>Meal Plans</span>
             <span style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>Build nutrition plans</span>
           </Link>
-        </div>
-
-        {/* Calendar quick link */}
-        <Link href="/trainer/calendar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fff", borderRadius: 14, padding: "14px 18px", border: "1px solid #E2EAF0", textDecoration: "none", marginBottom: 20 }}>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#0D1827" }}>📅 Session Calendar</div>
-            <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>View schedule · Sync to Apple/Google</div>
-          </div>
-          <div style={{ color: "#1B68B4", fontSize: 18 }}>›</div>
-        </Link>
-
-        {/* Nav */}
-        <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Navigate</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-          {[
-            { label: "Home", href: "/trainer", icon: "🏠" },
-            { label: "Clients", href: "/trainer/clients", icon: "👥" },
-            // Gym owner only — every client across all trainers
-            ...((profile as unknown as { is_admin?: boolean } | null)?.is_admin
-              ? [{ label: "Everyone", href: "/admin/clients", icon: "🏛️" }]
-              : []),
-            { label: "Programs", href: "/trainer/programs", icon: "📋" },
-            { label: "Exercises", href: "/trainer/exercises", icon: "🏋️" },
-            { label: "On-Demand", href: "/trainer/workouts", icon: "⚡" },
-            { label: "Calendar", href: "/trainer/calendar", icon: "📅" },
-            { label: "Challenges", href: "/trainer/challenges", icon: "🏆" },
-            { label: "Messages", href: "/trainer/messages", icon: "💬" },
-            { label: "Availability", href: "/trainer/availability", icon: "🗓️" },
-            { label: "Sessions", href: "/trainer/sessions", icon: "🤝" },
-            { label: "Check-ins", href: "/trainer/checkins", icon: "📋" },
-            { label: "Announce", href: "/trainer/announcements", icon: "📢" },
-            { label: "Groups", href: "/trainer/groups", icon: "👥" },
-            { label: "Nutrition", href: "/trainer/nutrition", icon: "🥗" },
-          ].map(item => (
-            <a key={item.href} href={item.href} style={navItem}>
-              <span style={{ fontSize: 22 }}>{item.icon}</span>
-              <span style={{ fontSize: 11, color: "#6B7A8D", marginTop: 4 }}>{item.label}</span>
-            </a>
-          ))}
         </div>
       </div>
     </div>
