@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { NotificationBanner } from "@/app/components/NotificationBanner";
 import { LogoutButton } from "@/app/components/LogoutButton";
+import { TrainerActivityFeed } from "@/app/components/TrainerActivityFeed";
 
 export default async function TrainerDashboard() {
   const supabase = await createClient();
@@ -99,6 +100,8 @@ export default async function TrainerDashboard() {
             <div style={{ fontSize: 32, fontWeight: 800, color: "#1B68B4" }}>{programCount ?? 0}</div>
           </div>
         </div>
+
+        <TrainerActivityFeed trainerId={user.id} isAdmin={!!profile?.is_admin} />
 
         {/* Build section */}
         <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Build</div>
