@@ -103,7 +103,7 @@ export default async function ClientDetailPage({
     const { data } = await supabase
       .from("workout_logs")
       .select(`
-        id, completed_at, created_at, notes, logged_by,
+        id, completed_at, created_at, notes, rpe, logged_by,
         workouts(name),
         set_logs(id, exercise_id, set_number, weight_lbs, reps_completed, side, exercises(name))
       `)

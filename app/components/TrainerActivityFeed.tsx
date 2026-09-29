@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { totalVolumeLbs } from "@/lib/workout-utils";
 import { GYM_TZ } from "@/lib/time";
+import { RPE_LABEL, rpeColor } from "@/app/components/RpeScale";
 
 const COLORS = ["#1B68B4", "#2DC4B8", "#7C3AED", "#DB2777", "#D97706", "#059669"];
 
@@ -29,6 +30,7 @@ type Row = {
   volume: number;
   sets: number;
   note: string | null;
+  rpe: number | null;
   nth: number | null;
 };
 
@@ -44,7 +46,7 @@ export async function TrainerActivityFeed({ trainerId, isAdmin }: { trainerId: s
   // Every completed log, so the milestone count ("their 10th workout") is real
   const { data: allLogs } = await supabase
     .from("workout_logs")
-    .select("id, client_id, completed_at, notes, workouts(name)")
+    .select("id, client_id, completed_at, notes, rpe, workouts(name)")
     .in("client_id", clientIds)
     .not("completed_at", "is", null)
     .order("completed_at", { ascending: true });
@@ -87,6 +89,7 @@ export async function TrainerActivityFeed({ trainerId, isAdmin }: { trainerId: s
       volume: totalVolumeLbs(logged),
       sets: logged.length,
       note: (l.notes as string | null)?.trim() || null,
+      rpe: (l.rpe as number | null) ?? null,
       // Celebrate every 10th, and the very first
       nth: nth === 1 || nth % 10 === 0 ? nth : null,
     };
@@ -129,6 +132,13 @@ export async function TrainerActivityFeed({ trainerId, isAdmin }: { trainerId: s
                 </>
               )}
               {"."}
+              {r.rpe && (
+                <>
+                  {" Rated "}
+                  <span style={{ fontWeight: 700, color: rpeColor(r.rpe) }}>RPE {r.rpe}/10</span>
+                  {` (${RPE_LABEL[r.rpe]}).`}
+                </>
+              )}
             </div>
             {r.note && (
               <div style={{ fontSize: 13, color: "#6B7A8D", fontStyle: "italic", marginTop: 4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const }}>

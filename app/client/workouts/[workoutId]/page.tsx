@@ -7,6 +7,7 @@ import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 import { buildSetKey, calcTotalSets, isExerciseDone, parseRepsInput, parseWeightInput, repsInputMode, repsToText, totalVolumeLbs, volumeComparison, weightToNumber, type Side } from "@/lib/workout-utils";
 import { HomeLink } from "@/app/components/HomeLink";
 import { getYouTubeId } from "@/lib/youtube";
+import { RpeScale } from "@/app/components/RpeScale";
 
 type ExerciseRow = {
   id: string;
@@ -859,6 +860,8 @@ function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId, volumeLbs }:
           </div>
         )}
       </div>
+      <RpeScale workoutLogId={workoutLogId} />
+
       <div style={{ background: "#fff", borderRadius: 16, padding: 18, border: "1px solid #E2EAF0", marginBottom: 16 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827", marginBottom: 12 }}>How do you feel? 💬</div>
         <textarea value={trainerNotes} onChange={e => setTrainerNotes(e.target.value)} onBlur={saveTrainerNotes}

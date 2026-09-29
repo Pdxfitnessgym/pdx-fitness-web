@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { RPE_LABEL, rpeColor } from "@/app/components/RpeScale";
 
 type SetLog = {
   id: string;
@@ -16,6 +17,7 @@ type WorkoutLog = {
   completed_at: string | null;
   created_at: string;
   notes: string | null;
+  rpe: number | null;
   logged_by: string | null;
   workouts: { name: string } | null;
   set_logs: SetLog[];
@@ -135,6 +137,11 @@ export function WorkoutLogCards({ logs }: { logs: WorkoutLog[] }) {
                       );
                     })}
 
+                    {log.rpe && (
+                      <div style={{ fontSize: 12, fontWeight: 700, color: rpeColor(log.rpe), marginBottom: 4 }}>
+                        RPE {log.rpe}/10 — {RPE_LABEL[log.rpe]}
+                      </div>
+                    )}
                     {log.notes && (
                       <div style={{ fontSize: 13, color: "#6B7A8D", fontStyle: "italic", borderTop: "1px solid #F4F7FA", paddingTop: 10 }}>
                         Notes: {log.notes}
