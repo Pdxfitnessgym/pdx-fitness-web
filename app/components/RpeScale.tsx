@@ -1,19 +1,9 @@
 "use client";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { RPE_LABEL, rpeColor } from "@/lib/rpe";
 
 // 1–10 rating of how hard the session felt (RPE). Saves on tap; skipping is fine.
-export const RPE_LABEL: Record<number, string> = {
-  1: "very easy", 2: "easy", 3: "light", 4: "fairly light", 5: "moderate",
-  6: "somewhat hard", 7: "hard", 8: "very hard", 9: "extremely hard", 10: "max effort",
-};
-
-export function rpeColor(v: number) {
-  if (v <= 3) return "#10B981";
-  if (v <= 6) return "#F59E0B";
-  if (v <= 8) return "#F97316";
-  return "#EF4444";
-}
 
 export function RpeScale({ workoutLogId, initial }: { workoutLogId: string | null; initial?: number | null }) {
   const [value, setValue] = useState<number | null>(initial ?? null);

@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { RPE_LABEL, rpeColor } from "@/app/components/RpeScale";
+import { RPE_LABEL, rpeColor } from "@/lib/rpe";
 
 type SetLog = {
   id: string;

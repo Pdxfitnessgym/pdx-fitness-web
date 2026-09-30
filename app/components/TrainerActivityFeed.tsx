@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { totalVolumeLbs } from "@/lib/workout-utils";
 import { GYM_TZ } from "@/lib/time";
-import { RPE_LABEL, rpeColor } from "@/app/components/RpeScale";
+import { RPE_LABEL, rpeColor } from "@/lib/rpe";
 
 const COLORS = ["#1B68B4", "#2DC4B8", "#7C3AED", "#DB2777", "#D97706", "#059669"];
 
