@@ -27,6 +27,7 @@ type Exercise = {
 
 type Workout = {
   name: string;
+  description: string | null;
   week_number: number;
   day_of_week: number;
   programs: { name: string; trainer_id: string } | null;
@@ -53,6 +54,8 @@ export default function WorkoutBuilderPage() {
   const workoutId = params.workoutId as string;
 
   const [workout, setWorkout] = useState<Workout | null>(null);
+  const [instructions, setInstructions] = useState("");
+  const [savedInstructions, setSavedInstructions] = useState(false);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -71,13 +74,14 @@ export default function WorkoutBuilderPage() {
     const supabase = createClient();
     (async () => {
       const [{ data: w }, { data: exs }] = await Promise.all([
-        supabase.from("workouts").select("name, week_number, day_of_week, programs(name, trainer_id)").eq("id", workoutId).single(),
+        supabase.from("workouts").select("name, description, week_number, day_of_week, programs(name, trainer_id)").eq("id", workoutId).single(),
         supabase.from("exercises")
           .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library_id, exercise_library(video_url, youtube_url), group_id, group_round_rest_seconds, is_unilateral, suggested_weight, weight_type")
           .eq("workout_id", workoutId)
           .order("order"),
       ]);
       setWorkout(w as unknown as Workout);
+      setInstructions(((w as unknown as Workout)?.description) ?? "");
       setExercises(((exs ?? []) as unknown[]).map((e: unknown) => {
         const ex = e as Exercise & { exercise_library: unknown };
         return { ...ex, exercise_library: Array.isArray(ex.exercise_library) ? (ex.exercise_library[0] ?? null) : ex.exercise_library };
@@ -149,6 +153,13 @@ export default function WorkoutBuilderPage() {
     setDeleting(null);
     if (expandedId === exId) setExpandedId(null);
   }, [exercises, expandedId]);
+
+  async function saveInstructions() {
+    const supabase = createClient();
+    await supabase.from("workouts").update({ description: instructions.trim() || null }).eq("id", workoutId);
+    setSavedInstructions(true);
+    setTimeout(() => setSavedInstructions(false), 2000);
+  }
 
   const moveUp = useCallback(async (idx: number) => {
     if (idx === 0 || reordering) return;
@@ -459,6 +470,24 @@ export default function WorkoutBuilderPage() {
       )}
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px" }}>
+        {!supersetMode && (
+          <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2EAF0", padding: 16, marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#6B7A8D", textTransform: "uppercase", letterSpacing: 0.5 }}>Workout Instructions</div>
+              {savedInstructions && <span style={{ fontSize: 12, fontWeight: 700, color: "#10B981" }}>✓ Saved</span>}
+            </div>
+            <textarea
+              value={instructions}
+              onChange={e => setInstructions(e.target.value)}
+              onBlur={saveInstructions}
+              rows={2}
+              placeholder="e.g. Do as many rounds as you can in 10–15 minutes"
+              style={{ width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 14, color: "#0D1827", outline: "none", resize: "vertical", fontFamily: "inherit" }}
+            />
+            <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 6 }}>Shown to the client before they start the workout.</div>
+          </div>
+        )}
+
         {exercises.length === 0 && (
           <div style={{ textAlign: "center", padding: "48px 24px", background: "#fff", borderRadius: 14, border: "1px solid #E2EAF0", marginBottom: 16 }}>
             <div style={{ fontSize: 40, marginBottom: 10 }}>🏋️</div>

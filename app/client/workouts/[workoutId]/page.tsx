@@ -45,7 +45,7 @@ export default function WorkoutSessionPage() {
   const workoutId = params.workoutId as string;
 
   const [mode, setMode] = useState<Mode>("preview");
-  const [workout, setWorkout] = useState<{ name: string; created_by: string | null } | null>(null);
+  const [workout, setWorkout] = useState<{ name: string; description: string | null; created_by: string | null } | null>(null);
   const [exercises, setExercises] = useState<ExerciseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [workoutLogId, setWorkoutLogId] = useState<string | null>(null);
@@ -66,7 +66,7 @@ export default function WorkoutSessionPage() {
     const supabase = createClient();
     (async () => {
       const [{ data: w }, { data: exs }, { data: { user } }] = await Promise.all([
-        supabase.from("workouts").select("name, created_by").eq("id", workoutId).single(),
+        supabase.from("workouts").select("name, description, created_by").eq("id", workoutId).single(),
         supabase.from("exercises")
           .select("id, name, sets, reps, rest_seconds, notes, order, exercise_library(video_url, youtube_url, instructions), group_id, group_round_rest_seconds, is_unilateral, suggested_weight, weight_type")
           .eq("workout_id", workoutId)
@@ -568,6 +568,13 @@ export default function WorkoutSessionPage() {
       </div>
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px 16px 0" }}>
+        {mode === "preview" && workout?.description && (
+          <div style={{ marginBottom: 12, background: "#FFFBEB", border: "1.5px solid #FCD34D", borderRadius: 14, padding: "14px 16px" }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "#92400E", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>📋 Instructions</div>
+            <div style={{ fontSize: 14, color: "#92400E", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{workout.description}</div>
+          </div>
+        )}
+
         {mode === "preview" && (
           <div style={{ marginBottom: 16, background: "#1B68B4", borderRadius: 14, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
