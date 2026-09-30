@@ -19,7 +19,6 @@ export default async function StandaloneWorkoutsPage() {
   const { data: workouts } = await supabase
     .from("workouts")
     .select("id, name, description, difficulty, est_duration_mins, category, exercises(count)")
-    .eq("trainer_id", user.id)
     .eq("is_standalone", true)
           .eq("is_private", false)
     .order("created_at", { ascending: false });

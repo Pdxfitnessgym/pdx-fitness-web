@@ -43,15 +43,14 @@ export default async function BrowseWorkoutsPage({
     .eq("client_id", user.id).eq("is_active", true).maybeSingle();
 
   const [libRes, mineRes, assignedRes, progRes] = await Promise.all([
-    profile?.trainer_id
-      ? supabase
-          .from("workouts")
-          .select("id, name, description, difficulty, est_duration_mins, category, exercises(count)")
-          .eq("trainer_id", profile.trainer_id)
-          .eq("is_standalone", true)
-          .eq("is_private", false)
-          .order("name")
-      : Promise.resolve({ data: [] }),
+    // The gym's shared shelf — every trainer's on-demand workouts, not just
+    // the one this client happens to be assigned to.
+    supabase
+      .from("workouts")
+      .select("id, name, description, difficulty, est_duration_mins, category, exercises(count)")
+      .eq("is_standalone", true)
+      .eq("is_private", false)
+      .order("name"),
     supabase
       .from("workouts")
       .select("id, name, description, difficulty, est_duration_mins, category, exercises(count)")
