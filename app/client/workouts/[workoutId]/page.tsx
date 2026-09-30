@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
-import { buildSetKey, calcTotalSets, isExerciseDone, parseRepsInput, parseWeightInput, repsInputMode, repsToText, totalVolumeLbs, volumeComparison, weightToNumber, type Side } from "@/lib/workout-utils";
+import { buildSetKey, calcTotalSets, findPersonalRecords, isExerciseDone, parseRepsInput, parseWeightInput, repsInputMode, repsToText, totalVolumeLbs, volumeComparison, weightToNumber, type PersonalRecord, type Side } from "@/lib/workout-utils";
 import { HomeLink } from "@/app/components/HomeLink";
 import { getYouTubeId } from "@/lib/youtube";
 import { gymDayRange } from "@/lib/time";
@@ -52,6 +52,7 @@ export default function WorkoutSessionPage() {
   const [workoutLogId, setWorkoutLogId] = useState<string | null>(null);
   const [logged, setLogged] = useState<Record<SetKey, LoggedSet>>({});
   const [prevLogged, setPrevLogged] = useState<Record<SetKey, LoggedSet>>({});
+  const [records, setRecords] = useState<PersonalRecord[]>([]);
   const [inputs, setInputs] = useState<Record<SetKey, { reps: string; weight: string }>>({});
   const [restTimer, setRestTimer] = useState<RestTimer | null>(null);
   const [restDone, setRestDone] = useState(false);
@@ -319,10 +320,30 @@ export default function WorkoutSessionPage() {
     setCompleting(true);
     const supabase = createClient();
     if (workoutLogId) await supabase.from("workout_logs").update({ completed_at: new Date().toISOString() }).eq("id", workoutLogId);
+
+    // Compare this session against everything they've lifted before
+    if (userId) {
+      const exerciseIds = exercises.map(e => e.id);
+      const { data: past } = await supabase
+        .from("set_logs")
+        .select("exercise_id, reps_completed, weight_lbs")
+        .eq("client_id", userId)
+        .in("exercise_id", exerciseIds)
+        .not("weight_lbs", "is", null)
+        .neq("workout_log_id", workoutLogId ?? "00000000-0000-0000-0000-000000000000");
+
+      const nameById = new Map(exercises.map(e => [e.id, e.name]));
+      const done = Object.entries(logged).map(([key, v]) => {
+        const parts = key.split("-");
+        const exerciseId = parts.slice(0, parts.length - 2).join("-");
+        return { exerciseId, exerciseName: nameById.get(exerciseId) ?? "Exercise", reps: v.reps, weight: v.weight };
+      });
+      setRecords(findPersonalRecords(done, past ?? []));
+    }
     fetch("/api/push/workout-complete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ workoutId }) }).catch(() => {});
     setMode("share");
     setCompleting(false);
-  }, [workoutLogId, workoutId]);
+  }, [workoutLogId, workoutId, userId, exercises, logged]);
 
   const doneSetCount = Object.keys(logged).length;
   const totalSets = calcTotalSets(exercises);
@@ -366,6 +387,7 @@ export default function WorkoutSessionPage() {
         setsLogged={doneSetCount}
         workoutLogId={workoutLogId}
         volumeLbs={totalVolumeLbs(Object.values(logged))}
+        records={records}
       />
     );
   }
@@ -790,7 +812,7 @@ const inputStyle = (done: boolean, filled = false): React.CSSProperties => ({
   background: done ? "#F0FDF4" : filled ? "#fff" : "#FBFCFD",
 });
 
-function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId, volumeLbs }: { workoutName: string; setsLogged: number; workoutLogId: string | null; volumeLbs: number }) {
+function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId, volumeLbs, records }: { workoutName: string; setsLogged: number; workoutLogId: string | null; volumeLbs: number; records: PersonalRecord[] }) {
   // Arriving from the last logged set leaves the page scrolled down, so the
   // total lifted was landing off-screen.
   useEffect(() => { window.scrollTo(0, 0); }, []);
@@ -875,6 +897,33 @@ function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId, volumeLbs }:
         )}
       </div>
       <RpeScale workoutLogId={workoutLogId} />
+
+      {records.length > 0 && (
+        <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #E2EAF0", overflow: "hidden", marginBottom: 16 }}>
+          <div style={{ background: "linear-gradient(90deg, #FEF3C7 0%, #FFE4E6 100%)", padding: "14px 18px", display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 26 }}>🔥</span>
+            <span style={{ fontSize: 15, fontWeight: 800, color: "#92400E" }}>
+              {records.length} new personal best{records.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          <div style={{ padding: "4px 18px 14px" }}>
+            {records.map((pr, i) => (
+              <div key={`${pr.exerciseName}-${pr.reps}`} style={{ paddingTop: 12, marginTop: i === 0 ? 0 : 12, borderTop: i === 0 ? "none" : "1px solid #F4F7FA" }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827" }}>{pr.exerciseName}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 3 }}>
+                  <span style={{ fontSize: 13, color: "#6B7A8D" }}>Best at {pr.reps} rep{pr.reps === 1 ? "" : "s"}</span>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: "#0D1827" }}>
+                    {pr.weight.toLocaleString()} lb
+                    <span style={{ color: "#10B981", fontWeight: 700, marginLeft: 6 }}>
+                      ▲{(pr.weight - pr.previousWeight).toLocaleString()} lb
+                    </span>
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div style={{ background: "#fff", borderRadius: 16, padding: 18, border: "1px solid #E2EAF0", marginBottom: 16 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827", marginBottom: 12 }}>How do you feel? 💬</div>

@@ -89,3 +89,57 @@ export function volumeComparison(lbs: number): string | null {
   }
   return null;
 }
+
+// A personal best is per exercise AND per rep count: 8 reps at 135 is a
+// different achievement from 3 reps at 185. Only a genuine improvement over a
+// previous best counts — a first-ever attempt isn't a "best", or every opening
+// session would claim a dozen of them.
+export type PersonalRecord = {
+  exerciseName: string;
+  reps: number;
+  weight: number;
+  previousWeight: number;
+};
+
+export function findPersonalRecords(
+  current: { exerciseId: string; exerciseName: string; reps: string | null; weight: number | null }[],
+  history: { exercise_id: string; reps_completed: string | null; weight_lbs: number | null }[],
+): PersonalRecord[] {
+  const repCount = (reps: string | null): number | null => {
+    if (!reps) return null;
+    const t = reps.trim();
+    if (t.includes(":") || /[a-z]/i.test(t) || t.includes("/")) return null; // timed, distance, drop set
+    const n = parseInt(t);
+    return Number.isFinite(n) && n > 0 && n <= MAX_PLAUSIBLE_REPS ? n : null;
+  };
+
+  const best = (rows: { key: string; weight: number }[]) => {
+    const m = new Map<string, number>();
+    for (const r of rows) m.set(r.key, Math.max(m.get(r.key) ?? 0, r.weight));
+    return m;
+  };
+
+  const bestNow = best(current.flatMap(s => {
+    const n = repCount(s.reps);
+    return n && s.weight && s.weight > 0 ? [{ key: `${s.exerciseId}|${n}`, weight: s.weight }] : [];
+  }));
+  const bestBefore = best(history.flatMap(s => {
+    const n = repCount(s.reps_completed);
+    return n && s.weight_lbs && s.weight_lbs > 0 ? [{ key: `${s.exercise_id}|${n}`, weight: s.weight_lbs }] : [];
+  }));
+
+  const nameById = new Map(current.map(s => [s.exerciseId, s.exerciseName]));
+  const out: PersonalRecord[] = [];
+  for (const [key, weight] of bestNow) {
+    const previous = bestBefore.get(key);
+    if (previous == null || weight <= previous) continue;
+    const [exerciseId, reps] = key.split("|");
+    out.push({
+      exerciseName: nameById.get(exerciseId) ?? "Exercise",
+      reps: parseInt(reps),
+      weight,
+      previousWeight: previous,
+    });
+  }
+  return out.sort((a, b) => (b.weight - b.previousWeight) - (a.weight - a.previousWeight));
+}
