@@ -7,6 +7,7 @@ import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 import { buildSetKey, calcTotalSets, isExerciseDone, parseRepsInput, parseWeightInput, repsInputMode, repsToText, totalVolumeLbs, volumeComparison, weightToNumber, type Side } from "@/lib/workout-utils";
 import { HomeLink } from "@/app/components/HomeLink";
 import { getYouTubeId } from "@/lib/youtube";
+import { gymDayRange } from "@/lib/time";
 import { RpeScale } from "@/app/components/RpeScale";
 
 type ExerciseRow = {
@@ -86,11 +87,13 @@ export default function WorkoutSessionPage() {
       }
       setUserId(user.id);
 
-      // Use local date (not UTC) so Central/West coast users aren't shifted to next day
-      const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in device timezone
+      // created_at is a timestamptz, so a bare "YYYY-MM-DD" was read as UTC
+      // midnight — an evening session counted as tomorrow's, and the next day
+      // then found no previous session to auto-fill from.
+      const { start: dayStart } = gymDayRange();
       const { data: todayLog } = await supabase
         .from("workout_logs").select("id").eq("client_id", user.id).eq("workout_id", workoutId)
-        .gte("created_at", today).maybeSingle();
+        .gte("created_at", dayStart).maybeSingle();
 
       if (todayLog) {
         setWorkoutLogId(todayLog.id);
@@ -103,7 +106,7 @@ export default function WorkoutSessionPage() {
 
       const { data: prevLog } = await supabase
         .from("workout_logs").select("id").eq("client_id", user.id).eq("workout_id", workoutId)
-        .lt("created_at", today).order("created_at", { ascending: false }).limit(1).maybeSingle();
+        .lt("created_at", dayStart).order("created_at", { ascending: false }).limit(1).maybeSingle();
 
       if (prevLog) {
         const { data: sl } = await supabase.from("set_logs").select("exercise_id, set_number, reps_completed, weight_lbs, side").eq("workout_log_id", prevLog.id);
