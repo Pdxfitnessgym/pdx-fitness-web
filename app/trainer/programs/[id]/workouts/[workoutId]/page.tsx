@@ -294,9 +294,19 @@ export default function WorkoutBuilderPage() {
           </div>
 
           {!supersetMode && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
-              <button onClick={e => { e.stopPropagation(); moveUp(idx); }} disabled={idx === 0 || reordering} style={{ background: "none", border: "none", fontSize: 14, cursor: idx === 0 ? "default" : "pointer", color: idx === 0 ? "#E2EAF0" : "#9CA3AF", padding: "2px 6px" }}>▲</button>
-              <button onClick={e => { e.stopPropagation(); moveDown(idx); }} disabled={idx === exercises.length - 1 || reordering} style={{ background: "none", border: "none", fontSize: 14, cursor: idx === exercises.length - 1 ? "default" : "pointer", color: idx === exercises.length - 1 ? "#E2EAF0" : "#9CA3AF", padding: "2px 6px" }}>▼</button>
+            <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+              <button
+                onClick={e => { e.stopPropagation(); moveUp(idx); }}
+                disabled={idx === 0 || reordering}
+                aria-label="Move up"
+                style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 14, cursor: idx === 0 ? "not-allowed" : "pointer", color: idx === 0 ? "#D1D5DB" : "#6B7A8D" }}
+              >↑</button>
+              <button
+                onClick={e => { e.stopPropagation(); moveDown(idx); }}
+                disabled={idx === exercises.length - 1 || reordering}
+                aria-label="Move down"
+                style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 14, cursor: idx === exercises.length - 1 ? "not-allowed" : "pointer", color: idx === exercises.length - 1 ? "#D1D5DB" : "#6B7A8D" }}
+              >↓</button>
             </div>
           )}
           {!supersetMode && (
