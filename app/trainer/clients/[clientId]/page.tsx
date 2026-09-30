@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { assignProgram, inviteClient, assignWorkoutToClient, unassignWorkoutFromClient, deleteWorkout, createAdHocWorkout, toggleClientGroup, removeProgramFromClient, removeClientFromRoster, deleteClientAccount } from "@/app/actions/clients";
+import { assignProgram, inviteClient, assignWorkoutToClient, unassignWorkoutFromClient, deleteWorkout, updateProgramStartDate, createAdHocWorkout, toggleClientGroup, removeProgramFromClient, removeClientFromRoster, deleteClientAccount } from "@/app/actions/clients";
 import Link from "next/link";
 import { SessionsPanel } from "@/app/components/SessionsPanel";
 import { ClientNotesEditor } from "@/app/components/ClientNotesEditor";
@@ -440,6 +440,23 @@ export default async function ClientDetailPage({
                     <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 4 }}>
                       Started {activeProgram.start_date} · {prog?.duration_weeks} weeks · Week {currentWeek}
                     </div>
+                    {/* Start date drives which week they're on, so it has to be correctable */}
+                    <form action={updateProgramStartDate} style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 10 }}>
+                      <input type="hidden" name="client_id" value={clientId} />
+                      <input type="hidden" name="client_program_id" value={activeProgram.id} />
+                      <input
+                        type="date"
+                        name="start_date"
+                        defaultValue={activeProgram.start_date as string}
+                        style={{ ...inputSt, flex: 1, padding: "9px 10px", fontSize: 14 }}
+                      />
+                      <button type="submit" style={{ padding: "9px 14px", borderRadius: 8, border: "none", background: "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}>
+                        Update start
+                      </button>
+                    </form>
+                    <Link href={`/trainer/programs/${activeProgram.program_id}`} style={{ display: "inline-block", marginTop: 8, fontSize: 13, fontWeight: 700, color: "#1B68B4", textDecoration: "none" }}>
+                      ✏️ Edit program name &amp; length →
+                    </Link>
                   </div>
                   <form action={removeProgramFromClient}>
                     <input type="hidden" name="client_id" value={clientId} />

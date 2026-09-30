@@ -25,6 +25,33 @@ export async function createProgram(formData: FormData) {
   redirect(`/trainer/programs/${data.id}`);
 }
 
+// Edit a program's name, blurb and length after it's been built.
+export async function updateProgram(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const id = formData.get("program_id") as string;
+  const name = (formData.get("name") as string)?.trim();
+  const description = (formData.get("description") as string)?.trim() || null;
+  const duration_weeks = parseInt(formData.get("duration_weeks") as string);
+
+  if (!name || !Number.isFinite(duration_weeks) || duration_weeks < 1) {
+    redirect(`/trainer/programs/${id}?error=invalid`);
+  }
+
+  const { data: saved } = await supabase
+    .from("programs")
+    .update({ name, description, duration_weeks })
+    .eq("id", id)
+    .select("id");
+
+  if (!saved?.length) redirect(`/trainer/programs/${id}?error=not_yours`);
+
+  revalidatePath(`/trainer/programs/${id}`);
+  redirect(`/trainer/programs/${id}?saved=1`);
+}
+
 export async function createWorkout(formData: FormData) {
   const supabase = await createClient();
   const program_id = formData.get("program_id") as string;

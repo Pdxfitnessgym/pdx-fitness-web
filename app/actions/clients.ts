@@ -378,6 +378,26 @@ export async function deleteWorkout(formData: FormData) {
   redirect(`/trainer/clients/${client_id}`);
 }
 
+// Change when this client's program started — it drives which week they're on.
+export async function updateProgramStartDate(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const client_id = formData.get("client_id") as string;
+  const client_program_id = formData.get("client_program_id") as string;
+  const start_date = formData.get("start_date") as string;
+  if (!start_date) redirect(`/trainer/clients/${client_id}`);
+
+  await supabase
+    .from("client_programs")
+    .update({ start_date })
+    .eq("id", client_program_id);
+
+  revalidatePath(`/trainer/clients/${client_id}`);
+  redirect(`/trainer/clients/${client_id}`);
+}
+
 // Add/remove a client from one of the trainer's groups, straight from their page.
 export async function toggleClientGroup(formData: FormData) {
   const supabase = await createClient();

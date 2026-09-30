@@ -4,10 +4,12 @@ import Link from "next/link";
 import { HomeLink } from "@/app/components/HomeLink";
 import { toggleProgramShared } from "@/app/actions/programs";
 import { DeleteWorkoutButton } from "@/app/components/DeleteWorkoutButton";
+import { ProgramDetailsEditor } from "@/app/components/ProgramDetailsEditor";
 
 
-export default async function ProgramDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProgramDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string>> }) {
   const { id } = await params;
+  const sp = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -39,6 +41,31 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
       </div>
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px" }}>
+        {sp.saved && (
+          <div style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600, marginBottom: 16 }}>
+            ✓ Program updated
+          </div>
+        )}
+        {sp.error === "not_yours" && (
+          <div style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600, marginBottom: 16 }}>
+            Couldn&apos;t save — this program belongs to another trainer.
+          </div>
+        )}
+        {sp.error === "invalid" && (
+          <div style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600, marginBottom: 16 }}>
+            A name and a length of at least one week are required.
+          </div>
+        )}
+
+        {program.trainer_id === user.id && (
+          <ProgramDetailsEditor
+            programId={program.id}
+            name={program.name}
+            description={program.description}
+            durationWeeks={program.duration_weeks}
+          />
+        )}
+
         {/* Gym sharing — owner only */}
         {program.trainer_id === user.id ? (
           <div style={{ background: program.is_shared ? "#EBF9F8" : "#fff", border: `1px solid ${program.is_shared ? "#A7F3D0" : "#E2EAF0"}`, borderRadius: 14, padding: 16, marginBottom: 20, display: "flex", alignItems: "center", gap: 12 }}>
