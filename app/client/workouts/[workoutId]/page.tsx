@@ -471,7 +471,7 @@ export default function WorkoutSessionPage() {
                                 placeholder={logged[key]?.reps != null ? String(logged[key].reps) : ex.reps.split(/[-x]/)[0].trim()}
                                 value={inp.reps}
                                 className="log-input"
-                                onChange={e => { const v = parseRepsInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
+                                onChange={e => { const v = parseRepsInput(e.target.value, ex.reps); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
                                 style={inputStyle(isDone, !!inp.reps)} />
                               <input
                                 type="text" inputMode="decimal"
@@ -523,7 +523,7 @@ export default function WorkoutSessionPage() {
                           placeholder={logged[key]?.reps != null ? String(logged[key].reps) : ex.reps.split(/[-x]/)[0].trim()}
                           value={inp.reps}
                           className="log-input"
-                          onChange={e => { const v = parseRepsInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
+                          onChange={e => { const v = parseRepsInput(e.target.value, ex.reps); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
                           style={inputStyle(isDone, !!inp.reps)} />
                         <input
                           type="text" inputMode="decimal"

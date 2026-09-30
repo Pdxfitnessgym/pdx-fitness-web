@@ -18,8 +18,14 @@ export function isExerciseDone(
   return count >= sets * (isUnilateral ? 2 : 1);
 }
 
-export function parseRepsInput(raw: string): string {
-  return raw.replace(/[^0-9/:]/g, "");
+// Digits, drop-set slashes and clock colons always. When the prescription is
+// itself time- or text-based ("60 sec"), let letters and spaces through so the
+// logged value can say what it means instead of collapsing to a bare number.
+export function parseRepsInput(raw: string, spec?: string): string {
+  const allowText = spec != null && repsInputMode(spec) === "text";
+  return allowText
+    ? raw.replace(/[^0-9a-zA-Z/:. ]/g, "").slice(0, 16)
+    : raw.replace(/[^0-9/:]/g, "");
 }
 
 // Time-based reps specs ("0:30", "30 sec") need the full keyboard so ":" can be typed;
@@ -54,6 +60,7 @@ export function repsForVolume(reps: string | null): number {
   if (!reps) return 0;
   const t = reps.trim();
   if (t.includes(":")) return 0; // timed hold
+  if (/[a-z]/i.test(t)) return 0; // "60 sec", "400 m" — a duration or distance, not reps
   if (t.includes("/")) {
     const sum = t.split("/").map(p => parseInt(p)).filter(Number.isFinite).reduce((a, b) => a + b, 0);
     return sum > 0 && sum <= MAX_PLAUSIBLE_REPS ? sum : 0;
