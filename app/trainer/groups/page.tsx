@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 type Group = { id: string; name: string; emoji: string; description: string | null; member_count: number; trainer_id: string };
@@ -150,9 +149,6 @@ export default function GroupsPage() {
 
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
-          <Link href="/trainer" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#1B68B4", fontSize: 14, textDecoration: "none", marginBottom: 12 }}>
-            ← Dashboard
-          </Link>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
             <div>
               <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: "#111827" }}>Community Groups</h1>

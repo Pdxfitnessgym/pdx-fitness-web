@@ -162,7 +162,6 @@ export default function TrainerMessagesPage() {
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "16px 20px", position: "sticky", top: 0, zIndex: 10 }}>
         <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <Link href="/trainer" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Dashboard</Link>
             <div style={{ fontSize: 20, fontWeight: 800, color: "#1B68B4", marginTop: 2 }}>Messages</div>
           </div>
           <button onClick={() => setShowNew(!showNew)} style={{ background: "#1B68B4", color: "#fff", border: "none", borderRadius: 10, padding: "8px 16px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>

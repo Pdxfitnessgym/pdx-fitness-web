@@ -169,12 +169,6 @@ export default function NutritionPage() {
           }}
         >
           <div>
-            <Link
-              href="/trainer"
-              style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}
-            >
-              ← Dashboard
-            </Link>
             <div
               style={{
                 fontSize: 22,

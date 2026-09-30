@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 type Slot = {
@@ -318,9 +317,6 @@ export default function AvailabilityPage() {
   return (
     <div style={styles.page}>
       <div style={styles.maxWidth}>
-        <Link href="/trainer" style={styles.backLink}>
-          ← Dashboard
-        </Link>
         <h1 style={styles.headerTitle}>My Availability</h1>
         <p style={styles.headerSub}>Set the times clients can book with you</p>
 

@@ -74,7 +74,6 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
     <div style={{ minHeight: "100dvh", background: "#F4F7FA" }}>
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "20px 20px 16px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
-          <Link href="/trainer" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Dashboard</Link>
           <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginTop: 4 }}>My Clients</div>
         </div>
       </div>

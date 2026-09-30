@@ -22,7 +22,6 @@ export default async function ExerciseLibraryPage() {
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "20px 20px 16px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <Link href="/trainer" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Dashboard</Link>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginTop: 4 }}>Exercise Library</div>
             <div style={{ fontSize: 13, color: "#6B7A8D" }}>{master.length + mine.length} exercises · shared across the gym</div>
           </div>

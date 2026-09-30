@@ -30,7 +30,6 @@ export default async function StandaloneWorkoutsPage() {
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "20px 20px 16px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <Link href="/trainer" style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Dashboard</Link>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginTop: 4 }}>On-Demand Workouts</div>
           </div>
           <Link href="/trainer/workouts/new" style={{ padding: "10px 18px", borderRadius: 10, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 14, textDecoration: "none" }}>
