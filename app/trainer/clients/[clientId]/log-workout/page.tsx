@@ -6,6 +6,7 @@ import Link from "next/link";
 import { saveWorkoutToLibrary } from "@/app/actions/clients";
 import { buildSetKey, parseRepsInput, parseWeightInput, repsInputMode, repsToText, totalVolumeLbs, volumeComparison, weightToNumber, type Side } from "@/lib/workout-utils";
 import { HomeLink } from "@/app/components/HomeLink";
+import { gymToday } from "@/lib/time";
 
 type ExerciseRow = {
   id: string;
@@ -58,6 +59,7 @@ export default function TrainerLogWorkoutPage() {
 
   const [saving, setSaving] = useState(false);
   const [sessionNotes, setSessionNotes] = useState("");
+  const [sessionDate, setSessionDate] = useState(gymToday());
   const [error, setError] = useState("");
   const [confirmFinish, setConfirmFinish] = useState(false);
   const [autoFill, setAutoFill] = useState(false);
@@ -378,6 +380,13 @@ export default function TrainerLogWorkoutPage() {
     });
   }
 
+  // Today keeps the real clock time; a past date is anchored at midday so the
+  // session can't slide onto the day either side.
+  function completedAtIso(dateStr: string) {
+    if (dateStr === gymToday()) return new Date().toISOString();
+    return new Date(`${dateStr}T12:00:00`).toISOString();
+  }
+
   async function finishSession() {
     if (!selectedWorkout) return;
     setConfirmFinish(false);
@@ -389,7 +398,7 @@ export default function TrainerLogWorkoutPage() {
       if (!user) throw new Error("Not authenticated");
       const { data: wlog, error: wErr } = await supabase
         .from("workout_logs")
-        .insert({ client_id: clientId, workout_id: selectedWorkout.id, completed_at: new Date().toISOString(), notes: sessionNotes.trim() || null, logged_by: user.id })
+        .insert({ client_id: clientId, workout_id: selectedWorkout.id, completed_at: completedAtIso(sessionDate), notes: sessionNotes.trim() || null, logged_by: user.id })
         .select("id").single();
       if (wErr || !wlog) throw wErr ?? new Error("Failed to create log");
       const rows: object[] = [];
@@ -871,6 +880,23 @@ export default function TrainerLogWorkoutPage() {
         >
           + Add Exercise
         </button>
+
+        {/* Backdating — for logging a session that already happened */}
+        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2EAF0", padding: 16, marginBottom: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#6B7A8D", textTransform: "uppercase", marginBottom: 8 }}>Session Date</div>
+          <input
+            type="date"
+            value={sessionDate}
+            max={gymToday()}
+            onChange={e => setSessionDate(e.target.value || gymToday())}
+            style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 15, color: "#0D1827", outline: "none" }}
+          />
+          {sessionDate !== gymToday() && (
+            <div style={{ fontSize: 12, color: "#D97706", fontWeight: 600, marginTop: 8 }}>
+              Logging this for {new Date(`${sessionDate}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}.
+            </div>
+          )}
+        </div>
 
         {/* Session notes */}
         <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2EAF0", padding: 16, marginBottom: 12 }}>

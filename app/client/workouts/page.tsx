@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 import { CalendarSyncCard } from "@/app/components/CalendarSyncCard";
+import { gymToday } from "@/lib/time";
 
 
 const DIFF_COLOR: Record<string, string> = {
@@ -299,11 +300,11 @@ async function CalendarView({ clientId, month }: { clientId: string; month?: str
     .lt("completed_at", monthEnd.toISOString())
     .order("completed_at");
 
-  // Group by local calendar day
+  // Group by the gym's calendar day — this renders on the server in UTC, so an
+  // evening workout would otherwise land on tomorrow's square.
   const byDay: Record<number, string[]> = {};
   for (const l of logs ?? []) {
-    const d = new Date(l.completed_at as string);
-    const day = d.getDate();
+    const day = parseInt(gymToday(new Date(l.completed_at as string)).slice(-2), 10);
     const name = (l.workouts as unknown as { name: string } | null)?.name ?? "Workout";
     if (!byDay[day]) byDay[day] = [];
     byDay[day].push(name);
