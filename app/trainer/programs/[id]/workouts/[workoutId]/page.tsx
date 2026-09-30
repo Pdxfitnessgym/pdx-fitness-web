@@ -127,15 +127,21 @@ export default function WorkoutBuilderPage() {
     setSaving(exId);
     const supabase = createClient();
     const ex = exercises.find(e => e.id === exId);
+    // "|| default" swallowed a deliberate 0 — parseInt("0") is falsy, so setting
+    // no rest silently saved 45. Only fall back when the field isn't a number.
+    const num = (raw: string, fallback: number) => {
+      const n = parseInt(raw);
+      return Number.isFinite(n) && n >= 0 ? n : fallback;
+    };
     const patch = {
-      sets: parseInt(edit.sets) || 3,
+      sets: Math.max(1, num(edit.sets, 3)),
       reps: edit.reps,
-      rest_seconds: parseInt(edit.rest_seconds) || 45,
+      rest_seconds: num(edit.rest_seconds, 45),
       notes: edit.notes || null,
       is_unilateral: edit.is_unilateral,
       suggested_weight: edit.suggested_weight.trim() || null,
       weight_type: edit.weight_type || null,
-      ...(ex?.group_id != null ? { group_round_rest_seconds: parseInt(edit.group_round_rest_seconds) || 90 } : {}),
+      ...(ex?.group_id != null ? { group_round_rest_seconds: num(edit.group_round_rest_seconds, 90) } : {}),
     };
     await supabase.from("exercises").update(patch).eq("id", exId);
     setExercises(prev => prev.map(e => e.id === exId ? { ...e, ...patch } : e));
@@ -299,7 +305,9 @@ export default function WorkoutBuilderPage() {
             </div>
             <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>
               {ex.sets} sets × {ex.reps}
-              {grouped ? <span style={{ color }}> · {ex.rest_seconds}s rest →</span> : <span> · {ex.rest_seconds}s rest</span>}
+              {grouped
+                ? <span style={{ color }}> · {ex.rest_seconds > 0 ? `${ex.rest_seconds}s rest` : "no rest"} →</span>
+                : <span> · {ex.rest_seconds}s rest</span>}
             </div>
             {ex.notes && <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2, fontStyle: "italic" }}>{ex.notes}</div>}
           </div>
@@ -539,8 +547,9 @@ export default function WorkoutBuilderPage() {
                     {i < item.items.length - 1 && (
                       <div style={{ background: color + "12", padding: "7px 14px 7px 19px", borderTop: `1px solid ${color}33`, borderBottom: `1px solid ${color}33`, display: "flex", alignItems: "center", gap: 8 }}>
                         <span style={{ fontSize: 14, color }}>↓</span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color }}>No rest — go straight to next</span>
-                        {ex.rest_seconds > 0 && <span style={{ fontSize: 11, color: "#9CA3AF" }}>({ex.rest_seconds}s if needed)</span>}
+                        <span style={{ fontSize: 12, fontWeight: 700, color }}>
+                          {ex.rest_seconds > 0 ? `Rest ${ex.rest_seconds}s, then next` : "No rest — go straight to next"}
+                        </span>
                       </div>
                     )}
                   </div>

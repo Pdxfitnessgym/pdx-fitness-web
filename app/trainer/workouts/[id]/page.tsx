@@ -232,7 +232,10 @@ export default function StandaloneWorkoutEditorPage() {
     const patch = {
       sets: parseInt(e.sets) || 3,
       reps: e.reps,
-      rest_seconds: parseInt(e.rest_seconds) || 60,
+      rest_seconds: (() => {
+        const n = parseInt(e.rest_seconds);
+        return Number.isFinite(n) && n >= 0 ? n : 60;
+      })(),
       notes: e.notes.trim() || null,
       is_unilateral: e.is_unilateral,
       suggested_weight: e.suggested_weight.trim() || null,
