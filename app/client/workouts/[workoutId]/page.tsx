@@ -881,8 +881,7 @@ function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId, volumeLbs, r
         <div style={{ fontSize: 26, fontWeight: 800, color: "#1B68B4", marginBottom: 6 }}>Workout Complete!</div>
         <div style={{ fontSize: 15, color: "#6B7A8D" }}>{workoutName} · {setsLogged} sets logged</div>
 
-        {volumeLbs > 0 && (
-          {(() => {
+        {volumeLbs > 0 && (() => {
             const c = volumeAs(volumeLbs);
             return (
               <div style={{ marginTop: 18, background: "linear-gradient(135deg, #1B68B4 0%, #2DC4B8 100%)", borderRadius: 18, padding: "22px 24px", boxShadow: "0 4px 20px rgba(27,104,180,0.28)" }}>
@@ -908,7 +907,6 @@ function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId, volumeLbs, r
               </div>
             );
           })()}
-        )}
       </div>
       <RpeScale workoutLogId={workoutLogId} />
 
