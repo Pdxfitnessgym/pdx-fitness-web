@@ -406,21 +406,15 @@ function PostCard({ post, me, expandedComments, commentInputs, submittingComment
         )}
       </div>
 
-      {/* Workout name + how much they moved */}
-      {(post.workout_name || post.total_volume_lbs) && (
-        <div style={{ margin: "10px 16px 0", display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {post.workout_name && (
-            <span style={{ background: "#EBF4FF", color: "#1B68B4", fontSize: 12, fontWeight: 700, padding: "4px 10px", borderRadius: 20 }}>
-              {post.workout_name}
-            </span>
-          )}
-          {post.total_volume_lbs ? (
-            <span style={{ background: "linear-gradient(135deg, #1B68B4 0%, #2DC4B8 100%)", color: "#fff", fontSize: 12, fontWeight: 800, padding: "4px 10px", borderRadius: 20 }}>
-              🏋️ {post.total_volume_lbs.toLocaleString()} lbs lifted
-            </span>
-          ) : null}
+      {/* How much they moved. The workout name stays off the feed — it means
+          nothing to anyone on a different program. */}
+      {post.total_volume_lbs ? (
+        <div style={{ margin: "10px 16px 0" }}>
+          <span style={{ display: "inline-block", background: "linear-gradient(135deg, #1B68B4 0%, #2DC4B8 100%)", color: "#fff", fontSize: 12, fontWeight: 800, padding: "4px 10px", borderRadius: 20 }}>
+            🏋️ {post.total_volume_lbs.toLocaleString()} lbs lifted
+          </span>
         </div>
-      )}
+      ) : null}
 
       {/* Content */}
       {post.content && (
