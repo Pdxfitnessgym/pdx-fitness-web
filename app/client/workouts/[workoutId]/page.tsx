@@ -788,6 +788,10 @@ const inputStyle = (done: boolean, filled = false): React.CSSProperties => ({
 });
 
 function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId, volumeLbs }: { workoutName: string; setsLogged: number; workoutLogId: string | null; volumeLbs: number }) {
+  // Arriving from the last logged set leaves the page scrolled down, so the
+  // total lifted was landing off-screen.
+  useEffect(() => { window.scrollTo(0, 0); }, []);
+
   const fileRef = useRef<HTMLInputElement>(null);
   const [caption, setCaption] = useState("");
   const [trainerNotes, setTrainerNotes] = useState("");
@@ -902,9 +906,12 @@ function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId, volumeLbs }:
           {sharing ? "Sharing..." : "🔥 Share to Feed"}
         </button>
         <button onClick={async () => { await saveTrainerNotes(); window.location.href = "/client/workouts"; }}
-          style={{ padding: "14px", borderRadius: 12, background: "#F4F7FA", border: "1px solid #E2EAF0", color: "#6B7A8D", fontWeight: 600, fontSize: 15, cursor: "pointer", textAlign: "center" }}>
-          Skip, back to workouts
+          style={{ padding: "14px", borderRadius: 12, background: "#fff", border: "2px solid #1B68B4", color: "#1B68B4", fontWeight: 700, fontSize: 16, cursor: "pointer", textAlign: "center" }}>
+          ✓ Save &amp; Exit
         </button>
+        <div style={{ fontSize: 12, color: "#9CA3AF", textAlign: "center", marginTop: -2 }}>
+          Your workout is already saved — sharing is optional.
+        </div>
       </div>
       <ClientBottomNav />
     </div>
