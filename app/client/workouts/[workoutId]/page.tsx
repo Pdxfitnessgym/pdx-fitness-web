@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
-import { buildSetKey, calcTotalSets, findPersonalRecords, isExerciseDone, parseRepsInput, parseWeightInput, repsInputMode, repsToText, totalVolumeLbs, volumeComparison, weightToNumber, type PersonalRecord, type Side } from "@/lib/workout-utils";
+import { buildSetKey, calcTotalSets, findPersonalRecords, isExerciseDone, parseRepsInput, parseWeightInput, repsInputMode, repsToText, totalVolumeLbs, volumeAs, weightToNumber, type PersonalRecord, type Side } from "@/lib/workout-utils";
 import { HomeLink } from "@/app/components/HomeLink";
 import { getYouTubeId } from "@/lib/youtube";
 import { gymDayRange } from "@/lib/time";
@@ -882,18 +882,32 @@ function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId, volumeLbs, r
         <div style={{ fontSize: 15, color: "#6B7A8D" }}>{workoutName} · {setsLogged} sets logged</div>
 
         {volumeLbs > 0 && (
-          <div style={{ marginTop: 18, background: "linear-gradient(135deg, #1B68B4 0%, #2DC4B8 100%)", borderRadius: 18, padding: "20px 24px", boxShadow: "0 4px 20px rgba(27,104,180,0.28)" }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.75)", textTransform: "uppercase", letterSpacing: 1 }}>
-              You just lifted
-            </div>
-            <div style={{ fontSize: 40, fontWeight: 900, color: "#fff", lineHeight: 1.1, marginTop: 4 }}>
-              {volumeLbs.toLocaleString()}
-              <span style={{ fontSize: 18, fontWeight: 700, marginLeft: 6 }}>lbs</span>
-            </div>
-            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 6 }}>
-              total weight moved{volumeComparison(volumeLbs) ? ` — ${volumeComparison(volumeLbs)}` : ""} 💪
-            </div>
-          </div>
+          {(() => {
+            const c = volumeAs(volumeLbs);
+            return (
+              <div style={{ marginTop: 18, background: "linear-gradient(135deg, #1B68B4 0%, #2DC4B8 100%)", borderRadius: 18, padding: "22px 24px", boxShadow: "0 4px 20px rgba(27,104,180,0.28)" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.75)", textTransform: "uppercase", letterSpacing: 1 }}>
+                  You just lifted
+                </div>
+                {c ? (
+                  <>
+                    <div style={{ fontSize: 46, marginTop: 6, lineHeight: 1 }}>{c.emoji}</div>
+                    <div style={{ fontSize: 28, fontWeight: 900, color: "#fff", lineHeight: 1.2, marginTop: 6 }}>
+                      {c.phrase}
+                    </div>
+                    <div style={{ fontSize: 15, color: "rgba(255,255,255,0.9)", marginTop: 8, fontWeight: 600 }}>
+                      {volumeLbs.toLocaleString()} lbs of total weight moved 💪
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 40, fontWeight: 900, color: "#fff", lineHeight: 1.1, marginTop: 4 }}>
+                    {volumeLbs.toLocaleString()}
+                    <span style={{ fontSize: 18, fontWeight: 700, marginLeft: 6 }}>lbs</span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         )}
       </div>
       <RpeScale workoutLogId={workoutLogId} />

@@ -75,19 +75,47 @@ export function totalVolumeLbs(sets: { reps: string | null; weight: number | nul
 }
 
 // A light, accurate size comparison — only once the number is big enough to mean something.
-export function volumeComparison(lbs: number): string | null {
-  const things: [number, string, string][] = [
-    [25000, "school bus", "school buses"],
-    [12000, "elephant", "elephants"],
-    [3000, "small car", "small cars"],
-    [1000, "horse", "horses"],
-    [800, "grand piano", "grand pianos"],
-  ];
-  for (const [w, one, many] of things) {
-    const n = Math.floor(lbs / w);
-    if (n >= 1) return `about ${n} ${n === 1 ? one : many}`;
+// Heaviest first, so the phrase lands on a small count of a big thing rather
+// than "700 house cats". Weights are rough on purpose — the point is the image.
+const THINGS: { lbs: number; emoji: string; one: string; many: string }[] = [
+  { lbs: 80000, emoji: "🐋", one: "a humpback whale", many: "humpback whales" },
+  { lbs: 40000, emoji: "🦕", one: "a brachiosaurus leg", many: "brachiosaurus legs" },
+  { lbs: 25000, emoji: "🚌", one: "a school bus", many: "school buses" },
+  { lbs: 16000, emoji: "🚚", one: "a delivery truck", many: "delivery trucks" },
+  { lbs: 12000, emoji: "🐘", one: "an elephant", many: "elephants" },
+  { lbs: 5000, emoji: "🦏", one: "a rhino", many: "rhinos" },
+  { lbs: 3500, emoji: "🦛", one: "a hippo", many: "hippos" },
+  { lbs: 2900, emoji: "🚗", one: "a small car", many: "small cars" },
+  { lbs: 1600, emoji: "🐄", one: "a cow", many: "cows" },
+  { lbs: 1200, emoji: "🐻‍❄️", one: "a polar bear", many: "polar bears" },
+  { lbs: 1000, emoji: "🐴", one: "a horse", many: "horses" },
+  { lbs: 800, emoji: "🎹", one: "a grand piano", many: "grand pianos" },
+  { lbs: 600, emoji: "🐻", one: "a grizzly bear", many: "grizzly bears" },
+  { lbs: 400, emoji: "🛵", one: "a scooter", many: "scooters" },
+  { lbs: 250, emoji: "🦍", one: "a gorilla", many: "gorillas" },
+  { lbs: 180, emoji: "🧍", one: "a fully grown human", many: "fully grown humans" },
+  { lbs: 120, emoji: "🐧", one: "an emperor penguin huddle", many: "emperor penguin huddles" },
+  { lbs: 90, emoji: "🐕", one: "a golden retriever", many: "golden retrievers" },
+  { lbs: 40, emoji: "🐢", one: "a sea turtle", many: "sea turtles" },
+  { lbs: 10, emoji: "🐈", one: "a house cat", many: "house cats" },
+];
+
+export type VolumeComparison = { emoji: string; phrase: string };
+
+export function volumeAs(lbs: number): VolumeComparison | null {
+  for (const t of THINGS) {
+    // Must actually reach the thing's weight before claiming one of it
+    if (lbs < t.lbs) continue;
+    const n = Math.round(lbs / t.lbs);
+    return { emoji: t.emoji, phrase: n === 1 ? t.one : `${n.toLocaleString()} ${t.many}` };
   }
   return null;
+}
+
+// Kept for the trainer's logging screen, which shows it inline.
+export function volumeComparison(lbs: number): string | null {
+  const c = volumeAs(lbs);
+  return c ? `about ${c.phrase}` : null;
 }
 
 // A personal best is per exercise AND per rep count: 8 reps at 135 is a
