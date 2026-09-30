@@ -128,6 +128,7 @@ export default async function TrainerDashboard() {
             { label: "Calendar", href: "/trainer/calendar", icon: "📅" },
             { label: "Challenges", href: "/trainer/challenges", icon: "🏆" },
             { label: "Messages", href: "/trainer/messages", icon: "💬" },
+            { label: "Feed", href: "/trainer/feed", icon: "📣" },
             { label: "Availability", href: "/trainer/availability", icon: "🗓️" },
             { label: "Sessions", href: "/trainer/sessions", icon: "🤝" },
             { label: "Check-ins", href: "/trainer/checkins", icon: "📋" },
