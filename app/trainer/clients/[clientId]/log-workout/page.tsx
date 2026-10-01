@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { saveWorkoutToLibrary } from "@/app/actions/clients";
-import { buildSetKey, parseRepsInput, parseWeightInput, repsInputMode, repsPlaceholder, repsToText, totalVolumeLbs, volumeComparison, weightToNumber, type Side } from "@/lib/workout-utils";
+import { buildSetKey, parseRepsInput, parseWeightInput, repsInputMode, repsToText, totalVolumeLbs, volumeComparison, weightToNumber, type Side } from "@/lib/workout-utils";
 import { HomeLink } from "@/app/components/HomeLink";
 import { gymToday } from "@/lib/time";
 
@@ -309,15 +309,11 @@ export default function TrainerLogWorkoutPage() {
     const inp = inputs[key] ?? { reps: "", weight: "" };
     const ex = exercises.find(e => e.id === exId);
 
-    // An empty box still shows a grey suggestion, so it reads as filled in.
-    // Record what was on screen rather than saving a blank set.
-    const prevWeight = prevLogged[key]?.weight;
-    const suggestedWeight = prevWeight != null
-      ? String(prevWeight)
-      : (ex?.suggested_weight && ex.suggested_weight !== "0" ? ex.suggested_weight : "");
+    // Only what was actually typed counts. A set with no reps isn't done.
+    if (!inp.reps.trim()) return;
 
-    const reps = repsToText(inp.reps || (ex ? repsPlaceholder(ex.reps) : ""));
-    const weight = weightToNumber(inp.weight || suggestedWeight);
+    const reps = repsToText(inp.reps);
+    const weight = weightToNumber(inp.weight);
     setLogged(prev => ({ ...prev, [key]: { reps, weight } }));
     if (!ex) return;
     if (ex.group_id != null) {
@@ -563,7 +559,7 @@ export default function TrainerLogWorkoutPage() {
           {ex.is_unilateral ? (
             <>
               <div style={{ display: "grid", gridTemplateColumns: "44px 36px 1fr 1fr 64px", gap: 6, padding: "6px 0", marginBottom: 4 }}>
-                <div style={colHdr}>Set</div><div style={colHdr}>Side</div><div style={colHdr}>Reps</div><div style={colHdr}>lbs</div><div />
+                <div style={colHdr}>Set</div><div style={colHdr}>Side</div><div style={colHdr}>Reps done</div><div style={colHdr}>Weight</div><div />
               </div>
               {Array.from({ length: ex.sets }, (_, i) => i + 1).map(setNum => {
                 const bothDone = !!logged[buildSetKey(ex.id, setNum, "left")] && !!logged[buildSetKey(ex.id, setNum, "right")];
@@ -593,19 +589,20 @@ export default function TrainerLogWorkoutPage() {
                               {sideLabel}
                             </div>
                             <input type="text" inputMode={repsInputMode(ex.reps)}
-                              placeholder={logged[key]?.reps != null ? String(logged[key].reps) : ex.reps.split(/[-x]/)[0].trim()}
+                              placeholder="—"
                               value={inp.reps}
                               className="log-input"
                               onChange={e => { const v = parseRepsInput(e.target.value, ex.reps); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
                               style={inputStyle(isDone, !!inp.reps)} />
                             <input type="text" inputMode="decimal"
-                              placeholder={logged[key]?.weight != null ? String(logged[key].weight) : prev?.weight != null ? String(prev.weight) : ex.suggested_weight ?? "0"}
+                              placeholder="—"
                               value={inp.weight}
                               className="log-input"
                               onChange={e => { const v = parseWeightInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
                               style={inputStyle(isDone, !!inp.weight)} />
                             <button onClick={() => handleLogSet(ex.id, setNum, side)}
-                              style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : sideColor, color: isDone ? "#059669" : "#fff", fontWeight: 700, fontSize: 16, border: `1.5px solid ${isDone ? "#6EE7B7" : sideColor}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              disabled={!inp.reps.trim() && !isDone}
+                              style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : !inp.reps.trim() ? "#EEF2F6" : sideColor, color: isDone ? "#059669" : !inp.reps.trim() ? "#C7CFD9" : "#fff", fontWeight: 700, fontSize: 16, border: `1.5px solid ${isDone ? "#6EE7B7" : !inp.reps.trim() ? "#E2EAF0" : sideColor}`, cursor: !inp.reps.trim() && !isDone ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                               ✓
                             </button>
                           </div>
@@ -619,7 +616,7 @@ export default function TrainerLogWorkoutPage() {
           ) : (
             <>
               <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 1fr 72px", gap: 8, padding: "6px 0", marginBottom: 4 }}>
-                <div style={colHdr}>Set</div><div style={colHdr}>Reps</div><div style={colHdr}>lbs</div><div />
+                <div style={colHdr}>Set</div><div style={colHdr}>Reps done</div><div style={colHdr}>Weight</div><div />
               </div>
               {Array.from({ length: ex.sets }, (_, i) => i + 1).map(setNum => {
                 const key = buildSetKey(ex.id, setNum, "both");
@@ -638,19 +635,20 @@ export default function TrainerLogWorkoutPage() {
                         {isDone ? <span style={{ color: "#fff", fontSize: 12, fontWeight: 700 }}>✓</span> : <span style={{ color: "#6B7A8D", fontSize: 12, fontWeight: 700 }}>{setNum}</span>}
                       </div>
                       <input type="text" inputMode={repsInputMode(ex.reps)}
-                        placeholder={logged[key]?.reps != null ? String(logged[key].reps) : ex.reps.split(/[-x]/)[0].trim()}
+                        placeholder="—"
                         value={inp.reps}
                         className="log-input"
                         onChange={e => { const v = parseRepsInput(e.target.value, ex.reps); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
                         style={inputStyle(isDone, !!inp.reps)} />
                       <input type="text" inputMode="decimal"
-                        placeholder={logged[key]?.weight != null ? String(logged[key].weight) : prev?.weight != null ? String(prev.weight) : ex.suggested_weight ?? "0"}
+                        placeholder="—"
                         value={inp.weight}
                         className="log-input"
                         onChange={e => { const v = parseWeightInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
                         style={inputStyle(isDone, !!inp.weight)} />
                       <button onClick={() => handleLogSet(ex.id, setNum, "both")}
-                        style={{ padding: "10px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : "#2DC4B8", color: isDone ? "#059669" : "#fff", fontWeight: 700, fontSize: 20, border: `1.5px solid ${isDone ? "#6EE7B7" : "#2DC4B8"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        disabled={!inp.reps.trim() && !isDone}
+                        style={{ padding: "10px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : !inp.reps.trim() ? "#EEF2F6" : "#2DC4B8", color: isDone ? "#059669" : !inp.reps.trim() ? "#C7CFD9" : "#fff", fontWeight: 700, fontSize: 20, border: `1.5px solid ${isDone ? "#6EE7B7" : !inp.reps.trim() ? "#E2EAF0" : "#2DC4B8"}`, cursor: !inp.reps.trim() && !isDone ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         {isDone ? "✓" : inGroup && !isLastInGroup ? "✓" : "⏱"}
                       </button>
                     </div>

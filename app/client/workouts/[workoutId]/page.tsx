@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
-import { buildSetKey, calcTotalSets, findPersonalRecords, isExerciseDone, parseRepsInput, parseWeightInput, repsInputMode, repsPlaceholder, repsToText, totalVolumeLbs, volumeAs, weightToNumber, type PersonalRecord, type Side } from "@/lib/workout-utils";
+import { buildSetKey, calcTotalSets, findPersonalRecords, isExerciseDone, parseRepsInput, parseWeightInput, repsInputMode, repsToText, totalVolumeLbs, volumeAs, weightToNumber, type PersonalRecord, type Side } from "@/lib/workout-utils";
 import { HomeLink } from "@/app/components/HomeLink";
 import { getYouTubeId } from "@/lib/youtube";
 import { gymDayRange } from "@/lib/time";
@@ -251,16 +251,12 @@ export default function WorkoutSessionPage() {
       return;
     }
 
-    // An empty box still shows a grey suggestion, so people tap ✓ believing it
-    // is filled in. Record what the box was showing rather than nothing.
+    // Only what was actually typed counts. A set with no reps isn't done.
     const ex = exercises.find(e => e.id === exerciseId);
-    const prevWeight = prevLogged[key]?.weight;
-    const suggestedWeight = prevWeight != null
-      ? String(prevWeight)
-      : (ex?.suggested_weight && ex.suggested_weight !== "0" ? ex.suggested_weight : "");
+    if (!inp.reps.trim()) return;
 
-    const reps = repsToText(inp.reps || (ex ? repsPlaceholder(ex.reps) : ""));
-    const weight = weightToNumber(inp.weight || suggestedWeight);
+    const reps = repsToText(inp.reps);
+    const weight = weightToNumber(inp.weight);
 
     setLogged(prev => ({ ...prev, [key]: { reps, weight } }));
 
@@ -439,7 +435,7 @@ export default function WorkoutSessionPage() {
               {allSetsLogged && <span style={{ fontSize: 12, color: "#059669", fontWeight: 700 }}>✓</span>}
             </div>
             <div style={{ fontSize: 12, color: "#6B7A8D" }}>
-              {ex.sets} sets × {ex.reps}
+              Target: {ex.sets} sets × {ex.reps}
               {ex.suggested_weight && (
                 <span> · {ex.weight_type === "dumbbell" ? "1 DB " : ex.weight_type === "dumbbells" ? "2 DB " : ex.weight_type === "barbell" ? "Barbell " : ex.weight_type === "kettlebell" ? "Kettlebell " : ex.weight_type === "plate" ? "Plate " : ""}{ex.suggested_weight}</span>
               )}
@@ -464,8 +460,8 @@ export default function WorkoutSessionPage() {
                 <div style={{ display: "grid", gridTemplateColumns: "44px 36px 1fr 1fr 64px", gap: 6, padding: "8px 0 6px", borderBottom: "1px solid #F4F7FA", marginBottom: 4 }}>
                   <div style={colHdr}>Set</div>
                   <div style={colHdr}>Side</div>
-                  <div style={colHdr}>Reps</div>
-                  <div style={colHdr}>lbs</div>
+                  <div style={colHdr}>Reps done</div>
+                  <div style={colHdr}>Weight</div>
                   <div />
                 </div>
                 {Array.from({ length: ex.sets }, (_, i) => i + 1).map(setNum => {
@@ -500,20 +496,21 @@ export default function WorkoutSessionPage() {
                               </div>
                               <input
                                 type="text" inputMode={repsInputMode(ex.reps)} pattern={repsInputMode(ex.reps) === "numeric" ? "[0-9]*" : undefined}
-                                placeholder={logged[key]?.reps != null ? String(logged[key].reps) : ex.reps.split(/[-x]/)[0].trim()}
+                                placeholder="—"
                                 value={inp.reps}
                                 className="log-input"
                                 onChange={e => { const v = parseRepsInput(e.target.value, ex.reps); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
                                 style={inputStyle(isDone, !!inp.reps)} />
                               <input
                                 type="text" inputMode="decimal"
-                                placeholder={logged[key]?.weight != null ? String(logged[key].weight) : prev?.weight != null ? String(prev.weight) : ex.suggested_weight ?? "0"}
+                                placeholder="—"
                                 value={inp.weight}
                                 className="log-input"
                                 onChange={e => { const v = parseWeightInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
                                 style={inputStyle(isDone, !!inp.weight)} />
                               <button onClick={() => handleLogSet(ex.id, setNum, side)}
-                                style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : sideColor, color: isDone ? "#059669" : "#fff", fontWeight: 700, fontSize: 16, border: `1.5px solid ${isDone ? "#6EE7B7" : sideColor}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              disabled={!inp.reps.trim() && !isDone}
+                                style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : !inp.reps.trim() ? "#EEF2F6" : sideColor, color: isDone ? "#059669" : !inp.reps.trim() ? "#C7CFD9" : "#fff", fontWeight: 700, fontSize: 16, border: `1.5px solid ${isDone ? "#6EE7B7" : !inp.reps.trim() ? "#E2EAF0" : sideColor}`, cursor: !inp.reps.trim() && !isDone ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                 {isDone ? "✓" : "⏱"}
                               </button>
                             </div>
@@ -528,8 +525,8 @@ export default function WorkoutSessionPage() {
               <>
                 <div style={{ display: "grid", gridTemplateColumns: "44px 1fr 1fr 72px", gap: 8, padding: "8px 0 6px", borderBottom: "1px solid #F4F7FA", marginBottom: 4 }}>
                   <div style={colHdr}>Set</div>
-                  <div style={colHdr}>Reps</div>
-                  <div style={colHdr}>lbs</div>
+                  <div style={colHdr}>Reps done</div>
+                  <div style={colHdr}>Weight</div>
                   <div />
                 </div>
                 {Array.from({ length: ex.sets }, (_, i) => i + 1).map(setNum => {
@@ -552,20 +549,21 @@ export default function WorkoutSessionPage() {
                         </div>
                         <input
                           type="text" inputMode={repsInputMode(ex.reps)} pattern={repsInputMode(ex.reps) === "numeric" ? "[0-9]*" : undefined}
-                          placeholder={logged[key]?.reps != null ? String(logged[key].reps) : ex.reps.split(/[-x]/)[0].trim()}
+                          placeholder="—"
                           value={inp.reps}
                           className="log-input"
                           onChange={e => { const v = parseRepsInput(e.target.value, ex.reps); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, reps: v } })); }}
                           style={inputStyle(isDone, !!inp.reps)} />
                         <input
                           type="text" inputMode="decimal"
-                          placeholder={logged[key]?.weight != null ? String(logged[key].weight) : prev?.weight != null ? String(prev.weight) : ex.suggested_weight ?? "0"}
+                          placeholder="—"
                           value={inp.weight}
                           className="log-input"
                           onChange={e => { const v = parseWeightInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
                           style={inputStyle(isDone, !!inp.weight)} />
                         <button onClick={() => handleLogSet(ex.id, setNum, "both")}
-                          style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : color, color: isDone ? "#059669" : "#fff", fontWeight: 700, fontSize: 20, border: `1.5px solid ${isDone ? "#6EE7B7" : color}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          disabled={!inp.reps.trim() && !isDone}
+                          style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : !inp.reps.trim() ? "#EEF2F6" : color, color: isDone ? "#059669" : !inp.reps.trim() ? "#C7CFD9" : "#fff", fontWeight: 700, fontSize: 20, border: `1.5px solid ${isDone ? "#6EE7B7" : !inp.reps.trim() ? "#E2EAF0" : color}`, cursor: !inp.reps.trim() && !isDone ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                           {isDone ? "✓" : "⏱"}
                         </button>
                       </div>
@@ -755,7 +753,7 @@ export default function WorkoutSessionPage() {
           <div style={{ background: "#fff", borderRadius: 16, padding: 24, maxWidth: 340, width: "100%" }}>
             <div style={{ fontSize: 17, fontWeight: 800, color: "#0D1827", marginBottom: 8 }}>Missing numbers</div>
             <div style={{ fontSize: 14, color: "#6B7A8D", marginBottom: 20 }}>
-              {missingSetCount} {missingSetCount === 1 ? "set doesn't" : "sets don't"} have reps or weight entered. The grey numbers are just suggestions — they aren't saved unless you type them in.
+              {missingSetCount} {missingSetCount === 1 ? "set hasn't" : "sets haven't"} been logged. Only sets you typed reps into are saved — the rest won't count towards your total.
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => setConfirmFinish(false)} style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#2DC4B8", border: "none", fontWeight: 700, fontSize: 14, cursor: "pointer", color: "#fff" }}>Go Back & Fill In</button>
