@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
-import { buildSetKey, calcTotalSets, findPersonalRecords, isExerciseDone, parseRepsInput, parseWeightInput, repsInputMode, repsToText, totalVolumeLbs, volumeAs, weightToNumber, type PersonalRecord, type Side } from "@/lib/workout-utils";
+import { buildSetKey, calcTotalSets, findPersonalRecords, isExerciseDone, parseRepsInput, parseWeightInput, repsInputMode, repsPlaceholder, repsToText, totalVolumeLbs, volumeAs, weightToNumber, type PersonalRecord, type Side } from "@/lib/workout-utils";
 import { HomeLink } from "@/app/components/HomeLink";
 import { getYouTubeId } from "@/lib/youtube";
 import { gymDayRange } from "@/lib/time";
@@ -251,8 +251,16 @@ export default function WorkoutSessionPage() {
       return;
     }
 
-    const reps = repsToText(inp.reps);
-    const weight = weightToNumber(inp.weight);
+    // An empty box still shows a grey suggestion, so people tap ✓ believing it
+    // is filled in. Record what the box was showing rather than nothing.
+    const ex = exercises.find(e => e.id === exerciseId);
+    const prevWeight = prevLogged[key]?.weight;
+    const suggestedWeight = prevWeight != null
+      ? String(prevWeight)
+      : (ex?.suggested_weight && ex.suggested_weight !== "0" ? ex.suggested_weight : "");
+
+    const reps = repsToText(inp.reps || (ex ? repsPlaceholder(ex.reps) : ""));
+    const weight = weightToNumber(inp.weight || suggestedWeight);
 
     setLogged(prev => ({ ...prev, [key]: { reps, weight } }));
 
@@ -268,7 +276,6 @@ export default function WorkoutSessionPage() {
     }, { onConflict: "workout_log_id,exercise_id,set_number,side" });
 
     // Auto-start rest timer immediately
-    const ex = exercises.find(e => e.id === exerciseId);
     if (timerRef.current) clearInterval(timerRef.current);
     const startTimer = (secs: number, kind: "exercise" | "round") => {
       const endTime = Date.now() + secs * 1000;
@@ -287,7 +294,7 @@ export default function WorkoutSessionPage() {
     } else {
       if (ex && ex.rest_seconds > 0) startTimer(ex.rest_seconds, "exercise");
     }
-  }, [inputs, workoutLogId, userId, exercises]);
+  }, [inputs, workoutLogId, userId, exercises, prevLogged]);
 
   function toggleAutoFill() {
     const next = !autoFill;

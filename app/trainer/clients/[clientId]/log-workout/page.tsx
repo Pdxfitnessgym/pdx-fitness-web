@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { saveWorkoutToLibrary } from "@/app/actions/clients";
-import { buildSetKey, parseRepsInput, parseWeightInput, repsInputMode, repsToText, totalVolumeLbs, volumeComparison, weightToNumber, type Side } from "@/lib/workout-utils";
+import { buildSetKey, parseRepsInput, parseWeightInput, repsInputMode, repsPlaceholder, repsToText, totalVolumeLbs, volumeComparison, weightToNumber, type Side } from "@/lib/workout-utils";
 import { HomeLink } from "@/app/components/HomeLink";
 import { gymToday } from "@/lib/time";
 
@@ -307,10 +307,18 @@ export default function TrainerLogWorkoutPage() {
   function handleLogSet(exId: string, setNum: number, side: Side) {
     const key: SetKey = buildSetKey(exId, setNum, side);
     const inp = inputs[key] ?? { reps: "", weight: "" };
-    const reps = repsToText(inp.reps);
-    const weight = weightToNumber(inp.weight);
-    setLogged(prev => ({ ...prev, [key]: { reps, weight } }));
     const ex = exercises.find(e => e.id === exId);
+
+    // An empty box still shows a grey suggestion, so it reads as filled in.
+    // Record what was on screen rather than saving a blank set.
+    const prevWeight = prevLogged[key]?.weight;
+    const suggestedWeight = prevWeight != null
+      ? String(prevWeight)
+      : (ex?.suggested_weight && ex.suggested_weight !== "0" ? ex.suggested_weight : "");
+
+    const reps = repsToText(inp.reps || (ex ? repsPlaceholder(ex.reps) : ""));
+    const weight = weightToNumber(inp.weight || suggestedWeight);
+    setLogged(prev => ({ ...prev, [key]: { reps, weight } }));
     if (!ex) return;
     if (ex.group_id != null) {
       // Superset: no rest between exercises, round rest after the last one

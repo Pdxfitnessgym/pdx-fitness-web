@@ -171,3 +171,10 @@ export function findPersonalRecords(
   }
   return out.sort((a, b) => (b.weight - b.previousWeight) - (a.weight - a.previousWeight));
 }
+
+// The greyed number shown in an empty reps box: the first figure of the
+// prescription ("6-8" -> "6"). Logging falls back to exactly this, so tapping ✓
+// records what the box was already showing instead of saving nothing.
+export function repsPlaceholder(spec: string): string {
+  return spec.split(/[-x×]/)[0].trim();
+}
