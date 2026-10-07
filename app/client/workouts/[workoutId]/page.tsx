@@ -7,7 +7,7 @@ import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 import { buildSetKey, calcTotalSets, findPersonalRecords, isExerciseDone, parseRepsInput, parseWeightInput, repsInputMode, repsToText, totalVolumeLbs, volumeAs, weightToNumber, type PersonalRecord, type Side } from "@/lib/workout-utils";
 import { HomeLink } from "@/app/components/HomeLink";
 import { getYouTubeId } from "@/lib/youtube";
-import { gymDayRange } from "@/lib/time";
+import { GYM_TZ, gymDayRange } from "@/lib/time";
 import { RpeScale } from "@/app/components/RpeScale";
 
 type ExerciseRow = {
@@ -53,6 +53,9 @@ export default function WorkoutSessionPage() {
   const [logged, setLogged] = useState<Record<SetKey, LoggedSet>>({});
   const [prevLogged, setPrevLogged] = useState<Record<SetKey, LoggedSet>>({});
   const [records, setRecords] = useState<PersonalRecord[]>([]);
+  // An unfinished session from an earlier day, offered rather than silently resumed
+  const [pendingResume, setPendingResume] = useState<{ id: string; startedAt: string; sets: number } | null>(null);
+  const [resumedStartedAt, setResumedStartedAt] = useState<string | null>(null);
   const [inputs, setInputs] = useState<Record<SetKey, { reps: string; weight: string }>>({});
   const [restTimer, setRestTimer] = useState<RestTimer | null>(null);
   const [restDone, setRestDone] = useState(false);
@@ -92,17 +95,55 @@ export default function WorkoutSessionPage() {
       // midnight — an evening session counted as tomorrow's, and the next day
       // then found no previous session to auto-fill from.
       const { start: dayStart } = gymDayRange();
-      const { data: todayLog } = await supabase
+
+      const loadSets = async (logId: string) => {
+        const { data: sl } = await supabase.from("set_logs")
+          .select("exercise_id, set_number, reps_completed, weight_lbs, side")
+          .eq("workout_log_id", logId);
+        const map: Record<SetKey, LoggedSet> = {};
+        sl?.forEach(s => { map[`${s.exercise_id}-${s.set_number}-${s.side ?? "both"}`] = { reps: s.reps_completed, weight: s.weight_lbs }; });
+        return map;
+      };
+
+      // Arrived from the calendar wanting to finish a specific session
+      const resumeId = new URLSearchParams(window.location.search).get("resume");
+      if (resumeId) {
+        const { data: target } = await supabase
+          .from("workout_logs").select("id, created_at")
+          .eq("id", resumeId).eq("client_id", user.id).is("completed_at", null).maybeSingle();
+        if (target) {
+          setWorkoutLogId(target.id);
+          setResumedStartedAt(target.created_at as string);
+          const map = await loadSets(target.id);
+          setLogged(map);
+          setMode("session");
+        }
+      }
+
+      const { data: todayLog } = !resumeId ? await supabase
         .from("workout_logs").select("id").eq("client_id", user.id).eq("workout_id", workoutId)
-        .gte("created_at", dayStart).maybeSingle();
+        .is("completed_at", null)
+        .gte("created_at", dayStart).maybeSingle() : { data: null };
 
       if (todayLog) {
         setWorkoutLogId(todayLog.id);
-        const { data: sl } = await supabase.from("set_logs").select("exercise_id, set_number, reps_completed, weight_lbs, side").eq("workout_log_id", todayLog.id);
-        const map: Record<SetKey, LoggedSet> = {};
-        sl?.forEach(s => { map[`${s.exercise_id}-${s.set_number}-${s.side ?? "both"}`] = { reps: s.reps_completed, weight: s.weight_lbs }; });
+        const map = await loadSets(todayLog.id);
         setLogged(map);
         if (Object.keys(map).length > 0) setMode("session");
+      } else if (!resumeId) {
+        // Nothing from today, but an older session was left unfinished. The work
+        // is already saved — offer it rather than quietly starting over.
+        const { data: openLog } = await supabase
+          .from("workout_logs").select("id, created_at").eq("client_id", user.id).eq("workout_id", workoutId)
+          .is("completed_at", null).lt("created_at", dayStart)
+          .order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if (openLog) {
+          const { count } = await supabase.from("set_logs")
+            .select("id", { count: "exact", head: true }).eq("workout_log_id", openLog.id);
+          if ((count ?? 0) > 0) {
+            setPendingResume({ id: openLog.id, startedAt: openLog.created_at as string, sets: count ?? 0 });
+          }
+        }
       }
 
       const { data: prevLog } = await supabase
@@ -322,7 +363,9 @@ export default function WorkoutSessionPage() {
     setConfirmFinish(false);
     setCompleting(true);
     const supabase = createClient();
-    if (workoutLogId) await supabase.from("workout_logs").update({ completed_at: new Date().toISOString() }).eq("id", workoutLogId);
+    // A session resumed from an earlier day belongs on that day, not today
+    const completedAt = resumedStartedAt ?? new Date().toISOString();
+    if (workoutLogId) await supabase.from("workout_logs").update({ completed_at: completedAt }).eq("id", workoutLogId);
 
     // Compare this session against everything they've lifted before
     if (userId) {
@@ -346,7 +389,7 @@ export default function WorkoutSessionPage() {
     fetch("/api/push/workout-complete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ workoutId }) }).catch(() => {});
     setMode("share");
     setCompleting(false);
-  }, [workoutLogId, workoutId, userId, exercises, logged]);
+  }, [workoutLogId, workoutId, userId, exercises, logged, resumedStartedAt]);
 
   const doneSetCount = Object.keys(logged).length;
   const totalSets = calcTotalSets(exercises);
@@ -598,6 +641,30 @@ export default function WorkoutSessionPage() {
       </div>
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px 16px 0" }}>
+        {pendingResume && mode === "preview" && (
+          <div style={{ marginBottom: 14, background: "#FFFBEB", border: "1.5px solid #FCD34D", borderRadius: 14, padding: "16px 18px" }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#92400E", marginBottom: 4 }}>⏳ You have an unfinished session</div>
+            <div style={{ fontSize: 13, color: "#B45309", lineHeight: 1.5, marginBottom: 14 }}>
+              Started {new Date(pendingResume.startedAt).toLocaleDateString("en-US", { timeZone: GYM_TZ, weekday: "long", month: "short", day: "numeric" })} with{" "}
+              {pendingResume.sets} set{pendingResume.sets === 1 ? "" : "s"} already saved. Finish it and it&apos;ll count for that day.
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => { window.location.href = `/client/workouts/${workoutId}?resume=${pendingResume.id}`; }}
+                style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#F59E0B", color: "#fff", border: "none", fontWeight: 800, fontSize: 14, cursor: "pointer" }}
+              >
+                Pick it back up
+              </button>
+              <button
+                onClick={() => setPendingResume(null)}
+                style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#fff", border: "1.5px solid #FCD34D", color: "#92400E", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+              >
+                Start fresh
+              </button>
+            </div>
+          </div>
+        )}
+
         {mode === "preview" && workout?.description && (
           <div style={{ marginBottom: 12, background: "#FFFBEB", border: "1.5px solid #FCD34D", borderRadius: 14, padding: "14px 16px" }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: "#92400E", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>📋 Instructions</div>
@@ -626,6 +693,12 @@ export default function WorkoutSessionPage() {
             >
               + Add exercises
             </Link>
+          </div>
+        )}
+
+        {mode === "session" && resumedStartedAt && (
+          <div style={{ marginBottom: 12, background: "#FFFBEB", border: "1px solid #FCD34D", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#92400E", fontWeight: 600 }}>
+            ⏳ Finishing your session from {new Date(resumedStartedAt).toLocaleDateString("en-US", { timeZone: GYM_TZ, weekday: "long", month: "short", day: "numeric" })}
           </div>
         )}
 

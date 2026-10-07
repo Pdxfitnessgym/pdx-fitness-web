@@ -291,23 +291,59 @@ async function CalendarView({ clientId, month }: { clientId: string; month?: str
   const monthStart = new Date(year, monthIdx, 1);
   const monthEnd = new Date(year, monthIdx + 1, 1);
 
-  const { data: logs } = await supabase
-    .from("workout_logs")
-    .select("id, completed_at, workouts(name)")
-    .eq("client_id", clientId)
-    .not("completed_at", "is", null)
-    .gte("completed_at", monthStart.toISOString())
-    .lt("completed_at", monthEnd.toISOString())
-    .order("completed_at");
+  const [{ data: logs }, { data: openLogs }] = await Promise.all([
+    supabase
+      .from("workout_logs")
+      .select("id, workout_id, completed_at, workouts(name)")
+      .eq("client_id", clientId)
+      .not("completed_at", "is", null)
+      .gte("completed_at", monthStart.toISOString())
+      .lt("completed_at", monthEnd.toISOString())
+      .order("completed_at"),
+    // Sessions started but never finished — the work is saved, it just never
+    // got marked done, so it counts for nothing until someone finishes it.
+    supabase
+      .from("workout_logs")
+      .select("id, workout_id, created_at, workouts(name)")
+      .eq("client_id", clientId)
+      .is("completed_at", null)
+      .gte("created_at", monthStart.toISOString())
+      .lt("created_at", monthEnd.toISOString())
+      .order("created_at"),
+  ]);
+
+  // Only surface unfinished sessions that actually hold something
+  const openIds = (openLogs ?? []).map(l => l.id);
+  const { data: openSets } = openIds.length
+    ? await supabase.from("set_logs").select("workout_log_id").in("workout_log_id", openIds)
+    : { data: [] as { workout_log_id: string }[] };
+  const setsPerLog = new Map<string, number>();
+  for (const r of openSets ?? []) {
+    setsPerLog.set(r.workout_log_id, (setsPerLog.get(r.workout_log_id) ?? 0) + 1);
+  }
+
+  type DayEntry = { name: string; logId: string; workoutId: string | null; done: boolean; sets: number };
 
   // Group by the gym's calendar day — this renders on the server in UTC, so an
   // evening workout would otherwise land on tomorrow's square.
-  const byDay: Record<number, string[]> = {};
+  const byDay: Record<number, DayEntry[]> = {};
+  const push = (iso: string, e: DayEntry) => {
+    const day = parseInt(gymToday(new Date(iso)).slice(-2), 10);
+    (byDay[day] ??= []).push(e);
+  };
   for (const l of logs ?? []) {
-    const day = parseInt(gymToday(new Date(l.completed_at as string)).slice(-2), 10);
-    const name = (l.workouts as unknown as { name: string } | null)?.name ?? "Workout";
-    if (!byDay[day]) byDay[day] = [];
-    byDay[day].push(name);
+    push(l.completed_at as string, {
+      name: (l.workouts as unknown as { name: string } | null)?.name ?? "Workout",
+      logId: l.id, workoutId: l.workout_id, done: true, sets: 0,
+    });
+  }
+  for (const l of openLogs ?? []) {
+    const sets = setsPerLog.get(l.id) ?? 0;
+    if (sets === 0) continue;
+    push(l.created_at as string, {
+      name: (l.workouts as unknown as { name: string } | null)?.name ?? "Workout",
+      logId: l.id, workoutId: l.workout_id, done: false, sets,
+    });
   }
 
   const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
@@ -354,20 +390,22 @@ async function CalendarView({ clientId, month }: { clientId: string; month?: str
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
             {Array.from({ length: firstDow }, (_, i) => <div key={`pad-${i}`} />)}
             {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
-              const done = byDay[day];
+              const entries = byDay[day];
+              const anyDone = entries?.some(e => e.done);
+              const anyOpen = entries?.some(e => !e.done);
               const isToday = isThisMonth && day === todayDate;
               return (
                 <div key={day} style={{
                   aspectRatio: "1", borderRadius: 10, display: "flex", flexDirection: "column",
                   alignItems: "center", justifyContent: "center", gap: 2,
-                  background: done ? "#D1FAE5" : isToday ? "#EBF4FF" : "#F8FAFB",
+                  background: anyDone ? "#D1FAE5" : anyOpen ? "#FEF3C7" : isToday ? "#EBF4FF" : "#F8FAFB",
                   border: isToday ? "2px solid #1B68B4" : "1px solid transparent",
                 }}>
-                  <span style={{ fontSize: 13, fontWeight: done || isToday ? 800 : 500, color: done ? "#059669" : isToday ? "#1B68B4" : "#6B7A8D" }}>{day}</span>
-                  {done && (
+                  <span style={{ fontSize: 13, fontWeight: entries || isToday ? 800 : 500, color: anyDone ? "#059669" : anyOpen ? "#B45309" : isToday ? "#1B68B4" : "#6B7A8D" }}>{day}</span>
+                  {entries && (
                     <div style={{ display: "flex", gap: 2 }}>
-                      {done.slice(0, 3).map((_, i) => (
-                        <div key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: "#10B981" }} />
+                      {entries.slice(0, 3).map((e, i) => (
+                        <div key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: e.done ? "#10B981" : "#F59E0B" }} />
                       ))}
                     </div>
                   )}
@@ -377,7 +415,7 @@ async function CalendarView({ clientId, month }: { clientId: string; month?: str
           </div>
         </div>
 
-        {/* This month's completed workouts */}
+        {/* This month's sessions — finished, and any still waiting to be */}
         {totalDone === 0 ? (
           <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2EAF0", padding: "40px 24px", textAlign: "center" }}>
             <div style={{ fontSize: 36, marginBottom: 10 }}>📅</div>
@@ -386,18 +424,35 @@ async function CalendarView({ clientId, month }: { clientId: string; month?: str
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {Object.keys(byDay).map(Number).sort((a, b) => b - a).map(day => (
-              <div key={day} style={{ background: "#fff", borderRadius: 12, border: "1px solid #E2EAF0", padding: "12px 14px", display: "flex", gap: 12, alignItems: "center" }}>
-                <div style={{ width: 40, height: 40, borderRadius: 10, background: "#D1FAE5", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <span style={{ fontSize: 14, fontWeight: 800, color: "#059669" }}>{day}</span>
+            {Object.keys(byDay).map(Number).sort((a, b) => b - a).map(day => {
+              const entries = byDay[day];
+              const anyDone = entries.some(e => e.done);
+              return (
+                <div key={day} style={{ background: "#fff", borderRadius: 12, border: "1px solid #E2EAF0", padding: "12px 14px", display: "flex", gap: 12, alignItems: "center" }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: anyDone ? "#D1FAE5" : "#FEF3C7", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: anyDone ? "#059669" : "#B45309" }}>{day}</span>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {entries.map((e, i) =>
+                      e.done ? (
+                        <div key={i} style={{ fontSize: 14, fontWeight: 600, color: "#0D1827" }}>✓ {e.name}</div>
+                      ) : (
+                        <Link
+                          key={i}
+                          href={`/client/workouts/${e.workoutId}?resume=${e.logId}`}
+                          style={{ display: "block", textDecoration: "none", marginTop: i === 0 ? 0 : 4 }}
+                        >
+                          <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#B45309" }}>⏳ {e.name}</span>
+                          <span style={{ display: "block", fontSize: 12, color: "#92400E" }}>
+                            {e.sets} set{e.sets === 1 ? "" : "s"} saved · tap to finish it →
+                          </span>
+                        </Link>
+                      )
+                    )}
+                  </div>
                 </div>
-                <div style={{ flex: 1 }}>
-                  {byDay[day].map((name, i) => (
-                    <div key={i} style={{ fontSize: 14, fontWeight: 600, color: "#0D1827" }}>✓ {name}</div>
-                  ))}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
