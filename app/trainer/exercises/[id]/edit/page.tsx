@@ -1,6 +1,6 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useState, useRef, useEffect, Suspense } from "react";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { HomeLink } from "@/app/components/HomeLink";
@@ -9,8 +9,15 @@ const MUSCLE_GROUPS = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Core"
 const EQUIPMENT = ["Barbell", "Dumbbell", "Kettlebell", "Cable", "Machine", "Bodyweight", "Resistance Band", "TRX", "Other"];
 
 export default function EditExercisePage() {
+  return <Suspense><EditExerciseForm /></Suspense>;
+}
+
+function EditExerciseForm() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
+  // Set when you arrive from a workout builder, so Save takes you back there
+  const returnTo = searchParams.get("returnTo");
   const id = params.id as string;
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -105,7 +112,7 @@ export default function EditExercisePage() {
       }
 
       setUploadProgress(100);
-      router.push(`/trainer/exercises/${id}`);
+      router.push(returnTo ?? `/trainer/exercises/${id}`);
     } catch (err: unknown) {
       setError("Error: " + (err instanceof Error ? err.message : String(err)));
       setSaving(false);
@@ -119,7 +126,7 @@ export default function EditExercisePage() {
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "20px 20px 16px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <Link href={`/trainer/exercises/${id}`} style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← Back</Link><HomeLink role="trainer" />
+            <Link href={returnTo ?? `/trainer/exercises/${id}`} style={{ fontSize: 13, color: "#6B7A8D", textDecoration: "none" }}>← {returnTo ? "Back to workout" : "Back"}</Link><HomeLink role="trainer" />
           </div>
           <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginTop: 4 }}>Edit Exercise</div>
         </div>

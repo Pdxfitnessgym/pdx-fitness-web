@@ -335,6 +335,33 @@ export default function WorkoutBuilderPage() {
 
         {isExpanded && edit && !supersetMode && (
           <div style={{ borderTop: "1px solid #F4F7FA", padding: "14px 16px", background: "#F8FAFB" }}>
+            {/* Watch the demo while building, to check it's the right movement.
+                The video lives on the library entry, so changing it here updates
+                this exercise everywhere it's used. */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={lbl}>Demo Video</div>
+              {videoUrl ? (
+                <video src={videoUrl} controls playsInline preload="metadata"
+                  style={{ width: "100%", borderRadius: 10, maxHeight: 220, background: "#000" }} />
+              ) : ytId ? (
+                <div style={{ borderRadius: 10, overflow: "hidden", background: "#000", aspectRatio: "16/9" }}>
+                  <iframe src={`https://www.youtube.com/embed/${ytId}`} style={{ width: "100%", height: "100%", border: "none" }}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                </div>
+              ) : (
+                <div style={{ borderRadius: 10, border: "1.5px dashed #E2EAF0", background: "#fff", padding: "16px", textAlign: "center", fontSize: 13, color: "#9CA3AF" }}>
+                  No video yet — clients see this exercise by name only
+                </div>
+              )}
+              {ex.exercise_library_id && (
+                <Link
+                  href={`/trainer/exercises/${ex.exercise_library_id}/edit?returnTo=${encodeURIComponent(`/trainer/programs/${programId}/workouts/${workoutId}`)}`}
+                  style={{ display: "block", textAlign: "center", marginTop: 8, padding: "9px", borderRadius: 8, border: `1.5px solid ${videoUrl || ytId ? "#E2EAF0" : "#2DC4B8"}`, background: videoUrl || ytId ? "#fff" : "#F0FDFC", fontSize: 13, fontWeight: 700, color: videoUrl || ytId ? "#1B68B4" : "#0F766E", textDecoration: "none" }}
+                >
+                  🎥 {videoUrl || ytId ? "Change video" : "Add a video"}
+                </Link>
+              )}
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
               <div>
                 <div style={lbl}>Sets</div>
