@@ -267,7 +267,24 @@ export default function TrainerLogWorkoutPage() {
     const supabase = createClient();
     const { error: upErr } = await supabase.from("exercises").update(patch).eq("id", exId);
     if (upErr) { setError(upErr.message); return; }
-    setExercises(prev => prev.map(e => e.id === exId ? { ...e, ...patch } : e));
+
+    // Round rest describes the whole superset, not one exercise in it. Storing
+    // it per row lets members drift apart, so write it across the group.
+    const groupId = exercises.find(e => e.id === exId)?.group_id ?? null;
+    const roundRest = patch.group_round_rest_seconds;
+    if (groupId != null && roundRest != null) {
+      await supabase.from("exercises")
+        .update({ group_round_rest_seconds: roundRest })
+        .eq("workout_id", selectedWorkout?.id ?? "")
+        .eq("group_id", groupId);
+    }
+
+    setExercises(prev => prev.map(e =>
+      e.id === exId
+        ? { ...e, ...patch }
+        : groupId != null && roundRest != null && e.group_id === groupId
+          ? { ...e, group_round_rest_seconds: roundRest }
+          : e));
     setEditExId(null);
   }
 
@@ -862,8 +879,9 @@ export default function TrainerLogWorkoutPage() {
                     {i < item.items.length - 1 && (
                       <div style={{ background: color + "12", padding: "7px 14px 7px 19px", borderTop: `1px solid ${color}33`, borderBottom: `1px solid ${color}33`, display: "flex", alignItems: "center", gap: 8 }}>
                         <span style={{ fontSize: 14, color }}>↓</span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color }}>No rest — go straight to next</span>
-                        {ex.rest_seconds > 0 && <span style={{ fontSize: 11, color: "#9CA3AF" }}>({ex.rest_seconds}s if needed)</span>}
+                        <span style={{ fontSize: 12, fontWeight: 700, color }}>
+                          {ex.rest_seconds > 0 ? `Rest ${ex.rest_seconds}s, then next` : "No rest — go straight to next"}
+                        </span>
                       </div>
                     )}
                   </div>

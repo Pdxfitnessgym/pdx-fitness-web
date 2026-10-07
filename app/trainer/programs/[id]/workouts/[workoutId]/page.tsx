@@ -144,7 +144,23 @@ export default function WorkoutBuilderPage() {
       ...(ex?.group_id != null ? { group_round_rest_seconds: num(edit.group_round_rest_seconds, 90) } : {}),
     };
     await supabase.from("exercises").update(patch).eq("id", exId);
-    setExercises(prev => prev.map(e => e.id === exId ? { ...e, ...patch } : e));
+
+    // Round rest belongs to the superset, not to one exercise inside it
+    const groupId = ex?.group_id ?? null;
+    const roundRest = (patch as { group_round_rest_seconds?: number }).group_round_rest_seconds;
+    if (groupId != null && roundRest != null) {
+      await supabase.from("exercises")
+        .update({ group_round_rest_seconds: roundRest })
+        .eq("workout_id", workoutId)
+        .eq("group_id", groupId);
+    }
+
+    setExercises(prev => prev.map(e =>
+      e.id === exId
+        ? { ...e, ...patch }
+        : groupId != null && roundRest != null && e.group_id === groupId
+          ? { ...e, group_round_rest_seconds: roundRest }
+          : e));
     setSaving(null);
     setExpandedId(null);
   }, [edits, exercises]);
