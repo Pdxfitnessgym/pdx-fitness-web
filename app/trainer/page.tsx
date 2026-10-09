@@ -5,6 +5,7 @@ import Image from "next/image";
 import { NotificationBanner } from "@/app/components/NotificationBanner";
 import { LogoutButton } from "@/app/components/LogoutButton";
 import { TrainerActivityFeed } from "@/app/components/TrainerActivityFeed";
+import { NeedsAttention } from "@/app/components/NeedsAttention";
 
 export default async function TrainerDashboard() {
   const supabase = await createClient();
@@ -100,6 +101,8 @@ export default async function TrainerDashboard() {
             <div style={{ fontSize: 32, fontWeight: 800, color: "#1B68B4" }}>{programCount ?? 0}</div>
           </div>
         </div>
+
+        <NeedsAttention trainerId={user.id} isAdmin={!!profile?.is_admin} />
 
         <TrainerActivityFeed trainerId={user.id} isAdmin={!!profile?.is_admin} />
 
