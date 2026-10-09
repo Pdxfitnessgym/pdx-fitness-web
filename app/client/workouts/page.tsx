@@ -435,7 +435,14 @@ async function CalendarView({ clientId, month }: { clientId: string; month?: str
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {entries.map((e, i) =>
                       e.done ? (
-                        <div key={i} style={{ fontSize: 14, fontWeight: 600, color: "#0D1827" }}>✓ {e.name}</div>
+                        <Link
+                          key={i}
+                          href={`/client/workouts/history?log=${e.logId}`}
+                          style={{ display: "flex", alignItems: "center", gap: 6, textDecoration: "none", marginTop: i === 0 ? 0 : 4 }}
+                        >
+                          <span style={{ fontSize: 14, fontWeight: 600, color: "#0D1827" }}>✓ {e.name}</span>
+                          <span style={{ fontSize: 12, color: "#2DC4B8", fontWeight: 700 }}>view →</span>
+                        </Link>
                       ) : (
                         <Link
                           key={i}

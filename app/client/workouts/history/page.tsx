@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
@@ -23,9 +24,15 @@ type WorkoutLog = {
 };
 
 export default function WorkoutHistoryPage() {
+  return <Suspense><WorkoutHistory /></Suspense>;
+}
+
+function WorkoutHistory() {
+  // ?log=<id> arrives from the calendar — open that session straight away
+  const openLogId = useSearchParams().get("log");
   const [logs, setLogs] = useState<WorkoutLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(openLogId);
 
   useEffect(() => {
     async function load() {

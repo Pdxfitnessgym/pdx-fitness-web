@@ -5,6 +5,7 @@ import { NotificationBanner } from "@/app/components/NotificationBanner";
 import { LogoutButton } from "@/app/components/LogoutButton";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 import { DashboardHabits } from "@/app/components/DashboardHabits";
+import { RecentWorkouts } from "@/app/components/RecentWorkouts";
 import { GYM_TZ, formatGymDate, formatGymTime, gymDaysUntil } from "@/lib/time";
 
 
@@ -238,6 +239,8 @@ export default async function ClientDashboard() {
             ))}
           </div>
         )}
+
+        <RecentWorkouts clientId={user.id} />
 
         <DashboardHabits />
 
