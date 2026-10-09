@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 import { CalendarSyncCard } from "@/app/components/CalendarSyncCard";
 import { gymToday } from "@/lib/time";
+import { hasGuideContent, type WeekGuide } from "@/lib/program-week";
 
 
 const DIFF_COLOR: Record<string, string> = {
@@ -139,6 +140,24 @@ export default async function ClientWorkoutsPage({
     .order("week_number")
     .order("day_of_week") as { data: WorkoutRow[] | null };
 
+  // The week guide — the one-pager for where they are in the program right now.
+  const { data: weekGuides } = await supabase
+    .from("program_weeks")
+    .select("*")
+    .eq("program_id", (program as { id: string })?.id)
+    .order("week_number") as { data: WeekGuide[] | null };
+
+  const guided = (weekGuides ?? []).filter(hasGuideContent);
+  const currentWeek = program
+    ? Math.min(Math.max(Math.floor((Date.now() - new Date(cp.start_date).getTime()) / 604800000) + 1, 1), program.duration_weeks)
+    : 1;
+  // Fall back to the last guide written before this week, so a client past the
+  // written-up weeks still lands somewhere real.
+  const guide =
+    guided.find(g => g.week_number === currentWeek) ??
+    [...guided].reverse().find(g => g.week_number < currentWeek) ??
+    guided[0];
+
   return (
     <div style={{ minHeight: "100dvh", background: "#F4F7FA", paddingBottom: 80 }}>
       {/* Header */}
@@ -156,6 +175,24 @@ export default async function ClientWorkoutsPage({
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px", display: "flex", flexDirection: "column", gap: 10 }}>
 
         <StartButton />
+
+        {guide && (
+          <Link
+            href={`/client/workouts/week/${guide.week_number}`}
+            style={{ background: "#EBF9F8", borderRadius: 14, border: "1px solid #A7F3D0", padding: "14px 16px", textDecoration: "none", display: "flex", alignItems: "center", gap: 14 }}
+          >
+            <div style={{ width: 44, height: 44, borderRadius: 10, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>📋</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: "#0F766E" }}>
+                Week {guide.week_number} Guide{guide.title ? `: ${guide.title}` : ""}
+              </div>
+              <div style={{ fontSize: 13, color: "#0F766E", opacity: 0.8, marginTop: 2 }}>
+                {guide.focus ?? "What this week is about and how it fits together"}
+              </div>
+            </div>
+            <div style={{ color: "#0F766E", fontSize: 18 }}>›</div>
+          </Link>
+        )}
 
         {/* Program workouts */}
         {workouts && workouts.length > 0 ? (

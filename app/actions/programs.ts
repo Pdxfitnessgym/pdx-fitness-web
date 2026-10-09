@@ -2,6 +2,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { WEEK_DAYS } from "@/lib/program-week";
 
 export async function createProgram(formData: FormData) {
   const supabase = await createClient();
@@ -265,4 +266,48 @@ export async function deleteWorkout(formData: FormData) {
 
   revalidatePath(`/trainer/programs/${program_id}`);
   redirect(`/trainer/programs/${program_id}`);
+}
+
+// The weekly guide page — phase, focus, the day-by-day table and the
+// goal/tip/milestone row. One row per (program, week); saving an empty form
+// still writes, so a week can be cleared back to blank.
+export async function saveWeekGuide(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const program_id = formData.get("program_id") as string;
+  const week_number = parseInt(formData.get("week_number") as string);
+  if (!program_id || !Number.isFinite(week_number)) redirect("/trainer/programs");
+
+  const text = (k: string) => ((formData.get(k) as string) ?? "").trim() || null;
+
+  const schedule = WEEK_DAYS
+    .map(day => ({
+      day,
+      workout: ((formData.get(`workout_${day}`) as string) ?? "").trim(),
+      details: ((formData.get(`details_${day}`) as string) ?? "").trim(),
+    }))
+    .filter(row => row.workout || row.details);
+
+  const { data: saved } = await supabase
+    .from("program_weeks")
+    .upsert({
+      program_id,
+      week_number,
+      phase: text("phase"),
+      title: text("title"),
+      focus: text("focus"),
+      glance: text("glance"),
+      schedule,
+      goal: text("goal"),
+      tip: text("tip"),
+      milestone: text("milestone"),
+    }, { onConflict: "program_id,week_number" })
+    .select("id");
+
+  if (!saved?.length) redirect(`/trainer/programs/${program_id}?error=not_yours`);
+
+  revalidatePath(`/trainer/programs/${program_id}`);
+  redirect(`/trainer/programs/${program_id}?guide=${week_number}`);
 }

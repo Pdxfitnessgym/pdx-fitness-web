@@ -6,6 +6,7 @@ import { toggleProgramShared } from "@/app/actions/programs";
 import { DeleteWorkoutButton } from "@/app/components/DeleteWorkoutButton";
 import { ProgramDetailsEditor } from "@/app/components/ProgramDetailsEditor";
 import { CopyWeek } from "@/app/components/CopyWeek";
+import { hasGuideContent, type WeekGuide } from "@/lib/program-week";
 
 
 export default async function ProgramDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string>> }) {
@@ -19,6 +20,10 @@ export default async function ProgramDetailPage({ params, searchParams }: { para
   if (!program) redirect("/trainer/programs");
 
   const { data: workouts } = await supabase.from("workouts").select("*, exercises(count)").eq("program_id", id).order("week_number").order("day_of_week");
+
+  const { data: weekGuides } = await supabase
+    .from("program_weeks").select("*").eq("program_id", id) as { data: WeekGuide[] | null };
+  const guidedWeeks = new Set((weekGuides ?? []).filter(hasGuideContent).map(g => g.week_number));
 
   const byWeek: Record<number, typeof workouts> = {};
   const weeksWithWorkouts = [...new Set((workouts ?? []).map(w => w.week_number as number))];
@@ -46,6 +51,11 @@ export default async function ProgramDetailPage({ params, searchParams }: { para
         {sp.copied && (
           <div style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600, marginBottom: 16 }}>
             ✓ Copied {sp.copied} workout{sp.copied === "1" ? "" : "s"} into the weeks you picked
+          </div>
+        )}
+        {sp.guide && (
+          <div style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600, marginBottom: 16 }}>
+            ✓ Week {sp.guide} guide saved
           </div>
         )}
         {sp.saved && (
@@ -103,8 +113,18 @@ export default async function ProgramDetailPage({ params, searchParams }: { para
         {Array.from({ length: program.duration_weeks }, (_, i) => i + 1).map(week => (
           <div key={week} style={{ marginBottom: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10, gap: 10 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#6B7A8D", textTransform: "uppercase", letterSpacing: 1 }}>
-                Week {week}
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#6B7A8D", textTransform: "uppercase", letterSpacing: 1 }}>
+                  Week {week}
+                </div>
+                {program.trainer_id === user.id && (
+                  <Link
+                    href={`/trainer/programs/${id}/weeks/${week}`}
+                    style={{ fontSize: 12, fontWeight: 700, textDecoration: "none", color: guidedWeeks.has(week) ? "#0F766E" : "#6B7A8D" }}
+                  >
+                    {guidedWeeks.has(week) ? "📋 Guide ✓" : "📋 Add guide"}
+                  </Link>
+                )}
               </div>
               {program.trainer_id === user.id && (byWeek[week]?.length ?? 0) > 0 && program.duration_weeks > 1 && (
                 <CopyWeek
