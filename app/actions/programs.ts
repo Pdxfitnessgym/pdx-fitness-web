@@ -52,6 +52,88 @@ export async function updateProgram(formData: FormData) {
   redirect(`/trainer/programs/${id}?saved=1`);
 }
 
+// Copy one week's workouts into other weeks, exercises and all. A program that
+// repeats a phase shouldn't have to be typed four times.
+export async function copyWeekToWeeks(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const program_id = formData.get("program_id") as string;
+  const fromWeek = parseInt(formData.get("from_week") as string);
+  const targets = (formData.getAll("weeks") as string[])
+    .map(w => parseInt(w))
+    .filter(w => Number.isFinite(w) && w !== fromWeek);
+
+  if (!program_id || !Number.isFinite(fromWeek) || targets.length === 0) {
+    redirect(`/trainer/programs/${program_id}`);
+  }
+
+  const { data: source } = await supabase
+    .from("workouts")
+    .select("id, name, description, day_of_week, est_duration_mins, category, difficulty, trainer_id")
+    .eq("program_id", program_id)
+    .eq("week_number", fromWeek)
+    .order("day_of_week");
+
+  if (!source?.length) redirect(`/trainer/programs/${program_id}?error=nothing_to_copy`);
+
+  const { data: exercises } = await supabase
+    .from("exercises")
+    .select("workout_id, name, sets, reps, rest_seconds, notes, order, exercise_library_id, group_id, group_round_rest_seconds, is_unilateral, suggested_weight, weight_type")
+    .in("workout_id", source.map(w => w.id));
+
+  const byWorkout = new Map<string, typeof exercises>();
+  for (const e of exercises ?? []) {
+    const arr = byWorkout.get(e.workout_id) ?? [];
+    arr.push(e);
+    byWorkout.set(e.workout_id, arr as typeof exercises);
+  }
+
+  let copied = 0;
+  for (const week of targets) {
+    for (const w of source) {
+      const { data: made } = await supabase
+        .from("workouts")
+        .insert({
+          program_id,
+          name: w.name,
+          description: w.description,
+          week_number: week,
+          day_of_week: w.day_of_week,
+          est_duration_mins: w.est_duration_mins,
+          category: w.category,
+          difficulty: w.difficulty,
+          trainer_id: w.trainer_id,
+        })
+        .select("id")
+        .single();
+      if (!made) continue;
+      copied++;
+
+      const rows = (byWorkout.get(w.id) ?? []).map(e => ({
+        workout_id: made.id,
+        name: e.name,
+        sets: e.sets,
+        reps: e.reps,
+        rest_seconds: e.rest_seconds,
+        notes: e.notes,
+        order: e.order,
+        exercise_library_id: e.exercise_library_id,
+        group_id: e.group_id,
+        group_round_rest_seconds: e.group_round_rest_seconds,
+        is_unilateral: e.is_unilateral,
+        suggested_weight: e.suggested_weight,
+        weight_type: e.weight_type,
+      }));
+      if (rows.length) await supabase.from("exercises").insert(rows);
+    }
+  }
+
+  revalidatePath(`/trainer/programs/${program_id}`);
+  redirect(`/trainer/programs/${program_id}?copied=${copied}`);
+}
+
 export async function createWorkout(formData: FormData) {
   const supabase = await createClient();
   const program_id = formData.get("program_id") as string;
