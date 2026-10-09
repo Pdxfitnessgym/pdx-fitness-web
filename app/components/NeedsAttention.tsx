@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { NeedsAttentionList } from "@/app/components/NeedsAttentionList";
 import { createClient } from "@/lib/supabase/server";
 import { gymDaysUntil } from "@/lib/time";
 
@@ -70,7 +70,6 @@ export async function NeedsAttention({ trainerId, isAdmin }: { trainerId: string
 
   if (flags.length === 0) return null;
   flags.sort((a, b) => b.severity - a.severity || a.name.localeCompare(b.name));
-  const top = flags.slice(0, 6);
 
   return (
     <div style={{ background: "#fff", borderRadius: 14, border: "1.5px solid #FCD34D", overflow: "hidden", marginBottom: 20 }}>
@@ -80,25 +79,7 @@ export async function NeedsAttention({ trainerId, isAdmin }: { trainerId: string
           {flags.length} thing{flags.length === 1 ? "" : "s"} across {isAdmin ? "the gym" : "your clients"}
         </div>
       </div>
-      {top.map((f, i) => (
-        <Link
-          key={`${f.clientId}-${f.reason}`}
-          href={`/trainer/clients/${f.clientId}`}
-          style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 18px", textDecoration: "none", borderTop: i === 0 ? "none" : "1px solid #F4F7FA" }}
-        >
-          <span style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: f.severity >= 4 ? "#EF4444" : f.severity === 3 ? "#F59E0B" : "#9CA3AF" }} />
-          <span style={{ flex: 1, minWidth: 0 }}>
-            <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#0D1827" }}>{f.name}</span>
-            <span style={{ display: "block", fontSize: 12, color: "#6B7A8D" }}>{f.reason}</span>
-          </span>
-          <span style={{ color: "#9CA3AF", fontSize: 18 }}>›</span>
-        </Link>
-      ))}
-      {flags.length > top.length && (
-        <Link href="/trainer/clients" style={{ display: "block", padding: "11px", textAlign: "center", borderTop: "1px solid #F4F7FA", background: "#FAFCFD", fontSize: 13, fontWeight: 700, color: "#1B68B4", textDecoration: "none" }}>
-          {flags.length - top.length} more → all clients
-        </Link>
-      )}
+      <NeedsAttentionList items={flags} />
     </div>
   );
 }
