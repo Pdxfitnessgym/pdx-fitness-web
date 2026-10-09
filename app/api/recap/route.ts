@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const res = await ai.messages.create({
-      model: "claude-opus-5",
+      model: "claude-sonnet-5",
       max_tokens: 700,
       system:
         "You draft short monthly progress notes that a personal trainer will read, edit and send to their client. " +
@@ -117,7 +117,14 @@ export async function POST(req: NextRequest) {
       .map(b => b.text).join("").trim();
 
     return NextResponse.json({ stats, draft });
-  } catch {
-    return NextResponse.json({ stats, draft: "", error: "Couldn't draft the note just now — the numbers above are still accurate." });
+  } catch (err) {
+    // Surface what actually went wrong — a silent "couldn't draft" is
+    // impossible to act on.
+    const detail = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({
+      stats,
+      draft: "",
+      error: `Couldn't draft the note: ${detail.slice(0, 300)}`,
+    });
   }
 }

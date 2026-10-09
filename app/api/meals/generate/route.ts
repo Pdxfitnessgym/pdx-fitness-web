@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const response = await client.messages.parse({
-      model: "claude-opus-5",
+      model: "claude-sonnet-5",
       max_tokens: 16000,
       output_config: {
         effort: "medium",
