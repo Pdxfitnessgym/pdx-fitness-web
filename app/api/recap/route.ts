@@ -90,8 +90,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const res = await ai.messages.create({
-      model: "claude-sonnet-5",
-      max_tokens: 700,
+      model: "claude-opus-5-5",
+      max_tokens: 16000,
+      output_config: { effort: "low" },
       system:
         "You draft short monthly progress notes that a personal trainer will read, edit and send to their client. " +
         "Write as the trainer, to the client, by first name. Warm and specific, never gushing. " +
