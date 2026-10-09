@@ -42,25 +42,3 @@ export async function createOwnWorkout(formData: FormData) {
   // Straight into the builder — a brand new workout has no exercises yet
   redirect(`/client/workouts/${workout.id}/build`);
 }
-
-// Pull one of the gym's shared workouts onto their own list.
-export async function addOwnWorkout(formData: FormData) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const workout_id = formData.get("workout_id") as string;
-
-  const { data: existing } = await supabase
-    .from("client_workout_assignments")
-    .select("id").eq("client_id", user.id).eq("workout_id", workout_id).maybeSingle();
-
-  if (!existing) {
-    await supabase
-      .from("client_workout_assignments")
-      .insert({ client_id: user.id, workout_id, assigned_by: user.id });
-  }
-
-  revalidatePath("/client/workouts");
-  redirect("/client/workouts/browse?added=1");
-}

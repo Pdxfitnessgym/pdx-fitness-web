@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 import { HomeLink } from "@/app/components/HomeLink";
-import { createOwnWorkout, addOwnWorkout } from "@/app/actions/own-workouts";
+import { createOwnWorkout } from "@/app/actions/own-workouts";
 import { activeWeekFor, currentProgramWeek } from "@/lib/program-week";
+import { GYM_TZ, gymDaysUntil } from "@/lib/time";
 
 const DIFF_COLOR: Record<string, string> = {
   beginner: "#10B981",
@@ -25,11 +26,7 @@ type LibWorkout = {
 
 // Deliberately not on the dashboard — most clients follow their program. This is
 // the opt-in shelf for anyone who wants extra sessions or to build their own.
-export default async function BrowseWorkoutsPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string>>;
-}) {
+export default async function BrowseWorkoutsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -38,13 +35,11 @@ export default async function BrowseWorkoutsPage({
     .from("profiles").select("role, trainer_id").eq("id", user.id).single();
   if (profile && profile.role !== "client") redirect("/trainer");
 
-  const sp = await searchParams;
-
   const cpRes = await supabase
-    .from("client_programs").select("program_id, start_date, programs(duration_weeks)")
+    .from("client_programs").select("program_id, start_date, programs(name, duration_weeks)")
     .eq("client_id", user.id).eq("is_active", true).maybeSingle();
 
-  const [libRes, mineRes, assignedRes, progRes] = await Promise.all([
+  const [libRes, recentRes, progRes] = await Promise.all([
     // The gym's shared shelf — every trainer's on-demand workouts, not just
     // the one this client happens to be assigned to.
     supabase
@@ -53,15 +48,14 @@ export default async function BrowseWorkoutsPage({
       .eq("is_standalone", true)
       .eq("is_private", false)
       .order("name"),
+    // Recently completed — what they can pick up and run again
     supabase
-      .from("workouts")
-      .select("id, name, description, difficulty, est_duration_mins, category, exercises(count)")
-      .eq("created_by", user.id)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("client_workout_assignments")
-      .select("workout_id, workouts(id, name, description, difficulty, est_duration_mins, category, created_by, exercises(count))")
-      .eq("client_id", user.id),
+      .from("workout_logs")
+      .select("workout_id, completed_at, workouts(id, name, description, difficulty, est_duration_mins, category, exercises(count))")
+      .eq("client_id", user.id)
+      .not("completed_at", "is", null)
+      .order("completed_at", { ascending: false })
+      .limit(30),
     cpRes.data?.program_id
       ? supabase
           .from("workouts")
@@ -72,7 +66,6 @@ export default async function BrowseWorkoutsPage({
   ]);
 
   const library = (libRes.data ?? []) as LibWorkout[];
-  const mine = (mineRes.data ?? []) as LibWorkout[];
   const allProgramWorkouts = (progRes.data ?? []) as LibWorkout[];
 
   // Same rule as the Workouts tab: only the week they're actually in. The
@@ -81,6 +74,7 @@ export default async function BrowseWorkoutsPage({
     cpRes.data?.start_date as string | undefined,
     (cpRes.data?.programs as unknown as { duration_weeks: number } | null)?.duration_weeks ?? 1,
   );
+  const programName = (cpRes.data?.programs as unknown as { name: string } | null)?.name ?? null;
   const activeWeek = activeWeekFor(
     [...new Set(allProgramWorkouts.map(w => w.week_number).filter((n): n is number => n != null))],
     programWeek,
@@ -88,24 +82,18 @@ export default async function BrowseWorkoutsPage({
   const programWorkouts = allProgramWorkouts.filter(
     w => activeWeek == null || w.week_number === activeWeek,
   );
-  const assignedRows = (assignedRes.data ?? []) as unknown as
-    { workout_id: string; workouts: (LibWorkout & { created_by: string | null }) | (LibWorkout & { created_by: string | null })[] }[];
-  const assignedIds = new Set(assignedRows.map(r => r.workout_id));
-
-  // One list: from the client's side "a workout I can do" is the same thing
-  // whether their trainer set it up or they built it themselves.
-  const extras: LibWorkout[] = [];
-  const seen = new Set<string>();
-  for (const row of assignedRows) {
+  // Most recent run of each workout, newest first — the same workout done four
+  // times in a row is still one row here.
+  const recentRows = (recentRes.data ?? []) as unknown as
+    { workout_id: string; completed_at: string; workouts: LibWorkout | LibWorkout[] }[];
+  const recent: { w: LibWorkout; completedAt: string }[] = [];
+  const seenRecent = new Set<string>();
+  for (const row of recentRows) {
     const w = Array.isArray(row.workouts) ? row.workouts[0] : row.workouts;
-    if (!w || seen.has(w.id)) continue;
-    seen.add(w.id);
-    extras.push(w);
-  }
-  for (const w of mine) {
-    if (seen.has(w.id)) continue;
-    seen.add(w.id);
-    extras.push(w);
+    if (!w || seenRecent.has(w.id)) continue;
+    seenRecent.add(w.id);
+    recent.push({ w, completedAt: row.completed_at });
+    if (recent.length === 5) break;
   }
 
   return (
@@ -124,27 +112,26 @@ export default async function BrowseWorkoutsPage({
       </div>
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px", display: "flex", flexDirection: "column", gap: 16 }}>
-        {sp.added && (
-          <div style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
-            ✓ Added to your workouts
-          </div>
-        )}
-
         {programWorkouts.length > 0 && (
           <div>
-            <div style={sectionLabel}>Your Program{activeWeek != null ? ` · Week ${activeWeek}` : ""}</div>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ ...sectionLabel, marginBottom: 2 }}>Your Program{activeWeek != null ? ` · Week ${activeWeek}` : ""}</div>
+              {programName && (
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#9CA3AF" }}>{programName}</div>
+              )}
+            </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {programWorkouts.map(w => <WorkoutRow key={w.id} w={w} icon="💪" href={`/client/workouts/${w.id}`} />)}
             </div>
           </div>
         )}
 
-        {extras.length > 0 && (
+        {recent.length > 0 && (
           <div>
-            <div style={sectionLabel}>Your Saved Workouts</div>
+            <div style={sectionLabel}>Recently Completed</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {extras.map(w => (
-                <WorkoutRow key={w.id} w={w} icon="⚡" href={`/client/workouts/${w.id}`} />
+              {recent.map(({ w, completedAt }) => (
+                <WorkoutRow key={w.id} w={w} icon="✓" href={`/client/workouts/${w.id}`} note={completedWhen(completedAt)} />
               ))}
             </div>
           </div>
@@ -160,23 +147,16 @@ export default async function BrowseWorkoutsPage({
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {library.map(w => (
-                <div key={w.id} style={{ ...card, display: "flex", alignItems: "center", gap: 14 }}>
+                <Link key={w.id} href={`/client/workouts/${w.id}`} style={{ ...card, display: "flex", alignItems: "center", gap: 14, textDecoration: "none" }}>
                   <div style={{ width: 44, height: 44, borderRadius: 10, background: "#EBF9F8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>⚡</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: 15, color: "#0D1827" }}>{w.name}</div>
                     <Meta w={w} />
                   </div>
-                  {assignedIds.has(w.id) ? (
-                    <Link href={`/client/workouts/${w.id}`} style={{ fontSize: 13, fontWeight: 700, color: "#2DC4B8", textDecoration: "none", flexShrink: 0 }}>Start →</Link>
-                  ) : (
-                    <form action={addOwnWorkout}>
-                      <input type="hidden" name="workout_id" value={w.id} />
-                      <button type="submit" style={{ padding: "9px 14px", borderRadius: 8, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
-                        + Add
-                      </button>
-                    </form>
-                  )}
-                </div>
+                  <span style={{ padding: "9px 16px", borderRadius: 8, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", flexShrink: 0 }}>
+                    Start
+                  </span>
+                </Link>
               ))}
             </div>
           )}
@@ -221,17 +201,25 @@ function Meta({ w }: { w: LibWorkout }) {
   );
 }
 
-function WorkoutRow({ w, icon, href }: { w: LibWorkout; icon: string; href: string }) {
+function WorkoutRow({ w, icon, href, note }: { w: LibWorkout; icon: string; href: string; note?: string }) {
   return (
     <Link href={href} style={{ ...card, display: "flex", alignItems: "center", gap: 14, textDecoration: "none" }}>
-      <div style={{ width: 44, height: 44, borderRadius: 10, background: "#F4F7FA", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{icon}</div>
+      <div style={{ width: 44, height: 44, borderRadius: 10, background: note ? "#D1FAE5" : "#F4F7FA", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{icon}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 15, color: "#0D1827" }}>{w.name}</div>
-        <Meta w={w} />
+        {note ? <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 3 }}>{note}</div> : <Meta w={w} />}
       </div>
       <div style={{ color: "#9CA3AF", fontSize: 18 }}>›</div>
     </Link>
   );
+}
+
+function completedWhen(iso: string): string {
+  const days = -gymDaysUntil(iso);
+  if (days === 0) return "Completed today";
+  if (days === 1) return "Completed yesterday";
+  if (days < 7) return `Completed ${days} days ago`;
+  return `Completed ${new Date(iso).toLocaleDateString("en-US", { timeZone: GYM_TZ, month: "short", day: "numeric" })}`;
 }
 
 const card: React.CSSProperties = {
