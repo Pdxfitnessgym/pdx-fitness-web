@@ -1,14 +1,7 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { TrainerActivityList } from "@/app/components/TrainerActivityList";
 import { totalVolumeLbs } from "@/lib/workout-utils";
 import { GYM_TZ } from "@/lib/time";
-import { RPE_LABEL, rpeColor } from "@/lib/rpe";
-
-const COLORS = ["#1B68B4", "#2DC4B8", "#7C3AED", "#DB2777", "#D97706", "#059669"];
-
-function initials(name: string) {
-  return name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-}
 
 function timeAgo(iso: string) {
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -104,51 +97,11 @@ export async function TrainerActivityFeed({ trainerId, isAdmin }: { trainerId: s
         </div>
       </div>
 
-      {rows.map((r, i) => (
-        <Link
-          key={r.id}
-          href={`/trainer/clients/${r.clientId}?tab=workouts`}
-          style={{ display: "flex", gap: 12, padding: "14px 18px", textDecoration: "none", borderTop: i === 0 ? "none" : "1px solid #F4F7FA", alignItems: "flex-start" }}
-        >
-          <div style={{ width: 36, height: 36, borderRadius: "50%", background: COLORS[r.clientName.charCodeAt(0) % COLORS.length], color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
-            {initials(r.clientName)}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, color: "#6B7A8D", lineHeight: 1.5 }}>
-              {r.nth && (
-                <span style={{ color: "#D97706", fontWeight: 700 }}>
-                  🎉 {r.nth === 1 ? "First workout! " : `${r.nth}th workout! `}
-                </span>
-              )}
-              <span style={{ fontWeight: 700, color: "#0D1827" }}>{r.clientName}</span>
-              {" completed "}
-              <span style={{ fontWeight: 700, color: "#0D1827" }}>{r.workoutName}</span>
-              {r.sets > 0 && ` — ${r.sets} set${r.sets === 1 ? "" : "s"}`}
-              {r.volume > 0 && (
-                <>
-                  {", "}
-                  <span style={{ fontWeight: 700, color: "#1B68B4" }}>{r.volume.toLocaleString()} lbs</span>
-                  {" lifted"}
-                </>
-              )}
-              {"."}
-              {r.rpe && (
-                <>
-                  {" Rated "}
-                  <span style={{ fontWeight: 700, color: rpeColor(r.rpe) }}>RPE {r.rpe}/10</span>
-                  {` (${RPE_LABEL[r.rpe]}).`}
-                </>
-              )}
-            </div>
-            {r.note && (
-              <div style={{ fontSize: 13, color: "#6B7A8D", fontStyle: "italic", marginTop: 4, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const }}>
-                “{r.note}”
-              </div>
-            )}
-            <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: 3 }}>{timeAgo(r.completedAt)}</div>
-          </div>
-        </Link>
-      ))}
+      <TrainerActivityList rows={rows.map(r => ({
+        id: r.id, clientId: r.clientId, clientName: r.clientName, workoutName: r.workoutName,
+        when: timeAgo(r.completedAt), volume: r.volume, sets: r.sets, note: r.note, rpe: r.rpe, nth: r.nth,
+      }))} />
+
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { HomeLink } from "@/app/components/HomeLink";
 
 const MUSCLE_GROUPS = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Core", "Glutes", "Quads", "Hamstrings", "Calves", "Full Body", "Cardio"];
-const EQUIPMENT = ["Barbell", "Dumbbell", "Kettlebell", "Cable", "Machine", "Bodyweight", "Resistance Band", "TRX", "Other"];
+const EQUIPMENT = ["Barbell", "Dumbbell", "Kettlebell", "Cable", "Machine", "Bodyweight", "Resistance Band", "TRX", "Stability Ball", "Box", "Other"];
 
 export default function EditExercisePage() {
   return <Suspense><EditExerciseForm /></Suspense>;
