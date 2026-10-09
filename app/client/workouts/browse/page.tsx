@@ -134,25 +134,6 @@ export default async function BrowseWorkoutsPage({
           </div>
         )}
 
-        {/* Build your own */}
-        <div style={card}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 4 }}>Build your own</div>
-          <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 12 }}>
-Travelling or stuck without equipment? Put together a one-off. Only you can see it.
-          </div>
-          <form action={createOwnWorkout} style={{ display: "flex", gap: 8 }}>
-            <input
-              name="name"
-              required
-              placeholder="e.g. Saturday cardio"
-              style={{ flex: 1, padding: "12px 14px", borderRadius: 10, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 15, color: "#0D1827", outline: "none" }}
-            />
-            <button type="submit" style={{ padding: "12px 18px", borderRadius: 10, background: "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
-              Create
-            </button>
-          </form>
-        </div>
-
         {/* Trainer's shared library */}
         <div>
           <div style={sectionLabel}>From Your Gym</div>
@@ -183,6 +164,24 @@ Travelling or stuck without equipment? Put together a one-off. Only you can see 
               ))}
             </div>
           )}
+        </div>
+        {/* Build your own */}
+        <div style={card}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#0D1827", marginBottom: 4 }}>Build your own</div>
+          <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 12 }}>
+Travelling or stuck without equipment? Put together a one-off. Only you can see it.
+          </div>
+          <form action={createOwnWorkout} style={{ display: "flex", gap: 8 }}>
+            <input
+              name="name"
+              required
+              placeholder="e.g. Saturday cardio"
+              style={{ flex: 1, padding: "12px 14px", borderRadius: 10, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 15, color: "#0D1827", outline: "none" }}
+            />
+            <button type="submit" style={{ padding: "12px 18px", borderRadius: 10, background: "#1B68B4", color: "#fff", fontWeight: 700, fontSize: 15, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
+              Create
+            </button>
+          </form>
         </div>
       </div>
       <ClientBottomNav />
