@@ -178,3 +178,11 @@ export function findPersonalRecords(
 export function repsPlaceholder(spec: string): string {
   return spec.split(/[-x×]/)[0].trim();
 }
+
+// Is the prescription a rep count you tally ("8", "6-8", "8/6/4/2"), or a
+// description of the effort ("60 sec", "Down and back")? Counted reps must be
+// typed in — there's a real number to record. Described ones can't be, so
+// ticking the set is the only sensible way to say it's done.
+export function isCountedReps(spec: string): boolean {
+  return repsInputMode(spec) === "numeric";
+}

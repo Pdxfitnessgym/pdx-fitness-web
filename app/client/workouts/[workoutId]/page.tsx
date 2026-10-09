@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
-import { buildSetKey, calcTotalSets, findPersonalRecords, isExerciseDone, parseRepsInput, parseWeightInput, repsInputMode, repsToText, totalVolumeLbs, volumeAs, weightToNumber, type PersonalRecord, type Side } from "@/lib/workout-utils";
+import { buildSetKey, calcTotalSets, findPersonalRecords, isCountedReps, isExerciseDone, parseRepsInput, parseWeightInput, repsInputMode, repsToText, totalVolumeLbs, volumeAs, weightToNumber, type PersonalRecord, type Side } from "@/lib/workout-utils";
 import { HomeLink } from "@/app/components/HomeLink";
 import { getYouTubeId } from "@/lib/youtube";
 import { GYM_TZ, gymDayRange } from "@/lib/time";
@@ -292,11 +292,14 @@ export default function WorkoutSessionPage() {
       return;
     }
 
-    // Only what was actually typed counts. A set with no reps isn't done.
     const ex = exercises.find(e => e.id === exerciseId);
-    if (!inp.reps.trim()) return;
+    // A counted prescription needs a real number typed in. One described
+    // instead ("60 sec", "Down and back") has nothing to tally, so ticking it
+    // records the prescription itself.
+    const describedReps = ex && !isCountedReps(ex.reps) ? ex.reps : "";
+    if (!inp.reps.trim() && !describedReps) return;
 
-    const reps = repsToText(inp.reps);
+    const reps = repsToText(inp.reps || describedReps);
     const weight = weightToNumber(inp.weight);
 
     setLogged(prev => ({ ...prev, [key]: { reps, weight } }));
@@ -552,8 +555,8 @@ export default function WorkoutSessionPage() {
                                 onChange={e => { const v = parseWeightInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
                                 style={inputStyle(isDone, !!inp.weight)} />
                               <button onClick={() => handleLogSet(ex.id, setNum, side)}
-                              disabled={!inp.reps.trim() && !isDone}
-                                style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : !inp.reps.trim() ? "#EEF2F6" : sideColor, color: isDone ? "#059669" : !inp.reps.trim() ? "#C7CFD9" : "#fff", fontWeight: 700, fontSize: 16, border: `1.5px solid ${isDone ? "#6EE7B7" : !inp.reps.trim() ? "#E2EAF0" : sideColor}`, cursor: !inp.reps.trim() && !isDone ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              disabled={!inp.reps.trim() && !isDone && isCountedReps(ex.reps)}
+                                style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : (!inp.reps.trim() && isCountedReps(ex.reps)) ? "#EEF2F6" : sideColor, color: isDone ? "#059669" : (!inp.reps.trim() && isCountedReps(ex.reps)) ? "#C7CFD9" : "#fff", fontWeight: 700, fontSize: 16, border: `1.5px solid ${isDone ? "#6EE7B7" : (!inp.reps.trim() && isCountedReps(ex.reps)) ? "#E2EAF0" : sideColor}`, cursor: !inp.reps.trim() && !isDone && isCountedReps(ex.reps) ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                 {isDone ? "✓" : "⏱"}
                               </button>
                             </div>
@@ -605,8 +608,8 @@ export default function WorkoutSessionPage() {
                           onChange={e => { const v = parseWeightInput(e.target.value); setInputs(p => ({ ...p, [key]: { ...p[key] ?? { reps: "", weight: "" }, weight: v } })); }}
                           style={inputStyle(isDone, !!inp.weight)} />
                         <button onClick={() => handleLogSet(ex.id, setNum, "both")}
-                          disabled={!inp.reps.trim() && !isDone}
-                          style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : !inp.reps.trim() ? "#EEF2F6" : color, color: isDone ? "#059669" : !inp.reps.trim() ? "#C7CFD9" : "#fff", fontWeight: 700, fontSize: 20, border: `1.5px solid ${isDone ? "#6EE7B7" : !inp.reps.trim() ? "#E2EAF0" : color}`, cursor: !inp.reps.trim() && !isDone ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          disabled={!inp.reps.trim() && !isDone && isCountedReps(ex.reps)}
+                          style={{ padding: "8px 0", borderRadius: 8, background: isDone ? "#ECFDF5" : (!inp.reps.trim() && isCountedReps(ex.reps)) ? "#EEF2F6" : color, color: isDone ? "#059669" : (!inp.reps.trim() && isCountedReps(ex.reps)) ? "#C7CFD9" : "#fff", fontWeight: 700, fontSize: 20, border: `1.5px solid ${isDone ? "#6EE7B7" : (!inp.reps.trim() && isCountedReps(ex.reps)) ? "#E2EAF0" : color}`, cursor: !inp.reps.trim() && !isDone && isCountedReps(ex.reps) ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                           {isDone ? "✓" : "⏱"}
                         </button>
                       </div>
