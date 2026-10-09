@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 import { CalendarSyncCard } from "@/app/components/CalendarSyncCard";
 import { gymToday } from "@/lib/time";
-import { hasGuideContent, type WeekGuide } from "@/lib/program-week";
+import { activeWeekFor, currentProgramWeek, hasGuideContent, type WeekGuide } from "@/lib/program-week";
 
 
 const DIFF_COLOR: Record<string, string> = {
@@ -148,9 +148,12 @@ export default async function ClientWorkoutsPage({
     .order("week_number") as { data: WeekGuide[] | null };
 
   const guided = (weekGuides ?? []).filter(hasGuideContent);
-  const currentWeek = program
-    ? Math.min(Math.max(Math.floor((Date.now() - new Date(cp.start_date).getTime()) / 604800000) + 1, 1), program.duration_weeks)
-    : 1;
+  const currentWeek = currentProgramWeek(cp.start_date, program?.duration_weeks ?? 1);
+
+  // Clients work one week at a time. Showing all twelve weeks at once made the
+  // whole program look like today's to-do list.
+  const activeWeek = activeWeekFor([...new Set((workouts ?? []).map(w => w.week_number))], currentWeek);
+  const thisWeek = (workouts ?? []).filter(w => activeWeek == null || w.week_number === activeWeek);
   // Fall back to the last guide written before this week, so a client past the
   // written-up weeks still lands somewhere real.
   const guide =
@@ -194,9 +197,14 @@ export default async function ClientWorkoutsPage({
           </Link>
         )}
 
-        {/* Program workouts */}
-        {workouts && workouts.length > 0 ? (
-          workouts.map(w => {
+        {/* Program workouts — this week only */}
+        {thisWeek.length > 0 && (
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#6B7A8D", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 4 }}>
+            Week {activeWeek ?? currentWeek}
+          </div>
+        )}
+        {thisWeek.length > 0 ? (
+          thisWeek.map(w => {
             const exCount = w.exercises?.[0]?.count ?? 0;
             const mins = estMins(w.exercises);
             return (
@@ -228,8 +236,8 @@ export default async function ClientWorkoutsPage({
         ) : (
           <div style={{ textAlign: "center", padding: "48px 24px", background: "#fff", borderRadius: 14, border: "1px solid #E2EAF0" }}>
             <div style={{ fontSize: 36, marginBottom: 10 }}>📋</div>
-            <div style={{ fontWeight: 600, color: "#0D1827", marginBottom: 4 }}>No workouts yet</div>
-            <div style={{ fontSize: 14, color: "#6B7A8D" }}>Your trainer hasn&apos;t added workouts to this program yet.</div>
+            <div style={{ fontWeight: 600, color: "#0D1827", marginBottom: 4 }}>Nothing scheduled this week</div>
+            <div style={{ fontSize: 14, color: "#6B7A8D" }}>Your trainer hasn&apos;t added workouts for week {currentWeek} yet.</div>
           </div>
         )}
 

@@ -7,6 +7,7 @@ import { saveWorkoutToLibrary } from "@/app/actions/clients";
 import { buildSetKey, isCountedReps, parseRepsInput, parseWeightInput, repsInputMode, repsToText, totalVolumeLbs, volumeComparison, weightToNumber, type Side } from "@/lib/workout-utils";
 import { HomeLink } from "@/app/components/HomeLink";
 import { gymToday } from "@/lib/time";
+import { activeWeekFor, currentProgramWeek } from "@/lib/program-week";
 
 type ExerciseRow = {
   id: string;
@@ -29,6 +30,7 @@ type LoggedSet = { reps: string | null; weight: number | null };
 type RestTimer = { key: SetKey; endTime: number; total: number };
 type HistorySession = { date: string; sets: { set_number: number; reps_completed: string | null; weight_lbs: number | null; side: string | null }[] };
 type Program = { id: string; name: string };
+type ProgramGroup = { program: Program; workouts: Workout[]; activeWeek: number | null };
 type Workout = { id: string; name: string; week_number: number; day_of_week: number };
 type RenderItem = { kind: "standalone"; ex: ExerciseRow } | { kind: "group"; gid: number; items: ExerciseRow[] };
 
@@ -41,7 +43,8 @@ export default function TrainerLogWorkoutPage() {
   const clientId = params.clientId as string;
 
   const [clientName, setClientName] = useState("");
-  const [programs, setPrograms] = useState<{ program: Program; workouts: Workout[] }[]>([]);
+  const [programs, setPrograms] = useState<ProgramGroup[]>([]);
+  const [showAllWeeks, setShowAllWeeks] = useState(false);
   const [phase, setPhase] = useState<"pick" | "session" | "done">("pick");
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
   const [exercises, setExercises] = useState<ExerciseRow[]>([]);
@@ -90,7 +93,7 @@ export default function TrainerLogWorkoutPage() {
       const supabase = createClient();
       const [{ data: profile }, { data: assignments }, { data: assignedWorkouts }] = await Promise.all([
         supabase.from("profiles").select("full_name").eq("id", clientId).single(),
-        supabase.from("client_programs").select("program_id, programs(id, name)").eq("client_id", clientId).eq("is_active", true),
+        supabase.from("client_programs").select("program_id, start_date, programs(id, name, duration_weeks)").eq("client_id", clientId).eq("is_active", true),
         supabase.from("client_workout_assignments")
           .select("workouts(id, name, week_number, day_of_week)")
           .eq("client_id", clientId)
@@ -98,14 +101,14 @@ export default function TrainerLogWorkoutPage() {
       ]);
       setClientName(profile?.full_name ?? "Client");
 
-      const groups: { program: Program; workouts: Workout[] }[] = [];
+      const groups: ProgramGroup[] = [];
 
       // Individually-assigned and one-off workouts, listed first
       const individual = (assignedWorkouts ?? [])
         .map((r: any) => (Array.isArray(r.workouts) ? r.workouts[0] : r.workouts))
         .filter(Boolean) as Workout[];
       if (individual.length) {
-        groups.push({ program: { id: "individual", name: "Individual Workouts" }, workouts: individual });
+        groups.push({ program: { id: "individual", name: "Individual Workouts" }, workouts: individual, activeWeek: null });
       }
 
       if (assignments?.length) {
@@ -116,9 +119,14 @@ export default function TrainerLogWorkoutPage() {
           .in("program_id", programIds)
           .order("week_number").order("day_of_week");
         for (const a of assignments as any[]) {
+          const mine = (workouts ?? []).filter((w: any) => w.program_id === a.program_id) as Workout[];
+          // Default to the week the client is actually in — a 12-week program
+          // otherwise lists every week's workouts as if they were all due now.
+          const week = currentProgramWeek(a.start_date, a.programs?.duration_weeks ?? 1);
           groups.push({
             program: a.programs as Program,
-            workouts: (workouts ?? []).filter((w: any) => w.program_id === a.program_id),
+            workouts: mine,
+            activeWeek: activeWeekFor([...new Set(mine.map(w => w.week_number))], week),
           });
         }
       }
@@ -758,20 +766,34 @@ export default function TrainerLogWorkoutPage() {
             <div style={{ textAlign: "center", padding: 60, color: "#6B7A8D" }}>Loading exercises…</div>
           ) : programs.length === 0 ? (
             <div style={{ background: "#fff", borderRadius: 14, padding: 24, border: "1px solid #E2EAF0", color: "#9CA3AF", fontSize: 14 }}>No active program assigned to this client.</div>
-          ) : programs.map(({ program, workouts }) => (
+          ) : programs.map(({ program, workouts, activeWeek }) => {
+            const shown = activeWeek == null || showAllWeeks
+              ? workouts
+              : workouts.filter(w => w.week_number === activeWeek);
+            const hidden = workouts.length - shown.length;
+            return (
             <div key={program.id} style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>{program.name}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
+                {program.name}{activeWeek != null && !showAllWeeks ? ` · Week ${activeWeek}` : ""}
+              </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {workouts.map(w => (
+                {shown.map(w => (
                   <button key={w.id} onClick={() => startSession(w)}
                     style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2EAF0", padding: "16px 18px", cursor: "pointer", textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: 15, fontWeight: 700, color: "#0D1827" }}>{w.name}</span>
                     <span style={{ color: "#9CA3AF", fontSize: 18 }}>›</span>
                   </button>
                 ))}
+                {(hidden > 0 || showAllWeeks) && activeWeek != null && (
+                  <button onClick={() => setShowAllWeeks(!showAllWeeks)}
+                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "#2DC4B8", textAlign: "left", padding: "4px 2px" }}>
+                    {showAllWeeks ? "← Just this week" : `Show all ${workouts.length} workouts →`}
+                  </button>
+                )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );

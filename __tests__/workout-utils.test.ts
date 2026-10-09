@@ -144,7 +144,11 @@ describe("parseRepsInput", () => {
 
   it("strips special characters and spaces", () => {
     expect(parseRepsInput(" 10 ")).toBe("10");
-    expect(parseRepsInput("10/12")).toBe("1012");
+  });
+
+  it("keeps slash notation for per-side and per-round reps", () => {
+    expect(parseRepsInput("10/12")).toBe("10/12");
+    expect(parseRepsInput("2/2/2")).toBe("2/2/2");
   });
 });
 
@@ -176,16 +180,17 @@ describe("parseWeightInput", () => {
 // ── repsToText ───────────────────────────────────────────────────────────────
 
 describe("repsToText", () => {
-  it("parses a valid reps string", () => {
-    expect(repsToText("8")).toBe(8);
+  it("keeps the reps as typed", () => {
+    expect(repsToText("8")).toBe("8");
   });
 
   it("returns null for empty string", () => {
     expect(repsToText("")).toBeNull();
   });
 
-  it("truncates decimals (parseInt behaviour)", () => {
-    expect(repsToText("8.9")).toBe(8);
+  it("keeps a described prescription whole", () => {
+    expect(repsToText("Down and back")).toBe("Down and back");
+    expect(repsToText("60 sec")).toBe("60 sec");
   });
 });
 

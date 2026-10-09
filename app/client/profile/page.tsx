@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { currentProgramWeek } from "@/lib/program-week";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 
@@ -102,7 +103,7 @@ export default function ClientProfilePage() {
     : "—";
 
   const currentWeek = program
-    ? Math.min(Math.max(Math.floor((Date.now() - new Date(program.start_date).getTime()) / 604800000) + 1, 1), program.duration_weeks)
+    ? currentProgramWeek(program.start_date, program.duration_weeks)
     : null;
 
   const sessionsPurchased = profile?.sessions_purchased ?? 0;

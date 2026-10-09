@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { currentProgramWeek } from "@/lib/program-week";
 import { redirect } from "next/navigation";
 import { assignProgram, inviteClient, assignWorkoutToClient, unassignWorkoutFromClient, deleteWorkout, updateProgramStartDate, createAdHocWorkout, toggleClientGroup, removeProgramFromClient, removeClientFromRoster, deleteClientAccount } from "@/app/actions/clients";
 import Link from "next/link";
@@ -221,7 +222,7 @@ export default async function ClientDetailPage({
   const isPlaceholder = (client as unknown as { is_placeholder: boolean }).is_placeholder;
   const prog = activeProgram?.programs as unknown as { name: string; duration_weeks: number } | null;
   const currentWeek = activeProgram
-    ? Math.min(Math.max(Math.floor((Date.now() - new Date(activeProgram.start_date).getTime()) / 604800000) + 1, 1), prog?.duration_weeks ?? 99)
+    ? currentProgramWeek(activeProgram.start_date as string, prog?.duration_weeks ?? 99)
     : null;
 
   // Habit streak calculation

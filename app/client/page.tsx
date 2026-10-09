@@ -7,6 +7,7 @@ import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 import { DashboardHabits } from "@/app/components/DashboardHabits";
 import { RecentWorkouts } from "@/app/components/RecentWorkouts";
 import { GYM_TZ, formatGymDate, formatGymTime, gymDaysUntil } from "@/lib/time";
+import { activeWeekFor, currentProgramWeek } from "@/lib/program-week";
 
 
 export default async function ClientDashboard() {
@@ -68,14 +69,21 @@ export default async function ClientDashboard() {
   const sessionsPurchased = (profile as unknown as { sessions_purchased: number } | null)?.sessions_purchased ?? 0;
   const sessionsRemaining = sessionsPurchased - (completedSessionsCount ?? 0);
 
-  const prog = cp?.programs as unknown as { name: string; workouts: { id: string; name: string }[] } | null;
+  const prog = cp?.programs as unknown as { name: string; duration_weeks: number; workouts: { id: string; name: string; week_number: number }[] } | null;
   const programWorkouts = prog?.workouts ?? [];
+
+  // A 12-week program holds every week's workouts at once. Only the week the
+  // client is actually in belongs on the home screen — the rest aren't theirs
+  // to do yet.
+  const programWeek = currentProgramWeek(cp?.start_date, prog?.duration_weeks ?? 1);
+  const activeWeek = activeWeekFor([...new Set(programWorkouts.map(w => w.week_number))], programWeek);
 
   // Only the program's workouts here. One-off sessions a trainer built live are
   // still on the Workouts page — they'd clutter the daily pick.
   const seen = new Set<string>();
   const pickable = programWorkouts.filter(w => {
     if (!w || seen.has(w.id)) return false;
+    if (activeWeek != null && w.week_number !== activeWeek) return false;
     seen.add(w.id);
     return true;
   });
@@ -178,7 +186,7 @@ export default async function ClientDashboard() {
             What do you want to do today?
           </div>
           <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 12 }}>
-            {pickable.length > 0 ? "Pick a workout to get started." : ""}
+            {pickable.length > 0 ? `Week ${activeWeek ?? programWeek} · pick a workout to get started.` : ""}
           </div>
 
           {pickable.length > 0 ? (
@@ -205,7 +213,7 @@ export default async function ClientDashboard() {
               })}
               {pickable.length > 5 && (
                 <a href="/client/workouts" style={{ fontSize: 13, color: "#2DC4B8", fontWeight: 700, textDecoration: "none", padding: "4px 2px" }}>
-                  See all {pickable.length} workouts →
+                  See all {pickable.length} this week →
                 </a>
               )}
             </div>
