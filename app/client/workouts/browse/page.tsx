@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 import { HomeLink } from "@/app/components/HomeLink";
 import { createOwnWorkout, addOwnWorkout } from "@/app/actions/own-workouts";
+import { activeWeekFor, currentProgramWeek } from "@/lib/program-week";
 
 const DIFF_COLOR: Record<string, string> = {
   beginner: "#10B981",
@@ -18,6 +19,7 @@ type LibWorkout = {
   difficulty: string | null;
   est_duration_mins: number | null;
   category: string | null;
+  week_number?: number;
   exercises: { count: number }[];
 };
 
@@ -39,7 +41,7 @@ export default async function BrowseWorkoutsPage({
   const sp = await searchParams;
 
   const cpRes = await supabase
-    .from("client_programs").select("program_id")
+    .from("client_programs").select("program_id, start_date, programs(duration_weeks)")
     .eq("client_id", user.id).eq("is_active", true).maybeSingle();
 
   const [libRes, mineRes, assignedRes, progRes] = await Promise.all([
@@ -63,7 +65,7 @@ export default async function BrowseWorkoutsPage({
     cpRes.data?.program_id
       ? supabase
           .from("workouts")
-          .select("id, name, description, difficulty, est_duration_mins, category, exercises(count)")
+          .select("id, name, description, difficulty, est_duration_mins, category, week_number, exercises(count)")
           .eq("program_id", cpRes.data.program_id)
           .order("week_number").order("day_of_week")
       : Promise.resolve({ data: [] }),
@@ -71,7 +73,21 @@ export default async function BrowseWorkoutsPage({
 
   const library = (libRes.data ?? []) as LibWorkout[];
   const mine = (mineRes.data ?? []) as LibWorkout[];
-  const programWorkouts = (progRes.data ?? []) as LibWorkout[];
+  const allProgramWorkouts = (progRes.data ?? []) as LibWorkout[];
+
+  // Same rule as the Workouts tab: only the week they're actually in. The
+  // sections below this one are the extras shelf and stay unfiltered.
+  const programWeek = currentProgramWeek(
+    cpRes.data?.start_date as string | undefined,
+    (cpRes.data?.programs as unknown as { duration_weeks: number } | null)?.duration_weeks ?? 1,
+  );
+  const activeWeek = activeWeekFor(
+    [...new Set(allProgramWorkouts.map(w => w.week_number).filter((n): n is number => n != null))],
+    programWeek,
+  );
+  const programWorkouts = allProgramWorkouts.filter(
+    w => activeWeek == null || w.week_number === activeWeek,
+  );
   const assignedRows = (assignedRes.data ?? []) as unknown as
     { workout_id: string; workouts: (LibWorkout & { created_by: string | null }) | (LibWorkout & { created_by: string | null })[] }[];
   const assignedIds = new Set(assignedRows.map(r => r.workout_id));
@@ -116,7 +132,7 @@ export default async function BrowseWorkoutsPage({
 
         {programWorkouts.length > 0 && (
           <div>
-            <div style={sectionLabel}>Your Program</div>
+            <div style={sectionLabel}>Your Program{activeWeek != null ? ` · Week ${activeWeek}` : ""}</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {programWorkouts.map(w => <WorkoutRow key={w.id} w={w} icon="💪" href={`/client/workouts/${w.id}`} />)}
             </div>
