@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { duplicateProgram } from "@/app/actions/programs";
 
-type Program = { id: string; name: string; description: string | null; duration_weeks: number; workout_count: number; is_shared: boolean; trainer_id: string };
+type Program = { id: string; name: string; description: string | null; duration_weeks: number; workout_count: number; is_shared: boolean; trainer_id: string; clients: string[] };
 
 export default function ProgramsPage() {
   const router = useRouter();
@@ -50,7 +50,26 @@ export default function ProgramsPage() {
       .from("programs")
       .select("id, name, description, duration_weeks, is_shared, trainer_id, workouts(count)")
       .order("created_at", { ascending: false });
-    setPrograms((data ?? []).map((p: any) => ({ ...p, workout_count: p.workouts?.[0]?.count ?? 0 })));
+
+    // Who's actually on each one. RLS limits this to your own clients, which is
+    // the right answer here — another trainer's roster isn't yours to list.
+    const { data: enrolments } = await supabase
+      .from("client_programs")
+      .select("program_id, profiles!client_id(full_name)")
+      .eq("is_active", true);
+
+    const byProgram = new Map<string, string[]>();
+    for (const row of (enrolments ?? []) as any[]) {
+      const name = (Array.isArray(row.profiles) ? row.profiles[0] : row.profiles)?.full_name;
+      if (!name) continue;
+      byProgram.set(row.program_id, [...(byProgram.get(row.program_id) ?? []), name]);
+    }
+
+    setPrograms((data ?? []).map((p: any) => ({
+      ...p,
+      workout_count: p.workouts?.[0]?.count ?? 0,
+      clients: (byProgram.get(p.id) ?? []).sort(),
+    })));
     setLoading(false);
   }
 
@@ -87,6 +106,72 @@ export default function ProgramsPage() {
     setConfirmDeleteId(null);
   }
 
+  const assigned = programs.filter(p => p.clients.length > 0);
+  const unassigned = programs.filter(p => p.clients.length === 0);
+
+  // A plain function, not a component — rendering <Card/> here would remount on
+  // every keystroke and drop focus out of the inline rename field.
+  function renderCard(p: Program) {
+    const mine = p.trainer_id === myId;
+    return (
+      <div key={p.id} style={{ ...cardStyle, position: "relative" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {editingId === p.id ? (
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
+                <input
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") saveEdit(p.id); if (e.key === "Escape") setEditingId(null); }}
+                  autoFocus
+                  style={{ flex: 1, fontSize: 17, fontWeight: 700, color: "#0D1827", padding: "6px 10px", borderRadius: 8, border: "2px solid #2DC4B8", background: "#F4F7FA", outline: "none" }}
+                />
+                <button onClick={() => saveEdit(p.id)} disabled={saving} style={{ padding: "6px 14px", borderRadius: 8, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer" }}>Save</button>
+                <button onClick={() => setEditingId(null)} style={{ padding: "6px 10px", borderRadius: 8, background: "#F4F7FA", color: "#6B7A8D", fontWeight: 600, fontSize: 13, border: "1px solid #E2EAF0", cursor: "pointer" }}>Cancel</button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                <Link href={`/trainer/programs/${p.id}`} style={{ fontSize: 17, fontWeight: 700, color: "#0D1827", textDecoration: "none" }}>{p.name}</Link>
+                {mine ? (
+                  <button onClick={e => startEdit(p, e)} title="Edit name" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#9CA3AF", fontSize: 14, lineHeight: 1 }}>✏️</button>
+                ) : (
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "#0F766E", background: "#EBF9F8", border: "1px solid #A7F3D0", borderRadius: 5, padding: "1px 6px" }}>SHARED</span>
+                )}
+              </div>
+            )}
+            {p.description && <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 6 }}>{p.description}</div>}
+            <div style={{ fontSize: 12, color: "#6B7A8D" }}>
+              {p.duration_weeks} weeks · {p.workout_count} workouts
+            </div>
+            {p.clients.length > 0 && (
+              <div style={{ fontSize: 12, color: "#0F766E", fontWeight: 600, marginTop: 6 }}>
+                👤 {p.clients.join(", ")}
+              </div>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            <Link href={`/trainer/programs/${p.id}`} style={{ fontSize: 20, color: "#2DC4B8", textDecoration: "none" }}>→</Link>
+            {mine && (
+              <>
+                <button
+                  onClick={e => handleDuplicate(p.id, e)}
+                  title="Duplicate program"
+                  disabled={duplicating === p.id}
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "#9CA3AF", fontSize: 16, lineHeight: 1, opacity: duplicating === p.id ? 0.4 : 1 }}
+                >📋</button>
+                <button
+                  onClick={e => { e.preventDefault(); openDeleteConfirm(p.id); }}
+                  title="Delete program"
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "#9CA3AF", fontSize: 16, lineHeight: 1 }}
+                >🗑️</button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ minHeight: "100dvh", background: "#F4F7FA" }}>
       <div style={{ background: "#fff", borderBottom: "1px solid #E2EAF0", padding: "20px 20px 16px" }}>
@@ -110,71 +195,18 @@ export default function ProgramsPage() {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {programs.filter(p => p.trainer_id !== myId).length > 0 && (
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 0.5 }}>My Programs</div>
-            )}
-            {programs.filter(p => p.trainer_id === myId).map(p => (
-              <div key={p.id} style={{ ...cardStyle, position: "relative" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    {editingId === p.id ? (
-                      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
-                        <input
-                          value={editName}
-                          onChange={e => setEditName(e.target.value)}
-                          onKeyDown={e => { if (e.key === "Enter") saveEdit(p.id); if (e.key === "Escape") setEditingId(null); }}
-                          autoFocus
-                          style={{ flex: 1, fontSize: 17, fontWeight: 700, color: "#0D1827", padding: "6px 10px", borderRadius: 8, border: "2px solid #2DC4B8", background: "#F4F7FA", outline: "none" }}
-                        />
-                        <button onClick={() => saveEdit(p.id)} disabled={saving} style={{ padding: "6px 14px", borderRadius: 8, background: "#2DC4B8", color: "#fff", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer" }}>Save</button>
-                        <button onClick={() => setEditingId(null)} style={{ padding: "6px 10px", borderRadius: 8, background: "#F4F7FA", color: "#6B7A8D", fontWeight: 600, fontSize: 13, border: "1px solid #E2EAF0", cursor: "pointer" }}>Cancel</button>
-                      </div>
-                    ) : (
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                        <Link href={`/trainer/programs/${p.id}`} style={{ fontSize: 17, fontWeight: 700, color: "#0D1827", textDecoration: "none" }}>{p.name}</Link>
-                        <button onClick={e => startEdit(p, e)} title="Edit name" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#9CA3AF", fontSize: 14, lineHeight: 1 }}>✏️</button>
-                      </div>
-                    )}
-                    {p.description && <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 6 }}>{p.description}</div>}
-                    <div style={{ fontSize: 12, color: "#6B7A8D" }}>
-                      {p.duration_weeks} weeks · {p.workout_count} workouts
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                    <Link href={`/trainer/programs/${p.id}`} style={{ fontSize: 20, color: "#2DC4B8", textDecoration: "none" }}>→</Link>
-                    <button
-                      onClick={e => handleDuplicate(p.id, e)}
-                      title="Duplicate program"
-                      disabled={duplicating === p.id}
-                      style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "#9CA3AF", fontSize: 16, lineHeight: 1, opacity: duplicating === p.id ? 0.4 : 1 }}
-                    >📋</button>
-                    <button
-                      onClick={e => { e.preventDefault(); openDeleteConfirm(p.id); }}
-                      title="Delete program"
-                      style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: "#9CA3AF", fontSize: 16, lineHeight: 1 }}
-                    >🗑️</button>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {programs.filter(p => p.trainer_id !== myId).length > 0 && (
+            {assigned.length > 0 && (
               <>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 10 }}>
-                  Gym Programs
+                <div style={sectionLabel}>In Use · {assigned.length}</div>
+                {assigned.map(renderCard)}
+              </>
+            )}
+            {unassigned.length > 0 && (
+              <>
+                <div style={{ ...sectionLabel, marginTop: assigned.length > 0 ? 10 : 0 }}>
+                  Not Assigned · {unassigned.length}
                 </div>
-                <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: -6 }}>
-                  Shared by another trainer — you can assign these, but only the owner can edit them.
-                </div>
-                {programs.filter(p => p.trainer_id !== myId).map(p => (
-                  <Link key={p.id} href={`/trainer/programs/${p.id}`} style={{ ...cardStyle, textDecoration: "none", display: "block" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 17, fontWeight: 700, color: "#0D1827" }}>{p.name}</span>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: "#0F766E", background: "#EBF9F8", border: "1px solid #A7F3D0", borderRadius: 5, padding: "1px 6px" }}>SHARED</span>
-                    </div>
-                    {p.description && <div style={{ fontSize: 13, color: "#6B7A8D", marginBottom: 6 }}>{p.description}</div>}
-                    <div style={{ fontSize: 12, color: "#6B7A8D" }}>{p.duration_weeks} weeks · {p.workout_count} workouts</div>
-                  </Link>
-                ))}
+                {unassigned.map(renderCard)}
               </>
             )}
           </div>
@@ -216,6 +248,9 @@ export default function ProgramsPage() {
   );
 }
 
+const sectionLabel: React.CSSProperties = {
+  fontSize: 12, fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: 0.5,
+};
 const cardStyle: React.CSSProperties = {
   background: "#fff", borderRadius: 14, padding: 18, border: "1px solid #E2EAF0",
 };
