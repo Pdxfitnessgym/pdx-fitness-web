@@ -7,7 +7,7 @@ import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 import { DashboardHabits } from "@/app/components/DashboardHabits";
 import { RecentWorkouts } from "@/app/components/RecentWorkouts";
 import { GYM_TZ, formatGymDate, formatGymTime, gymDaysUntil } from "@/lib/time";
-import { activeWeekFor, currentProgramWeek } from "@/lib/program-week";
+import { activeWeekFor, currentProgramWeek, hasGuideContent, type WeekGuide } from "@/lib/program-week";
 
 
 export default async function ClientDashboard() {
@@ -87,6 +87,16 @@ export default async function ClientDashboard() {
     seen.add(w.id);
     return true;
   });
+
+  // This week's guide page, when their trainer has written one up
+  const { data: weekGuides } = cp?.program_id
+    ? await supabase.from("program_weeks").select("*").eq("program_id", cp.program_id).order("week_number")
+    : { data: null };
+  const guided = ((weekGuides ?? []) as WeekGuide[]).filter(hasGuideContent);
+  const weekGuide =
+    guided.find(g => g.week_number === programWeek) ??
+    [...guided].reverse().find(g => g.week_number < programWeek) ??
+    null;
 
   // Next upcoming session with their coach
   const { data: nextSession } = await supabase
@@ -178,6 +188,24 @@ export default async function ClientDashboard() {
             </div>
             <div style={{ fontSize: 32 }}>🎟️</div>
           </div>
+        )}
+
+        {weekGuide && (
+          <a
+            href={`/client/workouts/week/${weekGuide.week_number}`}
+            style={{ background: "#EBF9F8", borderRadius: 16, border: "1px solid #A7F3D0", padding: "14px 16px", textDecoration: "none", display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}
+          >
+            <div style={{ width: 42, height: 42, borderRadius: 10, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>📋</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: "#0F766E" }}>
+                Week {weekGuide.week_number} Guide{weekGuide.title ? `: ${weekGuide.title}` : ""}
+              </div>
+              <div style={{ fontSize: 13, color: "#0F766E", opacity: 0.8, marginTop: 2 }}>
+                {weekGuide.focus ?? "What this week is about"}
+              </div>
+            </div>
+            <div style={{ color: "#0F766E", fontSize: 18 }}>›</div>
+          </a>
         )}
 
         {/* Pick today's workout — nothing is tied to a day of the week */}
