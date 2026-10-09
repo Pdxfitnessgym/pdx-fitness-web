@@ -9,6 +9,7 @@ import { ProgramSelect } from "@/app/components/ProgramSelect";
 import { addGoalForClient, deleteGoalForClient, toggleGoalComplete, addHabitForClient, removeHabitForClient } from "@/app/actions/goals-habits";
 import { HomeLink } from "@/app/components/HomeLink";
 import { LineChart, ComplianceGrid } from "@/app/components/InsightsCharts";
+import { MonthlyRecap } from "@/app/components/MonthlyRecap";
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -629,6 +630,8 @@ export default async function ClientDetailPage({
         {tab === "progress" && (
           <>
             {/* Weekly compliance */}
+            <MonthlyRecap clientId={clientId} clientName={client.full_name ?? "this client"} />
+
             <ComplianceGrid title="Weekly Compliance" rangeLabel={weekLabel} rows={compliance} />
 
             {/* Body weight trend, with a 7-point rolling average */}
