@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
-import { buildSetKey, calcTotalSets, findPersonalRecords, isCountedReps, isExerciseDone, parseRepsInput, parseWeightInput, repsInputMode, repsToText, totalVolumeLbs, volumeAs, weightToNumber, type PersonalRecord, type Side } from "@/lib/workout-utils";
+import { buildSetKey, calcTotalSets, findPersonalRecords, isCountedReps, isExerciseDone, isSetDone, parseRepsInput, parseWeightInput, repsInputMode, repsToText, totalVolumeLbs, volumeAs, weightToNumber, type PersonalRecord, type Side } from "@/lib/workout-utils";
 import { HomeLink } from "@/app/components/HomeLink";
 import { getYouTubeId } from "@/lib/youtube";
 import { GYM_TZ, gymDayRange } from "@/lib/time";
@@ -451,7 +451,7 @@ export default function WorkoutSessionPage() {
     const roundDots = inGroup && ex.group_id != null
       ? Array.from({ length: ex.sets }, (_, i) => {
           const setNum = i + 1;
-          return groupExs?.every(ge => !!logged[`${ge.id}-${setNum}`]) ?? false;
+          return groupExs?.every(ge => isSetDone(logged, ge.id, setNum, ge.is_unilateral)) ?? false;
         })
       : null;
 
@@ -730,7 +730,7 @@ export default function WorkoutSessionPage() {
 
           // Count completed rounds
           const completedRounds = Array.from({ length: rounds }, (_, i) => i + 1)
-            .filter(r => item.items.every(ex => !!logged[`${ex.id}-${r}`])).length;
+            .filter(r => item.items.every(ex => isSetDone(logged, ex.id, r, ex.is_unilateral))).length;
 
           return (
             <div key={`group-${item.gid}-${itemIdx}`} style={{ marginBottom: 16 }}>

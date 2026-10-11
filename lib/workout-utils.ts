@@ -186,3 +186,20 @@ export function repsPlaceholder(spec: string): string {
 export function isCountedReps(spec: string): boolean {
   return repsInputMode(spec) === "numeric";
 }
+
+// One round of a superset is done when every exercise in it has that set
+// logged. Keys are `${exerciseId}-${setNum}-${side}`, so a bare
+// `${exerciseId}-${setNum}` lookup never matches — a unilateral exercise logs
+// two sides and a bilateral one logs "both".
+export function isSetDone(
+  logged: Record<string, unknown>,
+  exerciseId: string,
+  setNum: number,
+  isUnilateral: boolean,
+): boolean {
+  if (isUnilateral) {
+    return Boolean(logged[buildSetKey(exerciseId, setNum, "left")])
+      && Boolean(logged[buildSetKey(exerciseId, setNum, "right")]);
+  }
+  return Boolean(logged[buildSetKey(exerciseId, setNum, "both")]);
+}

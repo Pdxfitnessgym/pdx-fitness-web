@@ -1,4 +1,5 @@
 import {
+  isSetDone,
   buildSetKey,
   calcTotalSets,
   isExerciseDone,
@@ -229,5 +230,29 @@ describe("isValidSide", () => {
     expect(isValidSide("center")).toBe(false);
     expect(isValidSide("")).toBe(false);
     expect(isValidSide("LEFT")).toBe(false);
+  });
+});
+
+// ── isSetDone ────────────────────────────────────────────────────────────────
+
+describe("isSetDone", () => {
+  it("reads a bilateral set from its 'both' key", () => {
+    expect(isSetDone({ "ex1-1-both": {} }, "ex1", 1, false)).toBe(true);
+  });
+
+  it("is false when the set has not been logged", () => {
+    expect(isSetDone({ "ex1-1-both": {} }, "ex1", 2, false)).toBe(false);
+  });
+
+  it("needs both sides of a unilateral exercise", () => {
+    const oneSide = { "ex1-1-left": {} };
+    expect(isSetDone(oneSide, "ex1", 1, true)).toBe(false);
+    expect(isSetDone({ ...oneSide, "ex1-1-right": {} }, "ex1", 1, true)).toBe(true);
+  });
+
+  // The superset round counter used to look up `${id}-${set}` with no side,
+  // so it sat at 0/4 however much was logged.
+  it("does not match a key missing its side segment", () => {
+    expect(isSetDone({ "ex1-1": {} }, "ex1", 1, false)).toBe(false);
   });
 });
