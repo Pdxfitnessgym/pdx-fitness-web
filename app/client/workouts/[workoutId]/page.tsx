@@ -906,6 +906,19 @@ function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId, volumeLbs, r
   const [sharing, setSharing] = useState(false);
   const [shared, setShared] = useState(false);
   const [error, setError] = useState("");
+  // Sharing never set a group, so every post landed gym-wide and the feed's
+  // group tabs could only ever be empty.
+  const [groups, setGroups] = useState<{ id: string; name: string; emoji: string }[]>([]);
+  const [shareGroupId, setShareGroupId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data } = await supabase.from("group_members").select("groups(id, name, emoji)").eq("user_id", user.id);
+      setGroups(((data ?? []).map((m: any) => m.groups).filter(Boolean)) as { id: string; name: string; emoji: string }[]);
+    });
+  }, []);
 
   async function saveTrainerNotes() {
     if (!workoutLogId || !trainerNotes.trim()) return;
@@ -938,7 +951,7 @@ function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId, volumeLbs, r
         const url = supabase.storage.from("post-media").getPublicUrl(path).data.publicUrl;
         if (isVideo) video_url = url; else photo_url = url;
       }
-      await supabase.from("posts").insert({ author_id: user.id, content: caption.trim() || null, photo_url, video_url, post_type: "workout_complete", workout_name: workoutName, workout_log_id: workoutLogId, total_volume_lbs: volumeLbs > 0 ? volumeLbs : null });
+      await supabase.from("posts").insert({ author_id: user.id, content: caption.trim() || null, photo_url, video_url, post_type: "workout_complete", workout_name: workoutName, workout_log_id: workoutLogId, total_volume_lbs: volumeLbs > 0 ? volumeLbs : null, group_id: shareGroupId });
       setShared(true);
     } catch { setError("Something went wrong"); } finally { setSharing(false); }
   }
@@ -1032,6 +1045,16 @@ function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId, volumeLbs, r
             Your {volumeLbs.toLocaleString()} lbs total will show on the post.
           </div>
         )}
+        {groups.length > 0 && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+            <button onClick={() => setShareGroupId(null)} style={groupChip(shareGroupId === null)}>Everyone</button>
+            {groups.map(g => (
+              <button key={g.id} onClick={() => setShareGroupId(g.id)} style={groupChip(shareGroupId === g.id)}>
+                {g.emoji} {g.name}
+              </button>
+            ))}
+          </div>
+        )}
         <textarea value={caption} onChange={e => setCaption(e.target.value)} placeholder="How did it go? Any PRs? Hype it up..." rows={3}
           style={{ width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid #E2EAF0", background: "#F4F7FA", fontSize: 14, color: "#0D1827", outline: "none", resize: "none", fontFamily: "inherit" }} />
         {mediaPreview && (
@@ -1062,3 +1085,10 @@ function WorkoutDoneScreen({ workoutName, setsLogged, workoutLogId, volumeLbs, r
     </div>
   );
 }
+
+const groupChip = (active: boolean): React.CSSProperties => ({
+  padding: "6px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: "pointer",
+  background: active ? "#1B68B4" : "#F4F7FA",
+  color: active ? "#fff" : "#6B7A8D",
+  border: `1px solid ${active ? "#1B68B4" : "#E2EAF0"}`,
+});
