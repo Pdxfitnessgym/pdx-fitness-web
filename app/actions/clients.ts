@@ -493,3 +493,32 @@ export async function completeWorkout(formData: FormData) {
 
   redirect("/client?completed=1");
 }
+
+// Scrap a session a client started. An abandoned in-progress log otherwise sits
+// on their dashboard forever, and a trainer can't clear it. Cascades to its
+// set_logs, so a completed session's weights go with it — the UI confirms what
+// is about to be lost.
+export async function deleteWorkoutLog(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const log_id = formData.get("log_id") as string;
+  const client_id = formData.get("client_id") as string;
+  if (!log_id || !client_id) redirect(`/trainer/clients/${client_id}?tab=workouts`);
+
+  // RLS decides whether this trainer may touch the row. A delete the policy
+  // refuses removes nothing and reports no error, so check what came back
+  // rather than claiming success.
+  const { data: removed, error } = await supabase
+    .from("workout_logs")
+    .delete()
+    .eq("id", log_id)
+    .select("id");
+
+  if (error) redirect(`/trainer/clients/${client_id}?tab=workouts&error=delete_failed`);
+  if (!removed?.length) redirect(`/trainer/clients/${client_id}?tab=workouts&error=not_allowed`);
+
+  revalidatePath(`/trainer/clients/${client_id}`);
+  redirect(`/trainer/clients/${client_id}?tab=workouts&deleted=1`);
+}

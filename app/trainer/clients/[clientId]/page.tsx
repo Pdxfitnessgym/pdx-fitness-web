@@ -313,6 +313,24 @@ export default async function ClientDetailPage({
           </div>
         )}
 
+        {sp.deleted && (
+          <div style={{ background: "#D1FAE5", color: "#065F46", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
+            ✓ Session deleted
+          </div>
+        )}
+
+        {sp.error === "not_allowed" && (
+          <div style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
+            Couldn&apos;t delete that session — you don&apos;t have permission to remove this client&apos;s logs.
+          </div>
+        )}
+
+        {sp.error === "delete_failed" && (
+          <div style={{ background: "#FEE2E2", color: "#991B1B", borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 600 }}>
+            Couldn&apos;t delete that session — the database rejected it. Nothing was removed.
+          </div>
+        )}
+
         {isSelfGuided && (
           <div style={{ background: "#EBF9F8", border: "1px solid #A7F3D0", borderRadius: 10, padding: "12px 16px", fontSize: 13, color: "#0F766E" }}>
             🏋️ Self-guided member — on a gym program, not 1:1 coaching. Progress is view-only here.
@@ -623,7 +641,7 @@ export default async function ClientDetailPage({
               </form>
             </div>
 
-            <WorkoutLogCards logs={(workoutLogs ?? []) as any} />
+            <WorkoutLogCards logs={(workoutLogs ?? []) as any} clientId={clientId} />
           </>
         )}
 

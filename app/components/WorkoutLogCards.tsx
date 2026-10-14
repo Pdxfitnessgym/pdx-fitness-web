@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { RPE_LABEL, rpeColor } from "@/lib/rpe";
+import { deleteWorkoutLog } from "@/app/actions/clients";
 
 type SetLog = {
   id: string;
@@ -23,8 +24,9 @@ type WorkoutLog = {
   set_logs: SetLog[];
 };
 
-export function WorkoutLogCards({ logs }: { logs: WorkoutLog[] }) {
+export function WorkoutLogCards({ logs, clientId }: { logs: WorkoutLog[]; clientId?: string }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   function toggle(id: string) {
     setExpanded(p => ({ ...p, [id]: !p[id] }));
@@ -149,11 +151,62 @@ export function WorkoutLogCards({ logs }: { logs: WorkoutLog[] }) {
                     )}
                   </div>
                 )}
+                {clientId && <DeleteRow log={log} clientId={clientId} setCount={(log.set_logs ?? []).length} confirming={confirmId === log.id} onAsk={() => setConfirmId(log.id)} onCancel={() => setConfirmId(null)} />}
               </div>
             )}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function DeleteRow({ log, clientId, setCount, confirming, onAsk, onCancel }: {
+  log: WorkoutLog; clientId: string; setCount: number;
+  confirming: boolean; onAsk: () => void; onCancel: () => void;
+}) {
+  const started = !log.completed_at;
+
+  if (!confirming) {
+    return (
+      <div style={{ borderTop: "1px solid #F4F7FA", paddingTop: 10, marginTop: 10 }}>
+        <button
+          onClick={onAsk}
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "#DC2626", padding: "4px 0" }}
+        >
+          🗑️ Delete this session
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ borderTop: "1px solid #F4F7FA", paddingTop: 12, marginTop: 10 }}>
+      <div style={{ background: "#FEE2E2", border: "1px solid #FCA5A5", borderRadius: 10, padding: "12px 14px", marginBottom: 10 }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: "#991B1B", marginBottom: 4 }}>
+          Delete this session?
+        </div>
+        <div style={{ fontSize: 13, color: "#991B1B", lineHeight: 1.5 }}>
+          {started
+            ? setCount > 0
+              ? `This session was never finished. Its ${setCount} logged set${setCount === 1 ? "" : "s"} will be deleted too.`
+              : "This session was started but nothing was logged in it."
+            : `This is a completed session. Its ${setCount} logged set${setCount === 1 ? "" : "s"} — weights, reps and any PR from them — will be permanently deleted.`}
+          {" "}This cannot be undone.
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={onCancel} style={{ flex: 1, padding: "10px", borderRadius: 10, background: "#F4F7FA", border: "1px solid #E2EAF0", fontWeight: 600, fontSize: 13, cursor: "pointer", color: "#0D1827" }}>
+          Cancel
+        </button>
+        <form action={deleteWorkoutLog} style={{ flex: 1 }}>
+          <input type="hidden" name="log_id" value={log.id} />
+          <input type="hidden" name="client_id" value={clientId} />
+          <button type="submit" style={{ width: "100%", padding: "10px", borderRadius: 10, background: "#DC2626", border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer", color: "#fff" }}>
+            Delete
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
