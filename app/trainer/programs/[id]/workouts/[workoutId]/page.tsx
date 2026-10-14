@@ -65,7 +65,10 @@ export default function WorkoutBuilderPage() {
   const [reordering, setReordering] = useState(false);
 
   // Superset creation state
-  const [supersetMode, setSupersetMode] = useState(false);
+  // One selection mode, two purposes — the checkbox UI is identical whether
+  // you're grouping exercises or clearing them out.
+  const [selectMode, setSelectMode] = useState<null | "superset" | "delete">(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [supersetRoundRest, setSupersetRoundRest] = useState("90");
   const [supersetSaving, setSupersetSaving] = useState(false);
@@ -108,7 +111,7 @@ export default function WorkoutBuilderPage() {
   }
 
   function toggleExpand(ex: Exercise) {
-    if (supersetMode) {
+    if (picking) {
       setSelected(prev => {
         const next = new Set(prev);
         if (next.has(ex.id)) next.delete(ex.id); else next.add(ex.id);
@@ -213,6 +216,71 @@ export default function WorkoutBuilderPage() {
     setReordering(false);
   }, [exercises, reordering]);
 
+  // Clear out several exercises at once rather than one confirm at a time.
+  async function deleteSelected() {
+    if (selected.size === 0) return;
+    setBulkDeleting(true);
+    const supabase = createClient();
+    const ids = [...selected];
+    const { data: removed, error } = await supabase
+      .from("exercises").delete().in("id", ids).select("id");
+
+    if (error || !removed?.length) {
+      setBulkDeleting(false);
+      alert(error ? `Couldn't delete: ${error.message}` : "Nothing was deleted — you may not have permission on this program.");
+      return;
+    }
+
+    const goneIds = new Set(removed.map(r => r.id as string));
+    const kept = exercises.filter(e => !goneIds.has(e.id));
+
+    // A superset left with one member isn't a superset any more
+    const counts = new Map<number, number>();
+    kept.forEach(e => { if (e.group_id != null) counts.set(e.group_id, (counts.get(e.group_id) ?? 0) + 1); });
+    const orphaned = [...counts.entries()].filter(([, n]) => n < 2).map(([gid]) => gid);
+    if (orphaned.length) {
+      await supabase.from("exercises")
+        .update({ group_id: null, group_round_rest_seconds: null })
+        .in("id", kept.filter(e => e.group_id != null && orphaned.includes(e.group_id)).map(e => e.id));
+    }
+
+    setExercises(kept.map((e, i) => ({
+      ...e,
+      order: i,
+      ...(e.group_id != null && orphaned.includes(e.group_id) ? { group_id: null, group_round_rest_seconds: null } : {}),
+    })));
+    setSelected(new Set());
+    setSelectMode(null);
+    setBulkDeleting(false);
+    if (removed.length < ids.length) {
+      alert(`Deleted ${removed.length} of ${ids.length} — the rest couldn't be removed.`);
+    }
+  }
+
+  // Change a rest period straight from the list, no need to open the exercise.
+  async function saveRest(exId: string, raw: string) {
+    const n = parseInt(raw);
+    const secs = Number.isFinite(n) && n >= 0 ? n : null;
+    if (secs == null) return;
+    const current = exercises.find(e => e.id === exId);
+    if (!current || current.rest_seconds === secs) return;
+    setExercises(prev => prev.map(e => e.id === exId ? { ...e, rest_seconds: secs } : e));
+    const supabase = createClient();
+    await supabase.from("exercises").update({ rest_seconds: secs }).eq("id", exId);
+  }
+
+  // Round rest is stored per exercise, so the whole group moves together.
+  async function saveRoundRest(gid: number, raw: string) {
+    const n = parseInt(raw);
+    const secs = Number.isFinite(n) && n >= 0 ? n : null;
+    if (secs == null) return;
+    const ids = exercises.filter(e => e.group_id === gid).map(e => e.id);
+    if (!ids.length) return;
+    setExercises(prev => prev.map(e => e.group_id === gid ? { ...e, group_round_rest_seconds: secs } : e));
+    const supabase = createClient();
+    await supabase.from("exercises").update({ group_round_rest_seconds: secs }).in("id", ids);
+  }
+
   function nextGroupId(): number {
     const ids = new Set(exercises.filter(e => e.group_id != null).map(e => e.group_id!));
     let n = 1;
@@ -232,7 +300,7 @@ export default function WorkoutBuilderPage() {
     setExercises(prev => prev.map(e =>
       selected.has(e.id) ? { ...e, group_id: gid, group_round_rest_seconds: roundRest } : e
     ));
-    setSupersetMode(false);
+    setSelectMode(null);
     setSelected(new Set());
     setSupersetSaving(false);
   }
@@ -267,6 +335,8 @@ export default function WorkoutBuilderPage() {
     return out;
   }, [exercises]);
 
+  const picking = selectMode !== null;
+
   if (loading) return (
     <div style={{ minHeight: "100dvh", background: "#F4F7FA", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ fontSize: 14, color: "#6B7A8D" }}>Loading…</div>
@@ -289,13 +359,13 @@ export default function WorkoutBuilderPage() {
     return (
       <div
         key={ex.id}
-        onClick={supersetMode ? () => {
+        onClick={picking ? () => {
           setSelected(prev => { const n = new Set(prev); n.has(ex.id) ? n.delete(ex.id) : n.add(ex.id); return n; });
         } : undefined}
-        style={{ background: "#fff", borderRadius: grouped ? 0 : 14, border: grouped ? "none" : `1.5px solid ${isExpanded ? "#1B68B4" : isSelected ? "#2DC4B8" : "#E2EAF0"}`, marginBottom: grouped ? 0 : 10, overflow: "hidden", opacity: isDeletingThis ? 0.4 : 1, borderLeft: grouped ? `3px solid ${color}` : undefined, cursor: supersetMode ? "pointer" : "default" }}
+        style={{ background: "#fff", borderRadius: grouped ? 0 : 14, border: grouped ? "none" : `1.5px solid ${isExpanded ? "#1B68B4" : isSelected ? "#2DC4B8" : "#E2EAF0"}`, marginBottom: grouped ? 0 : 10, overflow: "hidden", opacity: isDeletingThis ? 0.4 : 1, borderLeft: grouped ? `3px solid ${color}` : undefined, cursor: picking ? "pointer" : "default" }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: isSelected ? "#EBF9F8" : "#fff" }}>
-          {supersetMode && (
+          {selectMode === "superset" && (
             <div style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${isSelected ? "#2DC4B8" : "#D1D5DB"}`, background: isSelected ? "#2DC4B8" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               {isSelected && <span style={{ color: "#fff", fontSize: 13, fontWeight: 800 }}>✓</span>}
             </div>
@@ -314,21 +384,36 @@ export default function WorkoutBuilderPage() {
             <div style={{ width: 52, height: 52, borderRadius: 10, background: "#F4F7FA", border: "1px solid #E2EAF0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 20 }}>💪</div>
           )}
 
-          <div style={{ flex: 1 }} onClick={!supersetMode ? () => toggleExpand(ex) : undefined}>
+          <div style={{ flex: 1 }} onClick={!picking ? () => toggleExpand(ex) : undefined}>
             <div style={{ fontSize: 14, fontWeight: 700, color: "#0D1827", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               {idx + 1}. {ex.name}
               {ex.is_unilateral && <span style={{ fontSize: 10, fontWeight: 700, color: "#2DC4B8", background: "#F0FDFC", border: "1px solid #A7F3D0", borderRadius: 4, padding: "1px 5px" }}>L/R</span>}
             </div>
-            <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2 }}>
-              {ex.sets} sets × {ex.reps}
-              {grouped
-                ? <span style={{ color }}> · {ex.rest_seconds > 0 ? `${ex.rest_seconds}s rest` : "no rest"} →</span>
-                : <span> · {ex.rest_seconds}s rest</span>}
+            <div style={{ fontSize: 12, color: "#6B7A8D", marginTop: 2, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+              <span>{ex.sets} sets × {ex.reps} ·</span>
+              {picking ? (
+                <span style={grouped ? { color } : undefined}>{ex.rest_seconds}s rest</span>
+              ) : (
+                <>
+                  <input
+                    type="number"
+                    min={0}
+                    defaultValue={ex.rest_seconds}
+                    key={`rest-${ex.id}-${ex.rest_seconds}`}
+                    onClick={e => e.stopPropagation()}
+                    onBlur={e => saveRest(ex.id, e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                    aria-label={`Rest seconds for ${ex.name}`}
+                    style={{ width: 46, padding: "2px 4px", borderRadius: 6, border: "1px solid #E2EAF0", background: "#F8FAFB", fontSize: 12, fontWeight: 700, color: grouped ? color : "#0D1827", textAlign: "center", outline: "none" }}
+                  />
+                  <span style={grouped ? { color } : undefined}>s rest{grouped ? " →" : ""}</span>
+                </>
+              )}
             </div>
             {ex.notes && <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2, fontStyle: "italic" }}>{ex.notes}</div>}
           </div>
 
-          {!supersetMode && (
+          {!picking && (
             <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
               <button
                 onClick={e => { e.stopPropagation(); moveUp(idx); }}
@@ -344,12 +429,12 @@ export default function WorkoutBuilderPage() {
               >↓</button>
             </div>
           )}
-          {!supersetMode && (
+          {!picking && (
             <button onClick={e => { e.stopPropagation(); toggleExpand(ex); }} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: isExpanded ? "#1B68B4" : "#C0CBD6", padding: "4px 6px", flexShrink: 0, transform: isExpanded ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>›</button>
           )}
         </div>
 
-        {isExpanded && edit && !supersetMode && (
+        {isExpanded && edit && !picking && (
           <div style={{ borderTop: "1px solid #F4F7FA", padding: "14px 16px", background: "#F8FAFB" }}>
             {/* Watch the demo while building, to check it's the right movement.
                 The video lives on the library entry, so changing it here updates
@@ -465,20 +550,30 @@ export default function WorkoutBuilderPage() {
                 Week {workout?.week_number} · {exercises.length} exercise{exercises.length !== 1 ? "s" : ""}
               </div>
             </div>
-            {exercises.length >= 2 && !supersetMode && (
-              <button
-                onClick={() => setSupersetMode(true)}
-                style={{ padding: "8px 14px", borderRadius: 20, background: "#EFF6FF", border: "1px solid #BFDBFE", color: "#1B68B4", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
-              >
-                ⚡ Superset
-              </button>
+            {!picking && exercises.length > 0 && (
+              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                {exercises.length >= 2 && (
+                  <button
+                    onClick={() => setSelectMode("superset")}
+                    style={{ padding: "8px 14px", borderRadius: 20, background: "#EFF6FF", border: "1px solid #BFDBFE", color: "#1B68B4", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                  >
+                    ⚡ Superset
+                  </button>
+                )}
+                <button
+                  onClick={() => setSelectMode("delete")}
+                  style={{ padding: "8px 14px", borderRadius: 20, background: "#F4F7FA", border: "1px solid #E2EAF0", color: "#6B7A8D", fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                >
+                  Edit
+                </button>
+              </div>
             )}
           </div>
         </div>
       </div>
 
       {/* Superset mode banner */}
-      {supersetMode && (
+      {selectMode === "superset" && (
         <div style={{ background: "#1B68B4", padding: "14px 20px" }}>
           <div style={{ maxWidth: 640, margin: "0 auto" }}>
             <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, marginBottom: 4 }}>
@@ -510,7 +605,7 @@ export default function WorkoutBuilderPage() {
                 </button>
               )}
               <button
-                onClick={() => { setSupersetMode(false); setSelected(new Set()); }}
+                onClick={() => { setSelectMode(null); setSelected(new Set()); }}
                 style={{ padding: "11px 18px", borderRadius: 10, background: "rgba(255,255,255,0.15)", color: "#fff", fontWeight: 600, fontSize: 14, border: "1px solid rgba(255,255,255,0.3)", cursor: "pointer" }}
               >
                 Cancel
@@ -520,8 +615,46 @@ export default function WorkoutBuilderPage() {
         </div>
       )}
 
+      {selectMode === "delete" && (
+        <div style={{ background: "#DC2626", padding: "14px 20px" }}>
+          <div style={{ maxWidth: 640, margin: "0 auto" }}>
+            <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, marginBottom: 4 }}>
+              Select exercises to remove
+            </div>
+            <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 13, marginBottom: 12 }}>
+              {selected.size === 0
+                ? "Tap the ones you want gone."
+                : `${selected.size} selected${selected.size === exercises.length ? " — the whole workout" : ""}`}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => setSelected(new Set(selected.size === exercises.length ? [] : exercises.map(e => e.id)))}
+                style={{ padding: "11px 16px", borderRadius: 10, background: "rgba(255,255,255,0.15)", color: "#fff", fontWeight: 600, fontSize: 14, border: "1px solid rgba(255,255,255,0.3)", cursor: "pointer", whiteSpace: "nowrap" }}
+              >
+                {selected.size === exercises.length ? "Clear" : "Select all"}
+              </button>
+              {selected.size > 0 && (
+                <button
+                  onClick={deleteSelected}
+                  disabled={bulkDeleting}
+                  style={{ flex: 1, padding: "11px", borderRadius: 10, background: "#fff", color: "#DC2626", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer", opacity: bulkDeleting ? 0.6 : 1 }}
+                >
+                  {bulkDeleting ? "Deleting…" : `Delete ${selected.size}`}
+                </button>
+              )}
+              <button
+                onClick={() => { setSelectMode(null); setSelected(new Set()); }}
+                style={{ padding: "11px 18px", borderRadius: 10, background: "rgba(255,255,255,0.15)", color: "#fff", fontWeight: 600, fontSize: 14, border: "1px solid rgba(255,255,255,0.3)", cursor: "pointer" }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "16px" }}>
-        {!supersetMode && (
+        {!picking && (
           <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2EAF0", padding: 16, marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: "#6B7A8D", textTransform: "uppercase", letterSpacing: 0.5 }}>Workout Instructions</div>
@@ -565,11 +698,28 @@ export default function WorkoutBuilderPage() {
                   <div style={{ background: "rgba(255,255,255,0.25)", borderRadius: 8, padding: "3px 10px" }}>
                     <span style={{ fontSize: 13, fontWeight: 900, color: "#fff", letterSpacing: 1 }}>SUPERSET {letter}</span>
                   </div>
-                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontWeight: 600 }}>
-                    {item.items.length} exercises · {rounds} sets · {roundRest}s rest
+                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                    {item.items.length} exercises · {rounds} sets ·
+                    {picking ? (
+                      <span>{roundRest}s round rest</span>
+                    ) : (
+                      <>
+                        <input
+                          type="number"
+                          min={0}
+                          defaultValue={roundRest}
+                          key={`round-${item.gid}-${roundRest}`}
+                          onBlur={e => saveRoundRest(item.gid, e.target.value)}
+                          onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                          aria-label={`Round rest for superset ${letter}`}
+                          style={{ width: 48, padding: "2px 4px", borderRadius: 6, border: "none", background: "rgba(255,255,255,0.25)", color: "#fff", fontSize: 12, fontWeight: 700, textAlign: "center", outline: "none" }}
+                        />
+                        <span>s round rest</span>
+                      </>
+                    )}
                   </span>
                 </div>
-                {!supersetMode && (
+                {!picking && (
                   <button
                     onClick={() => ungroup(item.gid)}
                     style={{ fontSize: 12, color: "#fff", background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 8, cursor: "pointer", fontWeight: 700, padding: "4px 10px" }}
