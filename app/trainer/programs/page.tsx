@@ -179,7 +179,10 @@ export default function ProgramsPage() {
           <div>
             <div style={{ fontSize: 22, fontWeight: 800, color: "#1B68B4", marginTop: 4 }}>Programs</div>
           </div>
-          <Link href="/trainer/programs/new" style={btnStyle}>+ New Program</Link>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <Link href="/trainer/programs/schedule" style={{ padding: "10px 14px", borderRadius: 10, background: "#F4F7FA", border: "1px solid #E2EAF0", color: "#6B7A8D", fontWeight: 700, fontSize: 14, textDecoration: "none", whiteSpace: "nowrap" }}>🗓️ Schedule</Link>
+            <Link href="/trainer/programs/new" style={btnStyle}>+ New</Link>
+          </div>
         </div>
       </div>
 
