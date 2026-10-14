@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Group = { id: string; name: string; emoji: string; description: string | null; member_count: number; trainer_id: string };
-type Client = { id: string; full_name: string };
+type Client = { id: string; full_name: string; role?: string };
 
 const EMOJI_OPTIONS = ["💪", "🔥", "⚡", "🏆", "🎯", "🌱", "🏋️", "🤸"];
 
@@ -32,7 +32,9 @@ export default function GroupsPage() {
 
       const [groupsRes, clientsRes] = await Promise.all([
         supabase.from("groups").select("id, name, emoji, description, trainer_id").order("created_at"),
-        supabase.from("profiles").select("id, full_name").eq("role", "client").order("full_name"),
+        // Coaches belong in their own gym's groups too — the picker used to
+        // list clients only, so a trainer could never add themselves.
+        supabase.from("profiles").select("id, full_name, role").in("role", ["client", "trainer"]).order("full_name"),
       ]);
 
       const rawGroups = groupsRes.data ?? [];
@@ -56,7 +58,11 @@ export default function GroupsPage() {
       }));
 
       setGroups(hydratedGroups);
-      setClients(clientsRes.data ?? []);
+      const people = (clientsRes.data ?? []) as Client[];
+      people.sort((a, b) =>
+        (a.id === user.id ? -1 : b.id === user.id ? 1 : 0) ||
+        (a.full_name ?? "").localeCompare(b.full_name ?? ""));
+      setClients(people);
       setGroupMembers(membersMap);
       setLoading(false);
     };
@@ -366,7 +372,7 @@ export default function GroupsPage() {
                     <p style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 600, color: "#374151", textTransform: "uppercase", letterSpacing: "0.05em" }}>Members</p>
 
                     {clients.length === 0 ? (
-                      <p style={{ fontSize: 14, color: "#9CA3AF", margin: "0 0 16px" }}>No clients yet</p>
+                      <p style={{ fontSize: 14, color: "#9CA3AF", margin: "0 0 16px" }}>No members to add yet</p>
                     ) : (
                       <div style={{ display: "flex", flexDirection: "column", gap: 2, marginBottom: 16 }}>
                         {clients.map((client) => {
@@ -392,7 +398,12 @@ export default function GroupsPage() {
                                 onChange={() => toggleMember(group.id, client.id, isMember)}
                                 style={{ width: 16, height: 16, accentColor: "#2DC4B8", cursor: "pointer" }}
                               />
-                              <span style={{ fontSize: 14, color: "#111827", fontWeight: isMember ? 600 : 400 }}>{client.full_name}</span>
+                              <span style={{ fontSize: 14, color: "#111827", fontWeight: isMember ? 600 : 400 }}>
+                                {client.full_name}{client.id === myId ? " (you)" : ""}
+                              </span>
+                              {client.role === "trainer" && (
+                                <span style={{ fontSize: 10, fontWeight: 700, color: "#2DC4B8", background: "#F0FDFC", border: "1px solid #A7F3D0", borderRadius: 5, padding: "1px 6px" }}>COACH</span>
+                              )}
                             </label>
                           );
                         })}
