@@ -47,3 +47,34 @@ export function gymDaysUntil(iso: string | Date, now: Date = new Date()): number
     (Date.parse(gymToday(new Date(iso))) - Date.parse(gymToday(now))) / 86400000,
   );
 }
+
+// A gym-local wall-clock time as the UTC instant it actually happens at.
+// Applied twice so a time near a DST switch resolves with the right offset.
+function gymWallToUtc(year: number, monthIdx: number, day: number): Date {
+  const asIfUtc = Date.UTC(year, monthIdx, day);
+  const firstPass = asIfUtc - gymOffsetMs(new Date(asIfUtc));
+  return new Date(asIfUtc - gymOffsetMs(new Date(firstPass)));
+}
+
+// A gym calendar month as the pair of UTC instants bounding it, for querying
+// timestamptz. Built from the server's own clock, an evening workout on the
+// last of the month lands in the next month's window — it is already "tomorrow"
+// in UTC — while its day number still reads as the 30th, so it shows up a month
+// late on the wrong square.
+export function gymMonthRange(year: number, monthIdx: number): { start: string; end: string } {
+  return {
+    start: gymWallToUtc(year, monthIdx, 1).toISOString(),
+    end: gymWallToUtc(year, monthIdx + 1, 1).toISOString(),
+  };
+}
+
+// Year and month index (0-11) of the gym's current day.
+export function gymYearMonth(now: Date = new Date()): { year: number; monthIdx: number } {
+  const [y, m] = gymToday(now).split("-").map(Number);
+  return { year: y, monthIdx: m - 1 };
+}
+
+// Day of the month for the gym's day containing `iso`.
+export function gymDayOfMonth(iso: string | Date): number {
+  return parseInt(gymToday(new Date(iso)).slice(-2), 10);
+}

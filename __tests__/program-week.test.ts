@@ -45,3 +45,33 @@ describe("activeWeekFor", () => {
     expect(activeWeekFor([], 3)).toBeNull();
   });
 });
+
+// ── gym calendar month boundaries ─────────────────────────────────────────────
+
+import { gymMonthRange, gymDayOfMonth } from "@/lib/time";
+
+describe("gymMonthRange", () => {
+  it("starts at midnight Pacific, not midnight UTC", () => {
+    // October 2026 is PDT (UTC-7), so the month starts at 07:00 UTC
+    expect(gymMonthRange(2026, 9).start).toBe("2026-10-01T07:00:00.000Z");
+    expect(gymMonthRange(2026, 9).end).toBe("2026-11-01T07:00:00.000Z");
+  });
+
+  it("handles the PDT to PST switch inside the month", () => {
+    // November 2026 starts in PDT (-7) and December begins in PST (-8)
+    expect(gymMonthRange(2026, 10).start).toBe("2026-11-01T07:00:00.000Z");
+    expect(gymMonthRange(2026, 10).end).toBe("2026-12-01T08:00:00.000Z");
+  });
+
+  // The bug: an evening workout on the 30th is already the 1st in UTC, so a
+  // UTC-built window pulled it into the next month while its day number still
+  // read 30 — it appeared a month later on the wrong square.
+  it("keeps a late-evening workout on the last of the month out of the next one", () => {
+    const sept30Evening = "2026-10-01T01:13:22.021Z"; // 18:13 Pacific on Sept 30
+    const oct = gymMonthRange(2026, 9);
+    expect(sept30Evening >= oct.start).toBe(false);
+    const sept = gymMonthRange(2026, 8);
+    expect(sept30Evening >= sept.start && sept30Evening < sept.end).toBe(true);
+    expect(gymDayOfMonth(sept30Evening)).toBe(30);
+  });
+});

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 import { CalendarSyncCard } from "@/app/components/CalendarSyncCard";
-import { gymToday } from "@/lib/time";
+import { gymDayOfMonth, gymMonthRange, gymToday, gymYearMonth } from "@/lib/time";
 import { activeWeekFor, currentProgramWeek, hasGuideContent, type WeekGuide } from "@/lib/program-week";
 
 
@@ -328,13 +328,15 @@ const DOW = ["S", "M", "T", "W", "T", "F", "S"];
 async function CalendarView({ clientId, month }: { clientId: string; month?: string }) {
   const supabase = await createClient();
 
-  const now = new Date();
+  // Everything here is the gym's calendar, not the server's. This renders in
+  // UTC, where a Tuesday-evening workout is already Wednesday.
+  const nowGym = gymYearMonth();
   const parsed = month && /^\d{4}-\d{2}$/.test(month) ? month.split("-").map(Number) : null;
-  const year = parsed ? parsed[0] : now.getFullYear();
-  const monthIdx = parsed ? parsed[1] - 1 : now.getMonth();
+  const year = parsed ? parsed[0] : nowGym.year;
+  const monthIdx = parsed ? parsed[1] - 1 : nowGym.monthIdx;
 
-  const monthStart = new Date(year, monthIdx, 1);
-  const monthEnd = new Date(year, monthIdx + 1, 1);
+  const { start: monthStartIso, end: monthEndIso } = gymMonthRange(year, monthIdx);
+  const monthStart = new Date(Date.UTC(year, monthIdx, 1));
 
   const [{ data: logs }, { data: openLogs }] = await Promise.all([
     supabase
@@ -342,8 +344,8 @@ async function CalendarView({ clientId, month }: { clientId: string; month?: str
       .select("id, workout_id, completed_at, workouts(name)")
       .eq("client_id", clientId)
       .not("completed_at", "is", null)
-      .gte("completed_at", monthStart.toISOString())
-      .lt("completed_at", monthEnd.toISOString())
+      .gte("completed_at", monthStartIso)
+      .lt("completed_at", monthEndIso)
       .order("completed_at"),
     // Sessions started but never finished — the work is saved, it just never
     // got marked done, so it counts for nothing until someone finishes it.
@@ -352,8 +354,8 @@ async function CalendarView({ clientId, month }: { clientId: string; month?: str
       .select("id, workout_id, created_at, workouts(name)")
       .eq("client_id", clientId)
       .is("completed_at", null)
-      .gte("created_at", monthStart.toISOString())
-      .lt("created_at", monthEnd.toISOString())
+      .gte("created_at", monthStartIso)
+      .lt("created_at", monthEndIso)
       .order("created_at"),
   ]);
 
@@ -373,7 +375,7 @@ async function CalendarView({ clientId, month }: { clientId: string; month?: str
   // evening workout would otherwise land on tomorrow's square.
   const byDay: Record<number, DayEntry[]> = {};
   const push = (iso: string, e: DayEntry) => {
-    const day = parseInt(gymToday(new Date(iso)).slice(-2), 10);
+    const day = gymDayOfMonth(iso);
     (byDay[day] ??= []).push(e);
   };
   for (const l of logs ?? []) {
@@ -391,14 +393,14 @@ async function CalendarView({ clientId, month }: { clientId: string; month?: str
     });
   }
 
-  const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
-  const firstDow = monthStart.getDay();
-  const isThisMonth = year === now.getFullYear() && monthIdx === now.getMonth();
-  const todayDate = now.getDate();
+  const daysInMonth = new Date(Date.UTC(year, monthIdx + 1, 0)).getUTCDate();
+  const firstDow = monthStart.getUTCDay();
+  const isThisMonth = year === nowGym.year && monthIdx === nowGym.monthIdx;
+  const todayDate = parseInt(gymToday().slice(-2), 10);
 
-  const prev = new Date(year, monthIdx - 1, 1);
-  const next = new Date(year, monthIdx + 1, 1);
-  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const prev = new Date(Date.UTC(year, monthIdx - 1, 1));
+  const next = new Date(Date.UTC(year, monthIdx + 1, 1));
+  const fmt = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
   const totalDone = Object.values(byDay).reduce((a, b) => a + b.length, 0);
 
   return (
