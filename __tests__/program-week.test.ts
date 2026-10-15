@@ -75,3 +75,47 @@ describe("gymMonthRange", () => {
     expect(gymDayOfMonth(sept30Evening)).toBe(30);
   });
 });
+
+// ── gym week boundaries ──────────────────────────────────────────────────────
+
+import { gymWeekRange, gymDayRange, gymToday } from "@/lib/time";
+
+describe("gymWeekRange", () => {
+  it("runs Monday to Sunday in the gym's calendar", () => {
+    // Wednesday 2026-10-14, mid-morning Pacific
+    const w = gymWeekRange(new Date("2026-10-14T17:00:00Z"));
+    expect(w.days).toEqual([
+      "2026-10-12", "2026-10-13", "2026-10-14",
+      "2026-10-15", "2026-10-16", "2026-10-17", "2026-10-18",
+    ]);
+    expect(w.start).toBe("2026-10-12T07:00:00.000Z");
+    expect(w.end).toBe("2026-10-19T07:00:00.000Z");
+  });
+
+  // The bug: built from a UTC clock, Sunday evening is already Monday, so the
+  // week rolled over a few hours early and Sunday's work fell outside it.
+  it("does not roll over on Sunday evening", () => {
+    const sundayEvening = new Date("2026-10-19T01:00:00Z"); // 18:00 Sunday the 18th
+    expect(gymToday(sundayEvening)).toBe("2026-10-18");
+    const w = gymWeekRange(sundayEvening);
+    expect(w.days[6]).toBe("2026-10-18");
+    expect(w.days[0]).toBe("2026-10-12");
+  });
+
+  it("brackets a Monday correctly from its own evening", () => {
+    const w = gymWeekRange(new Date("2026-10-13T02:00:00Z")); // 19:00 Monday the 12th
+    expect(w.days[0]).toBe("2026-10-12");
+  });
+});
+
+describe("gymDayRange", () => {
+  // An evening workout is already tomorrow in UTC, so a UTC-midnight cutoff
+  // stopped a morning session counting as "done today" from 5pm onwards.
+  it("covers a whole gym day from its own evening", () => {
+    const evening = new Date("2026-10-15T01:48:00Z"); // 18:48 Pacific on the 14th
+    const { start, end } = gymDayRange(evening);
+    expect(start).toBe("2026-10-14T07:00:00.000Z");
+    const thatMorning = "2026-10-14T17:00:00.000Z"; // 10am Pacific
+    expect(thatMorning >= start && thatMorning <= end).toBe(true);
+  });
+});

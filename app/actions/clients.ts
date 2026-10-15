@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { GYM_TZ } from "@/lib/time";
+import { GYM_TZ, gymDayRange } from "@/lib/time";
 import { sendPushToUser } from "@/lib/push";
 
 export async function assignClientToMe(formData: FormData) {
@@ -430,14 +430,17 @@ export async function logSet(formData: FormData) {
   const weight_lbs = formData.get("weight_lbs") ? parseFloat(formData.get("weight_lbs") as string) : null;
   const notes = formData.get("notes") as string || null;
 
-  // get or create today's workout_log
-  const today = new Date().toISOString().split("T")[0];
+  // Get or create today's workout_log, "today" meaning the gym's day. A bare
+  // UTC date here rolled over at 5pm Pacific, so an evening set started a
+  // second log for a workout already begun that morning.
+  const { start: dayStart, end: dayEnd } = gymDayRange();
   let { data: log } = await supabase
     .from("workout_logs")
     .select("id")
     .eq("client_id", user.id)
     .eq("workout_id", workout_id)
-    .gte("created_at", today)
+    .gte("created_at", dayStart)
+    .lte("created_at", dayEnd)
     .maybeSingle();
 
   if (!log) {
@@ -471,14 +474,15 @@ export async function completeWorkout(formData: FormData) {
   if (!user) redirect("/login");
 
   const workout_id = formData.get("workout_id") as string;
-  const today = new Date().toISOString().split("T")[0];
+  const { start: dayStart, end: dayEnd } = gymDayRange();
 
   const { data: existing } = await supabase
     .from("workout_logs")
     .select("id")
     .eq("client_id", user.id)
     .eq("workout_id", workout_id)
-    .gte("created_at", today)
+    .gte("created_at", dayStart)
+    .lte("created_at", dayEnd)
     .maybeSingle();
 
   if (!existing) {

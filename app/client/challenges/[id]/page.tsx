@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { gymToday } from "@/lib/time";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
@@ -7,12 +8,12 @@ import { HomeLink } from "@/app/components/HomeLink";
 function calcStreak(dates: string[]): number {
   if (!dates.length) return 0;
   const sorted = [...dates].sort((a, b) => b.localeCompare(a));
-  const today = new Date().toISOString().split("T")[0];
+  const today = gymToday();
   let streak = 0;
   let cursor = new Date(today);
   for (const d of sorted) {
-    const cursorStr = cursor.toISOString().split("T")[0];
-    if (d === cursorStr) { streak++; cursor.setDate(cursor.getDate() - 1); }
+    const cursorStr = cursor.toISOString().slice(0, 10);
+    if (d === cursorStr) { streak++; cursor.setUTCDate(cursor.getUTCDate() - 1); }
     else if (d < cursorStr) break;
   }
   return streak;
@@ -24,7 +25,7 @@ export default async function ClientChallengeDetailPage({ params }: { params: Pr
   if (!user) redirect("/login");
 
   const { id } = await params;
-  const today = new Date().toISOString().split("T")[0];
+  const today = gymToday();
 
   const [{ data: challenge }, { data: participants }, { data: allCheckins }, { data: myMembership }] = await Promise.all([
     supabase.from("challenges").select("*").eq("id", id).single(),

@@ -78,3 +78,27 @@ export function gymYearMonth(now: Date = new Date()): { year: number; monthIdx: 
 export function gymDayOfMonth(iso: string | Date): number {
   return parseInt(gymToday(new Date(iso)).slice(-2), 10);
 }
+
+// The gym's current Monday–Sunday week: the seven day strings, plus the pair of
+// UTC instants bounding it for querying timestamptz. Derived from the server's
+// own clock, the week rolls over on Sunday evening and evening sessions land in
+// the next day's column.
+export function gymWeekRange(now: Date = new Date()): {
+  start: string; end: string; days: string[];
+} {
+  const today = gymToday(now);
+  const dow = new Date(`${today}T00:00:00Z`).getUTCDay(); // 0 Sun … 6 Sat
+  const backToMonday = (dow + 6) % 7;
+  const days: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(`${today}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - backToMonday + i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  const toUtc = (day: string, addDays = 0) => {
+    const asIfUtc = Date.parse(`${day}T00:00:00Z`) + addDays * 86400000;
+    const firstPass = asIfUtc - gymOffsetMs(new Date(asIfUtc));
+    return new Date(asIfUtc - gymOffsetMs(new Date(firstPass))).toISOString();
+  };
+  return { start: toUtc(days[0]), end: toUtc(days[6], 1), days };
+}

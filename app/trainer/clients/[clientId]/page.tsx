@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { currentProgramWeek } from "@/lib/program-week";
+import { GYM_TZ, gymToday, gymWeekRange } from "@/lib/time";
 import { redirect } from "next/navigation";
 import { assignProgram, inviteClient, assignWorkoutToClient, unassignWorkoutFromClient, deleteWorkout, updateProgramStartDate, createAdHocWorkout, toggleClientGroup, removeProgramFromClient, removeClientFromRoster, deleteClientAccount } from "@/app/actions/clients";
 import Link from "next/link";
@@ -125,39 +126,37 @@ export default async function ClientDetailPage({
     dailySteps = (dmRes.data ?? []) as { logged_date: string; steps: number; source: string }[];
 
     // Compliance for the current Mon–Sun week
-    const now = new Date();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-    monday.setHours(0, 0, 0, 0);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 7);
-    const dayIndex = (d: Date) => Math.floor((d.getTime() - monday.getTime()) / 86400000);
+    // Mon–Sun in the gym's calendar. Built from the server's clock the week
+    // flipped over on Sunday evening, and an evening session landed in the next
+    // day's column.
+    const week = gymWeekRange();
+    const dayIndex = (gymDay: string) => week.days.indexOf(gymDay);
 
     // Nutrition sits out of the grid until meal logging is ready — the working
     // food_logs query is in commit c6f336d when it's time to put it back.
     const [wl, hl] = await Promise.all([
       supabase.from("workout_logs").select("completed_at").eq("client_id", clientId)
-        .not("completed_at", "is", null).gte("completed_at", monday.toISOString()).lt("completed_at", sunday.toISOString()),
+        .not("completed_at", "is", null).gte("completed_at", week.start).lt("completed_at", week.end),
       supabase.from("habit_logs").select("logged_date").eq("client_id", clientId)
-        .gte("logged_date", monday.toLocaleDateString("en-CA")).lt("logged_date", sunday.toLocaleDateString("en-CA")),
+        .gte("logged_date", week.days[0]).lte("logged_date", week.days[6]),
     ]);
 
-    const mark = (dates: Date[]) => {
+    const mark = (gymDays: string[]) => {
       const days = [false, false, false, false, false, false, false];
-      for (const d of dates) {
-        const i = dayIndex(d);
-        if (i >= 0 && i < 7) days[i] = true;
+      for (const gd of gymDays) {
+        const i = dayIndex(gd);
+        if (i >= 0) days[i] = true;
       }
       return days;
     };
 
     compliance = [
-      { label: "Workouts", days: mark((wl.data ?? []).map(r => new Date(r.completed_at as string))) },
-      { label: "Habits", days: mark((hl.data ?? []).map(r => new Date((r.logged_date as string) + "T12:00:00"))) },
+      { label: "Workouts", days: mark((wl.data ?? []).map(r => gymToday(new Date(r.completed_at as string)))) },
+      { label: "Habits", days: mark((hl.data ?? []).map(r => r.logged_date as string)) },
     ];
-    const endLabel = new Date(sunday.getTime() - 86400000);
-    const f = (d: Date) => d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
-    weekLabel = `${f(monday)} – ${f(endLabel)}`;
+    const f = (day: string) =>
+      new Date(`${day}T12:00:00Z`).toLocaleDateString("en-US", { timeZone: "UTC", day: "numeric", month: "short" });
+    weekLabel = `${f(week.days[0])} – ${f(week.days[6])}`;
 
     const best: Record<string, typeof prs[0]> = {};
     for (const row of setRes.data ?? []) {
@@ -218,7 +217,7 @@ export default async function ClientDetailPage({
     };
   }
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = gymToday();
   const isPlaceholder = (client as unknown as { is_placeholder: boolean }).is_placeholder;
   const prog = activeProgram?.programs as unknown as { name: string; duration_weeks: number } | null;
   const currentWeek = activeProgram
@@ -231,13 +230,13 @@ export default async function ClientDetailPage({
     const dates = new Set(habitLogs.filter((l: { habit_id: string }) => l.habit_id === habitId).map((l: { logged_date: string }) => l.logged_date));
     const doneToday = dates.has(today);
     let streak = 0;
-    const check = new Date();
-    if (!doneToday) check.setDate(check.getDate() - 1);
+    const check = new Date(`${today}T12:00:00Z`);
+    if (!doneToday) check.setUTCDate(check.getUTCDate() - 1);
     while (streak < 31) {
-      const d = check.toISOString().split("T")[0];
+      const d = check.toISOString().slice(0, 10);
       if (!dates.has(d)) break;
       streak++;
-      check.setDate(check.getDate() - 1);
+      check.setUTCDate(check.getUTCDate() - 1);
     }
     return { streak, doneToday };
   }
@@ -660,7 +659,7 @@ export default async function ClientDetailPage({
                 .slice()
                 .reverse()
                 .map(l => ({
-                  label: new Date(l.logged_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+                  label: new Date(l.logged_at + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }),
                   value: l.weight_lbs as number,
                 }));
               if (wl.length < 2) return null;

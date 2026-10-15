@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { gymToday } from "@/lib/time";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { HomeLink } from "@/app/components/HomeLink";
@@ -6,12 +7,12 @@ import { HomeLink } from "@/app/components/HomeLink";
 function calcStreak(dates: string[]): number {
   if (!dates.length) return 0;
   const sorted = [...dates].sort((a, b) => b.localeCompare(a));
-  const today = new Date().toISOString().split("T")[0];
+  const today = gymToday();
   let streak = 0;
   let cursor = new Date(today);
   for (const d of sorted) {
-    const cursorStr = cursor.toISOString().split("T")[0];
-    if (d === cursorStr) { streak++; cursor.setDate(cursor.getDate() - 1); }
+    const cursorStr = cursor.toISOString().slice(0, 10);
+    if (d === cursorStr) { streak++; cursor.setUTCDate(cursor.getUTCDate() - 1); }
     else if (d < cursorStr) break;
   }
   return streak;
@@ -44,7 +45,7 @@ export default async function TrainerChallengeDetailPage({ params }: { params: P
     .eq("challenge_id", id)
     .order("checked_in_date", { ascending: false });
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = gymToday();
   const totalDays = Math.ceil((new Date(challenge.end_date).getTime() - new Date(challenge.start_date).getTime()) / 86400000);
   const daysLeft = Math.max(0, Math.ceil((new Date(challenge.end_date).getTime() - new Date(today).getTime()) / 86400000));
   const daysElapsed = totalDays - daysLeft;

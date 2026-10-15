@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { gymToday } from "@/lib/time";
 
 export default async function TrainerChallengesPage() {
   const supabase = await createClient();
@@ -16,7 +17,7 @@ export default async function TrainerChallengesPage() {
     .eq("trainer_id", user.id)
     .order("created_at", { ascending: false });
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = gymToday();
   const active = challenges?.filter(c => c.end_date >= today && c.is_active) ?? [];
   const past = challenges?.filter(c => c.end_date < today || !c.is_active) ?? [];
 

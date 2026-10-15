@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { GYM_TZ } from "@/lib/time";
 import { redirect } from "next/navigation";
 import { approveTrainer, rejectTrainer } from "@/app/actions/admin";
 
@@ -49,7 +50,7 @@ export default async function AdminTrainersPage() {
                       <div style={{ fontWeight: 700, color: "#0D1827", fontSize: 15 }}>{t.full_name}</div>
                       <div style={{ fontSize: 13, color: "#6B7A8D", marginTop: 1 }}>{t.email}</div>
                       <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2 }}>
-                        Applied {new Date(t.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        Applied {new Date(t.created_at).toLocaleDateString("en-US", { timeZone: GYM_TZ, month: "short", day: "numeric", year: "numeric" })}
                       </div>
                     </div>
                   </div>

@@ -6,7 +6,7 @@ import { LogoutButton } from "@/app/components/LogoutButton";
 import { ClientBottomNav } from "@/app/components/ClientBottomNav";
 import { DashboardHabits } from "@/app/components/DashboardHabits";
 import { RecentWorkouts } from "@/app/components/RecentWorkouts";
-import { GYM_TZ, formatGymDate, formatGymTime, gymDaysUntil } from "@/lib/time";
+import { GYM_TZ, formatGymDate, formatGymTime, gymDaysUntil, gymDayRange } from "@/lib/time";
 import { activeWeekFor, currentProgramWeek, hasGuideContent, type WeekGuide } from "@/lib/program-week";
 
 
@@ -142,13 +142,16 @@ export default async function ClientDashboard() {
     .slice(0, 3);
 
   // What they already finished today, so the list can show it
-  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  // The gym's day, not the server's — midnight UTC is 5pm here, so a morning
+  // workout stopped counting as "done today" halfway through the afternoon.
+  const { start: dayStart, end: dayEnd } = gymDayRange();
   const { data: doneToday } = await supabase
     .from("workout_logs")
     .select("workout_id")
     .eq("client_id", user.id)
     .not("completed_at", "is", null)
-    .gte("completed_at", todayStart.toISOString());
+    .gte("completed_at", dayStart)
+    .lte("completed_at", dayEnd);
   const doneIds = new Set((doneToday ?? []).map(r => r.workout_id as string));
 
   return (

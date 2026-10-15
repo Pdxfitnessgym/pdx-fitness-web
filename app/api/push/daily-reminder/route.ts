@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { sendPushToUser } from "@/lib/push";
+import { gymToday } from "@/lib/time";
 
 function workoutDate(startDate: string, weekNumber: number, dayOfWeek: number): string {
   const start = new Date(startDate + "T12:00:00Z");
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = createServiceClient();
-  const today = new Date().toISOString().split("T")[0];
+  const today = gymToday();
 
   const { data: programs } = await supabase
     .from("client_programs")
